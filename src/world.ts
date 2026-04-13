@@ -13,6 +13,8 @@ import type {
 
 /** Internal storage for a single component type */
 interface ComponentStore<T = unknown> {
+	/** Identity anchor — used to detect name collisions across defineComponent() calls. */
+	type: ComponentType<T>;
 	data: Map<EntityId, T>;
 	dirty: Set<EntityId>;
 	added: Set<EntityId>;
@@ -21,9 +23,29 @@ interface ComponentStore<T = unknown> {
 
 /** Internal storage for a single tag type */
 interface TagStore {
+	/** Identity anchor — used to detect name collisions across defineTag() calls. */
+	type: TagType;
 	entities: Set<EntityId>;
 	addedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
+}
+
+/**
+ * Instantiate a value from `defaults`, applying optional `overrides`, and
+ * deep-clone nested arrays / plain objects so callers can't accidentally share
+ * state with the type's defaults or with each other.
+ */
+function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
+	const merged = (overrides ? { ...defaults, ...overrides } : { ...defaults }) as T;
+	for (const key in merged) {
+		const val = merged[key];
+		if (Array.isArray(val)) {
+			(merged as Record<string, unknown>)[key] = [...val];
+		} else if (val !== null && typeof val === 'object' && (val as object).constructor === Object) {
+			(merged as Record<string, unknown>)[key] = { ...val };
+		}
+	}
+	return merged;
 }
 
 export function createWorld(): World {
@@ -37,13 +59,15 @@ export function createWorld(): World {
 	const tags = new Map<string, TagStore>();
 	// Resources: one value per resource type
 	const resources = new Map<string, unknown>();
+	// Identity anchors for resources — same purpose as ComponentStore.type
+	const resourceTypes = new Map<string, ResourceType>();
 	// Frame handlers
 	const frameHandlers = new Set<FrameHandler>();
 	// Destroy listeners — called before components/tags are removed
 	const destroyListeners = new Set<(entity: EntityId) => void>();
 
 	// === Query cache ===
-	// Key: sorted type names joined by '|' (e.g., "Transform2D|Visible")
+	// Key: sorted type names joined by '\0'
 	// Value: live Set<EntityId> of entities matching all types in the key
 	const queryCache = new Map<string, Set<EntityId>>();
 	// Reverse index: typeName → Set<queryKey> — which cached queries use this type
@@ -129,33 +153,46 @@ export function createWorld(): World {
 	}
 
 	function getComponentStore<T>(type: ComponentType<T>): ComponentStore<T> {
-		let store = components.get(type.name);
-		if (!store) {
-			store = {
-				data: new Map(),
-				dirty: new Set(),
-				added: new Set(),
-				handlers: new Map(),
-			};
-			components.set(type.name, store);
+		const existing = components.get(type.name) as ComponentStore<T> | undefined;
+		if (existing) {
+			if (existing.type !== type) {
+				throw new Error(
+					`Component name collision: "${type.name}" is already registered to a different ComponentType. ` +
+						`Names must be unique across all defineComponent() calls.`,
+				);
+			}
+			return existing;
 		}
-		// The cache stores stores as ComponentStore<unknown>; they are
-		// logically parameterized by T at the call site, but TypeScript can't
-		// track that through a shared map. Unchecked at runtime — safe because
-		// each type.name owns exactly one store with one T.
-		return store as ComponentStore<T>;
+		const store: ComponentStore<T> = {
+			type,
+			data: new Map(),
+			dirty: new Set(),
+			added: new Set(),
+			handlers: new Map(),
+		};
+		// Cast to the erased type held in the Map. Safe — see note on getComponentStore's return.
+		components.set(type.name, store as ComponentStore);
+		return store;
 	}
 
 	function getTagStore(type: TagType): TagStore {
-		let store = tags.get(type.name);
-		if (!store) {
-			store = {
-				entities: new Set(),
-				addedHandlers: new Map(),
-				removedHandlers: new Map(),
-			};
-			tags.set(type.name, store);
+		const existing = tags.get(type.name);
+		if (existing) {
+			if (existing.type !== type) {
+				throw new Error(
+					`Tag name collision: "${type.name}" is already registered to a different TagType. ` +
+						`Names must be unique across all defineTag() calls.`,
+				);
+			}
+			return existing;
 		}
+		const store: TagStore = {
+			type,
+			entities: new Set(),
+			addedHandlers: new Map(),
+			removedHandlers: new Map(),
+		};
+		tags.set(type.name, store);
 		return store;
 	}
 
@@ -252,21 +289,13 @@ export function createWorld(): World {
 		// === Component access ===
 
 		addComponent<T>(entity: EntityId, type: ComponentType<T>, data: T) {
-			const store = getComponentStore(type);
-			const merged = { ...type.defaults, ...data } as T;
-			// Deep-clone reference types to prevent shared mutation
-			for (const key in merged) {
-				const val = merged[key];
-				if (Array.isArray(val)) {
-					(merged as Record<string, unknown>)[key] = [...val];
-				} else if (
-					val !== null &&
-					typeof val === 'object' &&
-					(val as object).constructor === Object
-				) {
-					(merged as Record<string, unknown>)[key] = { ...val };
-				}
+			if (!alive.has(entity)) {
+				throw new Error(
+					`addComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
+				);
 			}
+			const store = getComponentStore(type);
+			const merged = instantiateDefaults(type.defaults, data as Partial<T>);
 			store.data.set(entity, merged);
 			store.dirty.add(entity);
 			store.added.add(entity);
@@ -313,6 +342,11 @@ export function createWorld(): World {
 		// === Tag access ===
 
 		addTag(entity: EntityId, type: TagType) {
+			if (!alive.has(entity)) {
+				throw new Error(
+					`addTag(${type.name}): entity ${entity} does not exist or has been destroyed`,
+				);
+			}
 			const store = getTagStore(type);
 			if (store.entities.has(entity)) return;
 			store.entities.add(entity);
@@ -389,8 +423,19 @@ export function createWorld(): World {
 		// === Resources ===
 
 		getResource<T>(type: ResourceType<T>): T {
+			const existing = resourceTypes.get(type.name);
+			if (existing) {
+				if (existing !== (type as ResourceType)) {
+					throw new Error(
+						`Resource name collision: "${type.name}" is already registered to a different ResourceType. ` +
+							`Names must be unique across all defineResource() calls.`,
+					);
+				}
+			} else {
+				resourceTypes.set(type.name, type as ResourceType);
+			}
 			if (!resources.has(type.name)) {
-				resources.set(type.name, { ...type.defaults });
+				resources.set(type.name, instantiateDefaults(type.defaults));
 			}
 			return resources.get(type.name) as T;
 		},

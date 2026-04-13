@@ -25,8 +25,6 @@ export interface ResourceType<T = unknown> {
 /** System definition created by defineSystem() */
 export interface SystemDef {
 	readonly name: string;
-	readonly reads?: ReadonlyArray<ComponentType | TagType>;
-	readonly writes?: ReadonlyArray<ComponentType | TagType>;
 	readonly after?: string | string[];
 	readonly before?: string | string[];
 	execute: (world: World) => void;

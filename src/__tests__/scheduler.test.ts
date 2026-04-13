@@ -106,6 +106,22 @@ describe('SystemScheduler', () => {
 		expect(order).toEqual(['a']);
 	});
 
+	it('ignores duplicate dependencies instead of reporting a false cycle', () => {
+		// after: ['a', 'a'] previously double-counted inDegree and reported a cycle.
+		const scheduler = new SystemScheduler();
+		const world = createWorld();
+		const order: string[] = [];
+
+		scheduler.register(defineSystem({ name: 'a', execute: () => order.push('a') }));
+		scheduler.register(
+			defineSystem({ name: 'b', after: ['a', 'a'], execute: () => order.push('b') }),
+		);
+
+		expect(() => scheduler.getSystemNames()).not.toThrow();
+		scheduler.execute(world);
+		expect(order).toEqual(['a', 'b']);
+	});
+
 	it('invokes the attached SystemProfiler around each system', () => {
 		const calls: string[] = [];
 		const scheduler = new SystemScheduler();

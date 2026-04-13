@@ -239,4 +239,90 @@ describe('World', () => {
 			expect(handler).toHaveBeenCalledTimes(1); // not called again
 		});
 	});
+
+	describe('name collisions', () => {
+		it('throws when two different ComponentTypes share a name', () => {
+			const A = defineComponent('Duplicate', { x: 0 });
+			const B = defineComponent('Duplicate', { y: 0 });
+			const world = createWorld();
+			const e = world.createEntity();
+
+			world.addComponent(e, A, { x: 1 });
+			expect(() => world.addComponent(e, B, { y: 1 })).toThrow(/Component name collision/i);
+		});
+
+		it('throws when two different TagTypes share a name', () => {
+			const A = defineTag('DupeTag');
+			const B = defineTag('DupeTag');
+			const world = createWorld();
+			const e = world.createEntity();
+
+			world.addTag(e, A);
+			expect(() => world.addTag(e, B)).toThrow(/Tag name collision/i);
+		});
+
+		it('throws when two different ResourceTypes share a name', () => {
+			const A = defineResource('DupeRes', { x: 0 });
+			const B = defineResource('DupeRes', { y: 0 });
+			const world = createWorld();
+
+			world.getResource(A);
+			expect(() => world.getResource(B)).toThrow(/Resource name collision/i);
+		});
+	});
+
+	describe('dead-entity guards', () => {
+		it('throws when addComponent is called on a destroyed entity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.destroyEntity(e);
+
+			expect(() => world.addComponent(e, Position, { x: 1, y: 2 })).toThrow(
+				/does not exist or has been destroyed/,
+			);
+		});
+
+		it('throws when addComponent is called on a never-created entity', () => {
+			const world = createWorld();
+
+			expect(() => world.addComponent(9999, Position, { x: 1, y: 2 })).toThrow(
+				/does not exist or has been destroyed/,
+			);
+		});
+
+		it('throws when addTag is called on a destroyed entity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.destroyEntity(e);
+
+			expect(() => world.addTag(e, Selected)).toThrow(/does not exist or has been destroyed/);
+		});
+
+		it('does not leak phantom entities into queries after a failed write', () => {
+			const world = createWorld();
+			expect(() => world.addComponent(42, Position, { x: 0, y: 0 })).toThrow();
+			expect(world.query(Position)).toEqual([]);
+			expect(world.entityExists(42)).toBe(false);
+		});
+	});
+
+	describe('resource defaults', () => {
+		it('deep-clones nested objects so worlds do not share state via defaults', () => {
+			const Config = defineResource('Config', { nested: { count: 0 } });
+			const w1 = createWorld();
+			const w2 = createWorld();
+
+			w1.getResource(Config).nested.count = 42;
+			expect(w2.getResource(Config).nested.count).toBe(0);
+		});
+
+		it('deep-clones nested arrays', () => {
+			const Config = defineResource('WithArray', { tags: ['a', 'b'] });
+			const w1 = createWorld();
+			const w2 = createWorld();
+
+			w1.getResource(Config).tags.push('c');
+			expect(w2.getResource(Config).tags).toEqual(['a', 'b']);
+		});
+	});
 });

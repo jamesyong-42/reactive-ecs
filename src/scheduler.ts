@@ -75,10 +75,14 @@ export class SystemScheduler {
 			const afters = Array.isArray(s.after) ? s.after : s.after ? [s.after] : [];
 			for (const dep of afters) {
 				// dep must run before s
-				if (byName.has(dep)) {
-					if (!edges.has(dep)) edges.set(dep, new Set());
-					const depEdges = edges.get(dep);
-					if (depEdges) depEdges.add(s.name);
+				if (!byName.has(dep)) continue;
+				if (!edges.has(dep)) edges.set(dep, new Set());
+				const depEdges = edges.get(dep);
+				// Only increment inDegree when the edge is actually new. Duplicate
+				// dependency references (e.g. after: ['a', 'a']) must not double-count
+				// or we'll over-count and report a false cycle.
+				if (depEdges && !depEdges.has(s.name)) {
+					depEdges.add(s.name);
 					inDegree.set(s.name, (inDegree.get(s.name) || 0) + 1);
 				}
 			}
@@ -86,10 +90,11 @@ export class SystemScheduler {
 			const befores = Array.isArray(s.before) ? s.before : s.before ? [s.before] : [];
 			for (const dep of befores) {
 				// s must run before dep
-				if (byName.has(dep)) {
-					if (!edges.has(s.name)) edges.set(s.name, new Set());
-					const systemEdges = edges.get(s.name);
-					if (systemEdges) systemEdges.add(dep);
+				if (!byName.has(dep)) continue;
+				if (!edges.has(s.name)) edges.set(s.name, new Set());
+				const systemEdges = edges.get(s.name);
+				if (systemEdges && !systemEdges.has(dep)) {
+					systemEdges.add(dep);
 					inDegree.set(dep, (inDegree.get(dep) || 0) + 1);
 				}
 			}
