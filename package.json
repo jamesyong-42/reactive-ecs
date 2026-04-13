@@ -6,7 +6,7 @@
 	"author": "James Yong",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/jamesyong-42/reactive-ecs.git"
+		"url": "git+https://github.com/jamesyong-42/reactive-ecs.git"
 	},
 	"bugs": {
 		"url": "https://github.com/jamesyong-42/reactive-ecs/issues"
@@ -24,15 +24,21 @@
 		"zero-dependencies"
 	],
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"provenance": true
 	},
 	"sideEffects": false,
 	"type": "module",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js",
-			"require": "./dist/index.cjs"
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
 		}
 	},
 	"main": "./dist/index.cjs",
@@ -45,7 +51,9 @@
 		"test:watch": "vitest",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",
-		"lint:fix": "biome check --write ."
+		"lint:fix": "biome check --write .",
+		"verify": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+		"prepublishOnly": "pnpm run verify"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.11",

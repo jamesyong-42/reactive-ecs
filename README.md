@@ -1,5 +1,10 @@
 # reactive-ecs
 
+[![npm](https://img.shields.io/npm/v/@jamesyong-42/reactive-ecs.svg?color=cb3837&label=npm)](https://www.npmjs.com/package/@jamesyong-42/reactive-ecs)
+[![CI](https://github.com/jamesyong-42/reactive-ecs/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesyong-42/reactive-ecs/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@jamesyong-42/reactive-ecs?label=minzipped)](https://bundlephobia.com/package/@jamesyong-42/reactive-ecs)
+
 A reactive, dependency-free TypeScript ECS (Entity-Component-System) for UI frameworks — not just game loops.
 
 The focus is **reactivity**: component changes, tag additions, and resource updates all emit events you can subscribe to. Queries are cached and update incrementally. A topological scheduler orders systems by `after`/`before`. Works anywhere TypeScript runs — browser, Node, Bun, Deno. Zero runtime dependencies.
