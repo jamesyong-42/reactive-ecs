@@ -119,12 +119,10 @@ export function createWorld(): World {
 
 	function matchesQuery(entity: EntityId, compNames: string[], tagNames: string[]): boolean {
 		for (const name of compNames) {
-			const store = components.get(name);
-			if (!store || !store.data.has(entity)) return false;
+			if (!components.get(name)?.data.has(entity)) return false;
 		}
 		for (const name of tagNames) {
-			const store = tags.get(name);
-			if (!store || !store.entities.has(entity)) return false;
+			if (!tags.get(name)?.entities.has(entity)) return false;
 		}
 		return true;
 	}
