@@ -1,0 +1,65 @@
+{
+	"name": "@jamesyong-42/reactive-ecs",
+	"version": "0.1.0",
+	"description": "A reactive, dependency-free TypeScript ECS — event-driven components, tags, resources, cached queries, and a topological system scheduler. Designed for React and other UI frameworks, not just game loops.",
+	"license": "MIT",
+	"author": "James Yong",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/jamesyong-42/reactive-ecs.git"
+	},
+	"bugs": {
+		"url": "https://github.com/jamesyong-42/reactive-ecs/issues"
+	},
+	"homepage": "https://github.com/jamesyong-42/reactive-ecs#readme",
+	"keywords": [
+		"ecs",
+		"entity-component-system",
+		"reactive",
+		"typescript",
+		"react",
+		"scheduler",
+		"query",
+		"observable",
+		"zero-dependencies"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"sideEffects": false,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
+		}
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.11",
+		"tsup": "^8.0.0",
+		"typescript": "^6.0.2",
+		"vitest": "^4.1.4"
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
+	"engines": {
+		"node": ">=20"
+	},
+	"packageManager": "pnpm@9.15.0"
+}
