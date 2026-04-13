@@ -3,7 +3,7 @@ name: Publish to npm
 # Triggered when release-please creates a GitHub release.
 # Auth uses npm's OIDC trusted publishing — no NPM_TOKEN secret required.
 # Requires a one-time setup on npmjs.com:
-#   @jamesyong-42/reactive-ecs → Settings → Trusted Publishers →
+#   @jamesyong42/reactive-ecs → Settings → Trusted Publishers →
 #   Add GitHub Actions with:
 #     owner: jamesyong-42
 #     repository: reactive-ecs
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   publish:
-    name: Publish @jamesyong-42/reactive-ecs
+    name: Publish @jamesyong42/reactive-ecs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

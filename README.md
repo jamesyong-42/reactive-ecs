@@ -1,9 +1,9 @@
 # reactive-ecs
 
-[![npm](https://img.shields.io/npm/v/@jamesyong-42/reactive-ecs.svg?color=cb3837&label=npm)](https://www.npmjs.com/package/@jamesyong-42/reactive-ecs)
+[![npm](https://img.shields.io/npm/v/@jamesyong42/reactive-ecs.svg?color=cb3837&label=npm)](https://www.npmjs.com/package/@jamesyong42/reactive-ecs)
 [![CI](https://github.com/jamesyong-42/reactive-ecs/actions/workflows/ci.yml/badge.svg)](https://github.com/jamesyong-42/reactive-ecs/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![bundle size](https://img.shields.io/bundlephobia/minzip/@jamesyong-42/reactive-ecs?label=minzipped)](https://bundlephobia.com/package/@jamesyong-42/reactive-ecs)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@jamesyong42/reactive-ecs?label=minzipped)](https://bundlephobia.com/package/@jamesyong42/reactive-ecs)
 
 A reactive, dependency-free TypeScript ECS (Entity-Component-System) for UI frameworks — not just game loops.
 
@@ -14,9 +14,9 @@ If you want raw per-frame throughput for thousands of game entities, use [bitECS
 ## Install
 
 ```bash
-npm i @jamesyong-42/reactive-ecs
+npm i @jamesyong42/reactive-ecs
 # or
-pnpm add @jamesyong-42/reactive-ecs
+pnpm add @jamesyong42/reactive-ecs
 ```
 
 ## At a glance
@@ -29,7 +29,7 @@ import {
   defineSystem,
   defineTag,
   SystemScheduler,
-} from '@jamesyong-42/reactive-ecs';
+} from '@jamesyong42/reactive-ecs';
 
 // 1. Define types
 const Position = defineComponent('Position', { x: 0, y: 0 });
@@ -109,7 +109,7 @@ This is what makes it practical to drive React / Vue / Svelte components from th
 The scheduler accepts any object matching the `SystemProfiler` interface:
 
 ```ts
-import { type SystemProfiler, SystemScheduler } from '@jamesyong-42/reactive-ecs';
+import { type SystemProfiler, SystemScheduler } from '@jamesyong42/reactive-ecs';
 
 const profiler: SystemProfiler = {
   beginSystem: (name) => performance.mark(`${name}-start`),
