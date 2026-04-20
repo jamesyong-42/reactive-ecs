@@ -117,10 +117,27 @@ export interface World {
 	onTagAdded(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
 	/** Subscribes to tag removals, optionally filtered to a single entity. */
 	onTagRemoved(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
+	/** Subscribes to entity creation events. */
+	onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe;
 	/** Subscribes to entity destruction events. */
 	onEntityDestroyed(callback: (entity: EntityId) => void): Unsubscribe;
 	/** Subscribes to frame-end events (emitted after each tick). */
 	onFrame(handler: FrameHandler): Unsubscribe;
+
+	// Introspection — list entities and types
+
+	/** Returns all live entity IDs. */
+	getAllEntities(): EntityId[];
+	/** Returns all ComponentTypes that have ever had a store created in this world. */
+	getRegisteredComponents(): ComponentType[];
+	/** Returns all TagTypes that have ever had a store created in this world. */
+	getRegisteredTags(): TagType[];
+	/** Returns all ResourceTypes that have ever been accessed in this world. */
+	getRegisteredResources(): ResourceType[];
+	/** Returns the ComponentTypes currently attached to an entity. */
+	getComponentsOf(entity: EntityId): ComponentType[];
+	/** Returns the TagTypes currently attached to an entity. */
+	getTagsOf(entity: EntityId): TagType[];
 
 	// Frame lifecycle (used by engine after tick)
 

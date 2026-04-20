@@ -306,6 +306,109 @@ describe('World', () => {
 		});
 	});
 
+	describe('introspection', () => {
+		it('lists all live entities', () => {
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+			const c = world.createEntity();
+			world.destroyEntity(b);
+
+			const all = world.getAllEntities();
+			expect(all).toHaveLength(2);
+			expect(all).toContain(a);
+			expect(all).toContain(c);
+			expect(all).not.toContain(b);
+		});
+
+		it('lists registered component, tag, and resource types', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			world.addComponent(e, Velocity, { dx: 0, dy: 0 });
+			world.addTag(e, Selected);
+			world.getResource(Camera);
+
+			expect(
+				world
+					.getRegisteredComponents()
+					.map((t) => t.name)
+					.sort(),
+			).toEqual(['Position', 'Velocity']);
+			expect(world.getRegisteredTags().map((t) => t.name)).toEqual(['Selected']);
+			expect(world.getRegisteredResources().map((t) => t.name)).toEqual(['Camera']);
+		});
+
+		it('lists components attached to a specific entity', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			const e2 = world.createEntity();
+			world.addComponent(e1, Position, { x: 0, y: 0 });
+			world.addComponent(e1, Label, { text: 'hi' });
+			world.addComponent(e2, Velocity, { dx: 1, dy: 0 });
+
+			expect(
+				world
+					.getComponentsOf(e1)
+					.map((t) => t.name)
+					.sort(),
+			).toEqual(['Label', 'Position']);
+			expect(world.getComponentsOf(e2).map((t) => t.name)).toEqual(['Velocity']);
+		});
+
+		it('reflects component removal in getComponentsOf', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			world.addComponent(e, Label, { text: 'hi' });
+			world.removeComponent(e, Position);
+
+			expect(world.getComponentsOf(e).map((t) => t.name)).toEqual(['Label']);
+		});
+
+		it('lists tags attached to a specific entity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+			world.addTag(e, Visible);
+
+			expect(
+				world
+					.getTagsOf(e)
+					.map((t) => t.name)
+					.sort(),
+			).toEqual(['Selected', 'Visible']);
+
+			world.removeTag(e, Selected);
+			expect(world.getTagsOf(e).map((t) => t.name)).toEqual(['Visible']);
+		});
+
+		it('fires onEntityCreated after the entity id is live', () => {
+			const world = createWorld();
+			const seen: number[] = [];
+			world.onEntityCreated((id) => {
+				// Must be observable as alive at fire-time so listeners can read state
+				expect(world.entityExists(id)).toBe(true);
+				seen.push(id);
+			});
+
+			const a = world.createEntity();
+			const b = world.createEntity();
+			expect(seen).toEqual([a, b]);
+		});
+
+		it('unsubscribes onEntityCreated', () => {
+			const world = createWorld();
+			const handler = vi.fn();
+			const unsub = world.onEntityCreated(handler);
+			world.createEntity();
+			expect(handler).toHaveBeenCalledTimes(1);
+			unsub();
+			world.createEntity();
+			expect(handler).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	describe('resource defaults', () => {
 		it('deep-clones nested objects so worlds do not share state via defaults', () => {
 			const Config = defineResource('Config', { nested: { count: 0 } });

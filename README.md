@@ -84,6 +84,7 @@ world.onComponentChanged(Position, (id, _, next) => { /* ... */ });
 
 world.onTagAdded(Selected, (id) => { /* ... */ });
 world.onTagRemoved(Selected, (id) => { /* ... */ });
+world.onEntityCreated((id) => { /* ... */ });
 world.onEntityDestroyed((id) => { /* cleanup caches */ });
 world.onFrame(() => { /* end-of-tick hook */ });
 
@@ -91,6 +92,21 @@ unsub(); // all subscriptions return an Unsubscribe function
 ```
 
 This is what makes it practical to drive React / Vue / Svelte components from the world — wire the event callbacks to `useState`/`signal`/store updates.
+
+## Introspection
+
+For devtools, editors, and serialization, the world can enumerate everything it holds:
+
+```ts
+world.getAllEntities();              // EntityId[]  — live entities
+world.getRegisteredComponents();     // ComponentType[]
+world.getRegisteredTags();           // TagType[]
+world.getRegisteredResources();      // ResourceType[]
+world.getComponentsOf(entity);       // ComponentType[] — currently attached
+world.getTagsOf(entity);             // TagType[]       — currently attached
+```
+
+All are O(k) where k is the number of registered types — no hidden scan of entity storage. Combine with `onEntityCreated` / `onEntityDestroyed` / `onComponentChanged` to build a live inspector.
 
 ## What it gives you
 
@@ -100,7 +116,8 @@ This is what makes it practical to drive React / Vue / Svelte components from th
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
 - **Cached queries** — `world.query(Position, Velocity, Selected)` returns entity IDs; results are cached and updated incrementally as components/tags are added or removed.
 - **Change tracking** — `queryChanged`, `queryAdded`, per-tick dirty sets.
-- **Events** — `onComponentChanged`, `onTagAdded`, `onTagRemoved`, `onEntityDestroyed`, `onFrame`.
+- **Events** — `onComponentChanged`, `onTagAdded`, `onTagRemoved`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`.
+- **Introspection** — enumerate entities, registered types, and per-entity component/tag composition for editors and debugging tools.
 - **Scheduler** — `SystemScheduler` orders systems via `after` / `before` with Kahn's topological sort (stable on registration order).
 - **Optional profiler hook** — attach any `{ beginSystem, endSystem }` object to `scheduler.profiler` for tracing.
 
