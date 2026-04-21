@@ -63,6 +63,8 @@ export function createWorld(): World {
 	const resourceTypes = new Map<string, ResourceType>();
 	// Frame handlers
 	const frameHandlers = new Set<FrameHandler>();
+	// Create listeners — called after the entity id is assigned and marked alive
+	const createListeners = new Set<(entity: EntityId) => void>();
 	// Destroy listeners — called before components/tags are removed
 	const destroyListeners = new Set<(entity: EntityId) => void>();
 
@@ -254,6 +256,7 @@ export function createWorld(): World {
 		createEntity(): EntityId {
 			const id = nextEntityId++;
 			alive.add(id);
+			for (const listener of createListeners) listener(id);
 			return id;
 		},
 
@@ -491,6 +494,13 @@ export function createWorld(): World {
 			};
 		},
 
+		onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe {
+			createListeners.add(callback);
+			return () => {
+				createListeners.delete(callback);
+			};
+		},
+
 		onEntityDestroyed(callback: (entity: EntityId) => void): Unsubscribe {
 			destroyListeners.add(callback);
 			return () => {
@@ -501,6 +511,44 @@ export function createWorld(): World {
 		onFrame(handler: FrameHandler): Unsubscribe {
 			frameHandlers.add(handler);
 			return () => frameHandlers.delete(handler);
+		},
+
+		// === Introspection ===
+
+		getAllEntities(): EntityId[] {
+			return [...alive];
+		},
+
+		getRegisteredComponents(): ComponentType[] {
+			const result: ComponentType[] = [];
+			for (const store of components.values()) result.push(store.type);
+			return result;
+		},
+
+		getRegisteredTags(): TagType[] {
+			const result: TagType[] = [];
+			for (const store of tags.values()) result.push(store.type);
+			return result;
+		},
+
+		getRegisteredResources(): ResourceType[] {
+			return [...resourceTypes.values()];
+		},
+
+		getComponentsOf(entity: EntityId): ComponentType[] {
+			const result: ComponentType[] = [];
+			for (const store of components.values()) {
+				if (store.data.has(entity)) result.push(store.type);
+			}
+			return result;
+		},
+
+		getTagsOf(entity: EntityId): TagType[] {
+			const result: TagType[] = [];
+			for (const store of tags.values()) {
+				if (store.entities.has(entity)) result.push(store.type);
+			}
+			return result;
 		},
 
 		// Frame lifecycle
