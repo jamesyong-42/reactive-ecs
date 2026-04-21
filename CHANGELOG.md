@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.1.1...reactive-ecs-v0.2.0) (2026-04-21)
+
+
+### Features
+
+* add entity/component/tag introspection APIs ([4ea453a](https://github.com/jamesyong-42/reactive-ecs/commit/4ea453ab1f32607f7cf02124fcfc6a43c36f9eb5))
+
 ## [0.1.1](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.1.0...reactive-ecs-v0.1.1) (2026-04-13)
 
 
