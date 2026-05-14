@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.2.0...reactive-ecs-v0.3.0) (2026-05-14)
+
+
+### Features
+
+* add PhasedScheduler for caller-defined phase pipelines ([09f0236](https://github.com/jamesyong-42/reactive-ecs/commit/09f0236263757571fbbdffb3329bd93954bdac87))
+* add PhasedScheduler for caller-defined phase pipelines ([c7f3a5b](https://github.com/jamesyong-42/reactive-ecs/commit/c7f3a5b278b23ce63d59e64c0ef8ca8ffbd12e86))
+
 ## [0.2.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.1.1...reactive-ecs-v0.2.0) (2026-04-21)
 
 
