@@ -2,11 +2,15 @@ import type { SystemDef, World } from './types.js';
 
 /**
  * Optional hook for instrumenting system execution — e.g. performance profiling.
- * Any object implementing these two methods can be attached to a scheduler.
+ * Any object implementing `beginSystem` / `endSystem` can be attached to a
+ * scheduler. `beginPhase` / `endPhase` are consumed only by `PhasedScheduler`
+ * and are optional, so existing profilers remain compatible.
  */
 export interface SystemProfiler {
 	beginSystem(name: string): void;
 	endSystem(name: string): void;
+	beginPhase?(phase: string): void;
+	endPhase?(phase: string): void;
 }
 
 /**
@@ -28,6 +32,11 @@ export class SystemScheduler {
 	remove(name: string) {
 		this.systems = this.systems.filter((s) => s.name !== name);
 		this.sorted = null;
+	}
+
+	/** Number of systems currently registered. */
+	get size(): number {
+		return this.systems.length;
 	}
 
 	/**
@@ -144,5 +153,199 @@ export class SystemScheduler {
 		}
 
 		return result;
+	}
+}
+
+/**
+ * Configuration passed to `new PhasedScheduler({ ... })`.
+ *
+ * @template P - String literal union of phase names. Use `as const` on the
+ *   `phases` array literal to get type-narrowed phase strings everywhere
+ *   (e.g. `getPhase()` return, profiler hook arguments, error messages).
+ */
+export interface PhasedSchedulerOptions<P extends string> {
+	/**
+	 * Phase order. Earlier phases run first each tick. Must be non-empty and
+	 * contain no duplicates.
+	 */
+	readonly phases: readonly P[];
+	/**
+	 * Phase used when a system is registered without an explicit `phase`. If
+	 * unset, registering an unstamped system throws — phase membership is then
+	 * mandatory at the call site.
+	 */
+	readonly defaultPhase?: P;
+}
+
+/**
+ * Bucketed scheduler that runs systems in a caller-defined phase order.
+ *
+ * The library ships zero phase opinions — phase names and their order are
+ * passed in by the consumer. Within a phase, `after` / `before` constraints
+ * continue to topologically sort (delegated to a per-phase `SystemScheduler`).
+ * Cross-phase ordering is implicit in phase order; cross-phase `after` /
+ * `before` constraints are rejected at first `execute()` to keep ordering
+ * single-sourced.
+ *
+ * Phase membership is validated at register time. `SystemDef.phase` is
+ * compared against the configured `phases` array; an unknown phase throws.
+ *
+ * Profiler hooks: if `profiler.beginPhase` / `endPhase` are present, they
+ * bracket each non-empty phase. `beginSystem` / `endSystem` continue to
+ * bracket each system as in `SystemScheduler`.
+ *
+ * @example
+ *   const scheduler = new PhasedScheduler({
+ *     phases: ['ingest', 'react', 'control', 'apply', 'cleanup'] as const,
+ *     defaultPhase: 'control',
+ *   });
+ *   scheduler.register(defineSystem({ name: 'sync', phase: 'ingest', execute: ... }));
+ *   scheduler.execute(world);
+ */
+export class PhasedScheduler<P extends string = string> {
+	private readonly phases: readonly P[];
+	private readonly phaseToIndex: Map<P, number>;
+	private readonly defaultPhase: P | undefined;
+	private buckets = new Map<P, SystemScheduler>();
+	private entries = new Map<string, { phase: P; system: SystemDef }>();
+	private validated = false;
+	profiler: SystemProfiler | null = null;
+
+	constructor(options: PhasedSchedulerOptions<P>) {
+		if (options.phases.length === 0) {
+			throw new Error('PhasedScheduler: `phases` must contain at least one phase.');
+		}
+		const seen = new Set<P>();
+		for (const phase of options.phases) {
+			if (seen.has(phase)) {
+				throw new Error(`PhasedScheduler: duplicate phase '${phase}' in phases list.`);
+			}
+			seen.add(phase);
+		}
+		if (options.defaultPhase !== undefined && !seen.has(options.defaultPhase)) {
+			throw new Error(
+				`PhasedScheduler: defaultPhase '${options.defaultPhase}' is not in phases ${JSON.stringify(options.phases)}.`,
+			);
+		}
+		this.phases = options.phases;
+		this.phaseToIndex = new Map(options.phases.map((p, i) => [p, i]));
+		this.defaultPhase = options.defaultPhase;
+	}
+
+	register(system: SystemDef) {
+		const explicit = system.phase as P | undefined;
+		const phase = explicit ?? this.defaultPhase;
+		if (phase === undefined) {
+			throw new Error(
+				`PhasedScheduler: system '${system.name}' has no \`phase\` and no defaultPhase is configured. ` +
+					`Set \`phase\` on the system or pass \`defaultPhase\` to the scheduler.`,
+			);
+		}
+		if (!this.phaseToIndex.has(phase)) {
+			throw new Error(
+				`PhasedScheduler: system '${system.name}' uses phase '${phase}', which is not in configured phases ${JSON.stringify(this.phases)}.`,
+			);
+		}
+
+		const prev = this.entries.get(system.name);
+		// Re-registering the same name into a different phase moves the system —
+		// remove from the old bucket so it doesn't run twice.
+		if (prev && prev.phase !== phase) {
+			this.buckets.get(prev.phase)?.remove(system.name);
+		}
+		let bucket = this.buckets.get(phase);
+		if (!bucket) {
+			bucket = new SystemScheduler();
+			this.buckets.set(phase, bucket);
+		}
+		bucket.register(system);
+		this.entries.set(system.name, { phase, system });
+		this.validated = false;
+	}
+
+	remove(name: string) {
+		const entry = this.entries.get(name);
+		if (!entry) return;
+		this.buckets.get(entry.phase)?.remove(name);
+		this.entries.delete(name);
+		this.validated = false;
+	}
+
+	/** Phase the system is registered in, or `undefined` if not registered. */
+	getPhase(name: string): P | undefined {
+		return this.entries.get(name)?.phase;
+	}
+
+	/** Configured phase order (read-only view of the constructor input). */
+	getPhases(): readonly P[] {
+		return this.phases;
+	}
+
+	/**
+	 * Names of all registered systems, ordered by phase then by within-phase
+	 * topological sort. Triggers cross-phase validation and within-phase topo
+	 * sort; throws if either fails.
+	 */
+	getSystemNames(): string[] {
+		this.ensureValidated();
+		const names: string[] = [];
+		for (const phase of this.phases) {
+			const bucket = this.buckets.get(phase);
+			if (!bucket || bucket.size === 0) continue;
+			names.push(...bucket.getSystemNames());
+		}
+		return names;
+	}
+
+	/**
+	 * Execute all systems for one tick, phase by phase. Cross-phase constraints
+	 * are validated lazily on first call (and after every register/remove);
+	 * within-phase ordering uses the existing `SystemScheduler` topo sort.
+	 */
+	execute(world: World) {
+		this.ensureValidated();
+		for (const phase of this.phases) {
+			const bucket = this.buckets.get(phase);
+			if (!bucket || bucket.size === 0) continue;
+			// Forward the current profiler each tick so profiler swaps after
+			// register-time still take effect on the next execute().
+			bucket.profiler = this.profiler;
+			this.profiler?.beginPhase?.(phase);
+			bucket.execute(world);
+			this.profiler?.endPhase?.(phase);
+		}
+	}
+
+	private ensureValidated() {
+		if (this.validated) return;
+		for (const [name, entry] of this.entries) {
+			const sIdx = this.phaseToIndex.get(entry.phase) ?? -1;
+			const { after, before } = entry.system;
+			const afters = Array.isArray(after) ? after : after ? [after] : [];
+			for (const dep of afters) {
+				const depEntry = this.entries.get(dep);
+				if (!depEntry) continue; // unknown deps tolerated, matching SystemScheduler
+				const dIdx = this.phaseToIndex.get(depEntry.phase) ?? -1;
+				if (dIdx > sIdx) {
+					throw new Error(
+						`System '${name}' (phase '${entry.phase}') declares after='${dep}', but '${dep}' is in later phase '${depEntry.phase}'. ` +
+							`Cross-phase 'after' must reference the same or an earlier phase. Either drop the constraint (the dependency would only ever satisfy if you moved '${name}' into a later phase), or move '${name}' into a phase at or after '${depEntry.phase}'.`,
+					);
+				}
+			}
+			const befores = Array.isArray(before) ? before : before ? [before] : [];
+			for (const dep of befores) {
+				const depEntry = this.entries.get(dep);
+				if (!depEntry) continue;
+				const dIdx = this.phaseToIndex.get(depEntry.phase) ?? -1;
+				if (dIdx < sIdx) {
+					throw new Error(
+						`System '${name}' (phase '${entry.phase}') declares before='${dep}', but '${dep}' is in earlier phase '${depEntry.phase}'. ` +
+							`Cross-phase 'before' must reference the same or a later phase. Either remove the constraint, or move '${name}' into a phase at or before '${depEntry.phase}'.`,
+					);
+				}
+			}
+		}
+		this.validated = true;
 	}
 }

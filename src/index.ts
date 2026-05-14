@@ -1,5 +1,10 @@
 export { defineComponent, defineResource, defineSystem, defineTag } from './define.js';
-export { type SystemProfiler, SystemScheduler } from './scheduler.js';
+export {
+	PhasedScheduler,
+	type PhasedSchedulerOptions,
+	type SystemProfiler,
+	SystemScheduler,
+} from './scheduler.js';
 export type {
 	ComponentChangedHandler,
 	ComponentInit,

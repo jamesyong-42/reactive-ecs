@@ -119,7 +119,87 @@ All are O(k) where k is the number of registered types — no hidden scan of ent
 - **Events** — `onComponentChanged`, `onTagAdded`, `onTagRemoved`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`.
 - **Introspection** — enumerate entities, registered types, and per-entity component/tag composition for editors and debugging tools.
 - **Scheduler** — `SystemScheduler` orders systems via `after` / `before` with Kahn's topological sort (stable on registration order).
-- **Optional profiler hook** — attach any `{ beginSystem, endSystem }` object to `scheduler.profiler` for tracing.
+- **Phased scheduler** — `PhasedScheduler` runs systems in a caller-defined phase order. You declare the phases at construction time (`new PhasedScheduler({ phases: [...] })`); the library ships zero phase opinions. Within a phase, the same `after` / `before` constraints continue to topo-sort; cross-phase ordering is implicit in phase order, and cross-phase constraints are rejected.
+- **Optional profiler hook** — attach any `{ beginSystem, endSystem }` object (with optional `beginPhase` / `endPhase`) to `scheduler.profiler` for tracing.
+
+## Phased scheduling
+
+`SystemScheduler` is order-by-constraint and order-only. Once your project grows past a handful of systems, the constraint graph stops describing _intent_ and starts describing _accident_ — `after: 'cull'` works but doesn't say _why_, and a new contributor has to read the whole graph to know what runs when.
+
+`PhasedScheduler` adds named phases that you declare at construction time. The library ships no phase vocabulary — it's purely the mechanism (bucketing + cross-phase validation + profiler instrumentation). Pick names that match your domain; a UI tool, a game engine, and an agent simulator each want a different set.
+
+```ts
+import { createWorld, defineSystem, PhasedScheduler } from '@jamesyong42/reactive-ecs';
+
+const world = createWorld();
+const scheduler = new PhasedScheduler({
+  phases: ['input', 'react', 'simulate', 'derive', 'present', 'cleanup'] as const,
+  defaultPhase: 'derive', // optional — applied when a system has no `phase`
+});
+
+scheduler.register(defineSystem({
+  name: 'drainInput', phase: 'input',
+  execute: (w) => { /* fold raw events into ECS */ },
+}));
+scheduler.register(defineSystem({
+  name: 'spatialIndexSync', phase: 'react',
+  execute: (w) => { /* maintain invariants from prior writes */ },
+}));
+scheduler.register(defineSystem({
+  name: 'physics', phase: 'simulate',
+  execute: (w) => { /* time-driven mutations */ },
+}));
+scheduler.register(defineSystem({
+  name: 'frameChanges', phase: 'present',
+  execute: (w) => { /* build outputs renderers will read */ },
+}));
+
+function tick() {
+  scheduler.execute(world);
+  world.emitFrame();
+  world.clearDirty();
+  world.incrementTick();
+}
+```
+
+Within a phase, `after` / `before` continue to topo-sort. Across phases, ordering is implicit in phase order — a system in an earlier phase always runs before a system in a later one, and cross-phase `after` / `before` references (e.g., a `react`-phase system declaring `after: 'someDeriveSystem'`) are rejected at first execute.
+
+### `PhasedSchedulerOptions`
+
+| Field          | Required | Description |
+| -------------- | -------- | ----------- |
+| `phases`       | yes      | The phase order, earliest first. Must be non-empty and contain no duplicates. Use `as const` on the array literal to get type-narrowed phase strings throughout the API (e.g. on `getPhase()`'s return type). |
+| `defaultPhase` | no       | Phase used when `register()` is called with a system that has no `phase`. If unset, registering an unstamped system throws — phase membership becomes mandatory at the call site. |
+
+### Phase membership is validated at register time
+
+```ts
+const s = new PhasedScheduler({ phases: ['a', 'b'] as const });
+s.register(defineSystem({ name: 'x', phase: 'unknown', execute: () => {} }));
+// Error: system 'x' uses phase 'unknown', which is not in configured phases ["a","b"].
+```
+
+### Examples of different phase vocabularies
+
+```ts
+// 2-phase render loop
+new PhasedScheduler({ phases: ['update', 'render'] as const });
+
+// Phaser-style physics game
+new PhasedScheduler({
+  phases: ['ingest', 'react', 'control', 'applyPhysics', 'cleanup'] as const,
+});
+
+// Agent simulator
+new PhasedScheduler({ phases: ['perceive', 'think', 'act'] as const });
+```
+
+### When to use which
+
+- **`SystemScheduler`** — small projects, custom pipelines, anything where you'd rather express order via constraints than phases.
+- **`PhasedScheduler`** — projects past ~6–8 systems, especially when you have observers / invariant maintenance / state machines mixed with derived-state computation. Phases give the new contributor a one-line answer to "when does this run?" (the phase) without having to trace `after` / `before` chains.
+
+Both schedulers are public; pick per-project. `PhasedScheduler` uses `SystemScheduler` internally per phase, so the within-phase semantics are identical.
 
 ## Profiler hook
 
@@ -134,13 +214,19 @@ const profiler: SystemProfiler = {
     performance.mark(`${name}-end`);
     performance.measure(name, `${name}-start`, `${name}-end`);
   },
+  // Optional — only consulted by PhasedScheduler.
+  beginPhase: (phase) => performance.mark(`phase:${phase}-start`),
+  endPhase:   (phase) => {
+    performance.mark(`phase:${phase}-end`);
+    performance.measure(`phase:${phase}`, `phase:${phase}-start`, `phase:${phase}-end`);
+  },
 };
 
 const scheduler = new SystemScheduler();
 scheduler.profiler = profiler;
 ```
 
-The scheduler knows nothing about performance measurement — it just calls the hooks if present.
+The scheduler knows nothing about performance measurement — it just calls the hooks if present. `beginPhase` / `endPhase` are optional, so existing profilers work with either scheduler unchanged.
 
 ## Non-goals
 

@@ -25,6 +25,14 @@ export interface ResourceType<T = unknown> {
 /** System definition created by defineSystem() */
 export interface SystemDef {
 	readonly name: string;
+	/**
+	 * Pipeline phase this system runs in (consumed by `PhasedScheduler`; ignored
+	 * by `SystemScheduler`). Phase membership is validated by the scheduler at
+	 * register time against its configured phase list. Cross-phase `after` /
+	 * `before` constraints are rejected at first execute — use phase order for
+	 * cross-phase ordering.
+	 */
+	readonly phase?: string;
 	readonly after?: string | string[];
 	readonly before?: string | string[];
 	execute: (world: World) => void;
