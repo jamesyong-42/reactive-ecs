@@ -32,8 +32,12 @@ jobs:
 
       - run: pnpm run build
 
-      - name: Verify package (publint + arethetypeswrong)
+      - name: Verify package (publint)
         if: matrix.node == 22
-        run: |
-          pnpm dlx publint
-          pnpm dlx @arethetypeswrong/cli --pack
+        # `@arethetypeswrong/cli` is currently broken upstream: its bundled
+        # `fflate@0.8.3` emits trailing zero-length chunks from `Gunzip`, and
+        # attw keeps only the last chunk, so `untar()` returns [] and the CLI
+        # crashes with "Cannot read properties of undefined (reading
+        # 'filename')". attw hasn't shipped a release since 2025-06. Re-add
+        # `pnpm dlx @arethetypeswrong/cli --pack` once attw is fixed.
+        run: pnpm dlx publint
