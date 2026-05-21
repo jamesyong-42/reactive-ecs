@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.3.0...reactive-ecs-v0.4.0) (2026-05-21)
+
+
+### Features
+
+* add queryRemoved, queryAddedTag, queryRemovedTag, onComponentRemoved ([61fb251](https://github.com/jamesyong-42/reactive-ecs/commit/61fb251d6b25970b698fa1d92a677b3ea8bf1239))
+* queryRemoved + onComponentRemoved + tag-change buffers (RFC-001) ([483580b](https://github.com/jamesyong-42/reactive-ecs/commit/483580beb74b95ee0f7d9cab27c21a0e2c038c91))
+
 ## [0.3.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.2.0...reactive-ecs-v0.3.0) (2026-05-14)
 
 
