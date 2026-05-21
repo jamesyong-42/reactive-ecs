@@ -1,5 +1,6 @@
 import type {
 	ComponentChangedHandler,
+	ComponentRemovedHandler,
 	ComponentType,
 	EntityId,
 	FrameHandler,
@@ -18,7 +19,9 @@ interface ComponentStore<T = unknown> {
 	data: Map<EntityId, T>;
 	dirty: Set<EntityId>;
 	added: Set<EntityId>;
+	removed: Set<EntityId>;
 	handlers: Map<EntityId | '*', Set<ComponentChangedHandler<T>>>;
+	removedHandlers: Map<EntityId | '*', Set<ComponentRemovedHandler<T>>>;
 }
 
 /** Internal storage for a single tag type */
@@ -26,6 +29,8 @@ interface TagStore {
 	/** Identity anchor — used to detect name collisions across defineTag() calls. */
 	type: TagType;
 	entities: Set<EntityId>;
+	added: Set<EntityId>;
+	removed: Set<EntityId>;
 	addedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 }
@@ -168,7 +173,9 @@ export function createWorld(): World {
 			data: new Map(),
 			dirty: new Set(),
 			added: new Set(),
+			removed: new Set(),
 			handlers: new Map(),
+			removedHandlers: new Map(),
 		};
 		// Cast to the erased type held in the Map. Safe — see note on getComponentStore's return.
 		components.set(type.name, store as ComponentStore);
@@ -189,6 +196,8 @@ export function createWorld(): World {
 		const store: TagStore = {
 			type,
 			entities: new Set(),
+			added: new Set(),
+			removed: new Set(),
 			addedHandlers: new Map(),
 			removedHandlers: new Map(),
 		};
@@ -217,6 +226,17 @@ export function createWorld(): World {
 		const wildcardHandlers = store.handlers.get('*');
 		if (wildcardHandlers) {
 			for (const h of wildcardHandlers) h(entityId, prev, next);
+		}
+	}
+
+	function emitComponentRemoved<T>(store: ComponentStore<T>, entityId: EntityId, prev: T) {
+		const entityHandlers = store.removedHandlers.get(entityId);
+		if (entityHandlers) {
+			for (const h of entityHandlers) h(entityId, prev);
+		}
+		const wildcardHandlers = store.removedHandlers.get('*');
+		if (wildcardHandlers) {
+			for (const h of wildcardHandlers) h(entityId, prev);
 		}
 	}
 
@@ -268,16 +288,29 @@ export function createWorld(): World {
 			alive.delete(id);
 			// Remove from all cached queries
 			removeCachesForEntity(id);
-			// Remove all components
+			// Remove all components — fire onComponentRemoved per owned component
+			// and populate the per-tick `removed` buffer so queryRemoved sees the id.
 			for (const store of components.values()) {
+				if (store.data.has(id)) {
+					const prev = store.data.get(id);
+					emitComponentRemoved(store, id, prev);
+					store.removed.add(id);
+				}
 				store.data.delete(id);
 				store.dirty.delete(id);
 				store.added.delete(id);
 				store.handlers.delete(id);
+				store.removedHandlers.delete(id);
 			}
-			// Remove all tags
+			// Remove all tags — fire onTagRemoved per owned tag and populate
+			// the per-tick `removed` buffer.
 			for (const store of tags.values()) {
+				if (store.entities.has(id)) {
+					emitTagRemoved(store, id);
+					store.removed.add(id);
+				}
 				store.entities.delete(id);
+				store.added.delete(id);
 				store.addedHandlers.delete(id);
 				store.removedHandlers.delete(id);
 			}
@@ -300,6 +333,9 @@ export function createWorld(): World {
 			store.data.set(entity, merged);
 			store.dirty.add(entity);
 			store.added.add(entity);
+			// Net-cancellation with queryRemoved: re-adding within the same tick
+			// undoes a prior remove from the buffer.
+			store.removed.delete(entity);
 			// Update cached queries that include this component
 			updateCachesForEntity(type.name, entity);
 			emitComponentChanged(store, entity, undefined, merged);
@@ -307,6 +343,13 @@ export function createWorld(): World {
 
 		removeComponent<T>(entity: EntityId, type: ComponentType<T>) {
 			const store = getComponentStore(type);
+			if (store.data.has(entity)) {
+				const prev = store.data.get(entity) as T;
+				// Fire onComponentRemoved BEFORE data is deleted so `prev` is
+				// readable from the store too if the handler wants it.
+				emitComponentRemoved(store, entity, prev);
+				store.removed.add(entity);
+			}
 			store.data.delete(entity);
 			store.dirty.delete(entity);
 			store.added.delete(entity);
@@ -351,6 +394,9 @@ export function createWorld(): World {
 			const store = getTagStore(type);
 			if (store.entities.has(entity)) return;
 			store.entities.add(entity);
+			store.added.add(entity);
+			// Net-cancellation with queryRemovedTag in the same tick.
+			store.removed.delete(entity);
 			// Update cached queries that include this tag
 			updateCachesForEntity(type.name, entity);
 			emitTagAdded(store, entity);
@@ -360,6 +406,9 @@ export function createWorld(): World {
 			const store = getTagStore(type);
 			if (!store.entities.has(entity)) return;
 			store.entities.delete(entity);
+			store.removed.add(entity);
+			// Net-cancellation with queryAddedTag in the same tick.
+			store.added.delete(entity);
 			// Update cached queries — entity may no longer match
 			updateCachesForEntity(type.name, entity);
 			emitTagRemoved(store, entity);
@@ -416,9 +465,24 @@ export function createWorld(): World {
 			return [...store.added];
 		},
 
+		queryRemoved(type: ComponentType): QueryResult {
+			const store = getComponentStore(type);
+			return [...store.removed];
+		},
+
 		queryTagged(type: TagType): QueryResult {
 			const store = getTagStore(type);
 			return [...store.entities];
+		},
+
+		queryAddedTag(type: TagType): QueryResult {
+			const store = getTagStore(type);
+			return [...store.added];
+		},
+
+		queryRemovedTag(type: TagType): QueryResult {
+			const store = getTagStore(type);
+			return [...store.removed];
 		},
 
 		// === Resources ===
@@ -459,6 +523,24 @@ export function createWorld(): World {
 			if (!handlers) {
 				handlers = new Set();
 				store.handlers.set(key, handlers);
+			}
+			handlers.add(handler);
+			return () => {
+				handlers.delete(handler);
+			};
+		},
+
+		onComponentRemoved<T>(
+			type: ComponentType<T>,
+			handler: ComponentRemovedHandler<T>,
+			entityId?: EntityId,
+		): Unsubscribe {
+			const store = getComponentStore(type);
+			const key: EntityId | '*' = entityId ?? '*';
+			let handlers = store.removedHandlers.get(key);
+			if (!handlers) {
+				handlers = new Set();
+				store.removedHandlers.set(key, handlers);
 			}
 			handlers.add(handler);
 			return () => {
@@ -556,6 +638,11 @@ export function createWorld(): World {
 			for (const store of components.values()) {
 				store.dirty.clear();
 				store.added.clear();
+				store.removed.clear();
+			}
+			for (const store of tags.values()) {
+				store.added.clear();
+				store.removed.clear();
 			}
 		},
 

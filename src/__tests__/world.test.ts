@@ -180,6 +180,140 @@ describe('World', () => {
 			const tagged = world.queryTagged(Selected);
 			expect(tagged).toHaveLength(2);
 		});
+
+		it('queryRemoved returns entities that lost a component this tick', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			const e2 = world.createEntity();
+			world.addComponent(e1, Position, { x: 0, y: 0 });
+			world.addComponent(e2, Position, { x: 1, y: 1 });
+			world.clearDirty();
+
+			world.removeComponent(e1, Position);
+			const removed = world.queryRemoved(Position);
+			expect(removed).toHaveLength(1);
+			expect(removed).toContain(e1);
+		});
+
+		it('queryRemoved is cleared by clearDirty', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			world.clearDirty();
+			world.removeComponent(e, Position);
+			expect(world.queryRemoved(Position)).toHaveLength(1);
+			world.clearDirty();
+			expect(world.queryRemoved(Position)).toHaveLength(0);
+		});
+
+		it('queryRemoved net-cancels with addComponent in the same tick', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			// remove then add → the entity should be in `added` but NOT in `removed`
+			world.removeComponent(e, Position);
+			expect(world.queryRemoved(Position)).toEqual([e]);
+			world.addComponent(e, Position, { x: 9, y: 9 });
+			expect(world.queryRemoved(Position)).toEqual([]);
+			expect(world.queryAdded(Position)).toEqual([e]);
+		});
+
+		it('queryAdded net-cancels with removeComponent in the same tick', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			// add then remove (no prior state) → added empty, removed has the entity
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			world.removeComponent(e, Position);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([e]);
+		});
+
+		it('queryRemoved includes entities torn down by destroyEntity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			world.clearDirty();
+			world.destroyEntity(e);
+			expect(world.queryRemoved(Position)).toEqual([e]);
+		});
+
+		it('queryAddedTag returns entities that gained a tag this tick', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			const e2 = world.createEntity();
+			world.addTag(e1, Selected);
+			world.addTag(e2, Selected);
+
+			const added = world.queryAddedTag(Selected);
+			expect(added).toHaveLength(2);
+			expect(added).toContain(e1);
+			expect(added).toContain(e2);
+
+			world.clearDirty();
+			expect(world.queryAddedTag(Selected)).toHaveLength(0);
+		});
+
+		it('queryAddedTag net-cancels with removeTag in the same tick', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+			expect(world.queryAddedTag(Selected)).toEqual([e]);
+			world.removeTag(e, Selected);
+			expect(world.queryAddedTag(Selected)).toEqual([]);
+			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+		});
+
+		it('queryRemovedTag returns entities that lost a tag this tick', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+			world.clearDirty();
+			world.removeTag(e, Selected);
+			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+		});
+
+		it('queryRemovedTag net-cancels with addTag in the same tick', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+			world.clearDirty();
+			world.removeTag(e, Selected);
+			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+			world.addTag(e, Selected);
+			expect(world.queryRemovedTag(Selected)).toEqual([]);
+			expect(world.queryAddedTag(Selected)).toEqual([e]);
+		});
+
+		it('queryRemovedTag includes entities torn down by destroyEntity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+			world.clearDirty();
+			world.destroyEntity(e);
+			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+		});
+
+		it('clearDirty empties tag added/removed buffers', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+			world.clearDirty();
+			expect(world.queryAddedTag(Selected)).toEqual([]);
+			world.removeTag(e, Selected);
+			world.clearDirty();
+			expect(world.queryRemovedTag(Selected)).toEqual([]);
+		});
+
+		it('removeComponent on an entity without the component does not populate queryRemoved', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			// no Position attached
+			world.removeComponent(e, Position);
+			expect(world.queryRemoved(Position)).toEqual([]);
+		});
 	});
 
 	describe('resources', () => {
@@ -237,6 +371,104 @@ describe('World', () => {
 			unsub();
 			world.setComponent(e, Position, { x: 99 });
 			expect(handler).toHaveBeenCalledTimes(1); // not called again
+		});
+
+		it('onComponentRemoved fires on removeComponent with the prev value', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 5, y: 7 });
+
+			const handler = vi.fn();
+			world.onComponentRemoved(Position, handler);
+			world.removeComponent(e, Position);
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e, { x: 5, y: 7 });
+		});
+
+		it('onComponentRemoved fires once per owned component during destroyEntity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.addComponent(e, Velocity, { dx: 3, dy: 4 });
+
+			const pos = vi.fn();
+			const vel = vi.fn();
+			world.onComponentRemoved(Position, pos);
+			world.onComponentRemoved(Velocity, vel);
+
+			world.destroyEntity(e);
+			expect(pos).toHaveBeenCalledWith(e, { x: 1, y: 2 });
+			expect(vel).toHaveBeenCalledWith(e, { dx: 3, dy: 4 });
+		});
+
+		it('onComponentRemoved per-entity filter only fires for that entity', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			const e2 = world.createEntity();
+			world.addComponent(e1, Position, { x: 1, y: 1 });
+			world.addComponent(e2, Position, { x: 2, y: 2 });
+
+			const handler = vi.fn();
+			world.onComponentRemoved(Position, handler, e1);
+			world.removeComponent(e2, Position);
+			expect(handler).not.toHaveBeenCalled();
+			world.removeComponent(e1, Position);
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e1, { x: 1, y: 1 });
+		});
+
+		it('onComponentRemoved fires per-entity handler before wildcard', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+
+			const order: string[] = [];
+			world.onComponentRemoved(Position, () => order.push('wildcard'));
+			world.onComponentRemoved(Position, () => order.push('entity'), e);
+			world.removeComponent(e, Position);
+			expect(order).toEqual(['entity', 'wildcard']);
+		});
+
+		it('onComponentRemoved unsubscribes', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+
+			const handler = vi.fn();
+			const unsub = world.onComponentRemoved(Position, handler);
+			unsub();
+			world.removeComponent(e, Position);
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('onTagRemoved fires from destroyEntity for each owned tag', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+			world.addTag(e, Visible);
+
+			const sel = vi.fn();
+			const vis = vi.fn();
+			world.onTagRemoved(Selected, sel);
+			world.onTagRemoved(Visible, vis);
+
+			world.destroyEntity(e);
+			expect(sel).toHaveBeenCalledWith(e);
+			expect(vis).toHaveBeenCalledWith(e);
+		});
+
+		it('onComponentRemoved sees prev value at the call site even during destroy', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Label, { text: 'goodbye' });
+
+			let seenPrev: { text: string } | undefined;
+			world.onComponentRemoved(Label, (_id, prev) => {
+				seenPrev = prev;
+			});
+
+			world.destroyEntity(e);
+			expect(seenPrev).toEqual({ text: 'goodbye' });
 		});
 	});
 
