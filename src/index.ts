@@ -8,6 +8,7 @@ export {
 export type {
 	ComponentChangedHandler,
 	ComponentInit,
+	ComponentRemovedHandler,
 	ComponentType,
 	EntityId,
 	FrameHandler,

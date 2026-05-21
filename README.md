@@ -82,6 +82,10 @@ const unsub = world.onComponentChanged(Position, (id, prev, next) => {
 // Any entity with this component
 world.onComponentChanged(Position, (id, _, next) => { /* ... */ });
 
+// Fires before the data is gone — `prev` is the soon-to-be-discarded value.
+// Also fires for each component an entity owned when destroyEntity is called.
+world.onComponentRemoved(Position, (id, prev) => { /* release GPU buffer keyed by prev */ });
+
 world.onTagAdded(Selected, (id) => { /* ... */ });
 world.onTagRemoved(Selected, (id) => { /* ... */ });
 world.onEntityCreated((id) => { /* ... */ });
@@ -115,8 +119,8 @@ All are O(k) where k is the number of registered types — no hidden scan of ent
 - **Tags** — zero-data boolean markers (`defineTag('Selected')`).
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
 - **Cached queries** — `world.query(Position, Velocity, Selected)` returns entity IDs; results are cached and updated incrementally as components/tags are added or removed.
-- **Change tracking** — `queryChanged`, `queryAdded`, per-tick dirty sets.
-- **Events** — `onComponentChanged`, `onTagAdded`, `onTagRemoved`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`.
+- **Change tracking** — `queryChanged`, `queryAdded`, `queryRemoved`, `queryAddedTag`, `queryRemovedTag`, per-tick dirty sets. Removed-buffers include entities torn down by `destroyEntity` so consumers managing external resources (GPU buffers, DOM nodes, subscriptions) get a single channel for "this entity no longer has C."
+- **Events** — `onComponentChanged`, `onComponentRemoved`, `onTagAdded`, `onTagRemoved`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`. `onComponentRemoved` fires synchronously before the data is deleted (so `prev` is readable) and also fires during `destroyEntity` for every component the entity owned.
 - **Introspection** — enumerate entities, registered types, and per-entity component/tag composition for editors and debugging tools.
 - **Scheduler** — `SystemScheduler` orders systems via `after` / `before` with Kahn's topological sort (stable on registration order).
 - **Phased scheduler** — `PhasedScheduler` runs systems in a caller-defined phase order. You declare the phases at construction time (`new PhasedScheduler({ phases: [...] })`); the library ships zero phase opinions. Within a phase, the same `after` / `before` constraints continue to topo-sort; cross-phase ordering is implicit in phase order, and cross-phase constraints are rejected.

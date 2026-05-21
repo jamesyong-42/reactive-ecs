@@ -51,6 +51,14 @@ export type ComponentChangedHandler<T = unknown> = (
 	next: T,
 ) => void;
 
+/**
+ * Fired synchronously when a component is being removed from an entity —
+ * either via `removeComponent` or as part of `destroyEntity` teardown.
+ * Receives the value about to be discarded as `prev`. Fires BEFORE the
+ * component data is deleted, so the value is still readable in the store.
+ */
+export type ComponentRemovedHandler<T = unknown> = (entityId: EntityId, prev: T) => void;
+
 export type TagChangedHandler = (entityId: EntityId) => void;
 
 export type FrameHandler = () => void;
@@ -103,8 +111,24 @@ export interface World {
 	queryChanged(type: ComponentType): QueryResult;
 	/** Returns entities that received this component this tick. */
 	queryAdded(type: ComponentType): QueryResult;
+	/**
+	 * Returns entities that lost this component this tick — via `removeComponent`
+	 * or `destroyEntity`. Mirror of `queryAdded`. Net-cancels with `addComponent`
+	 * in the same tick.
+	 */
+	queryRemoved(type: ComponentType): QueryResult;
 	/** Returns all entities with a specific tag. */
 	queryTagged(type: TagType): QueryResult;
+	/**
+	 * Returns entities that gained this tag this tick. Mirror of `queryAdded`
+	 * for tags. Net-cancels with `removeTag` in the same tick.
+	 */
+	queryAddedTag(type: TagType): QueryResult;
+	/**
+	 * Returns entities that lost this tag this tick — via `removeTag` or
+	 * `destroyEntity`. Net-cancels with `addTag` in the same tick.
+	 */
+	queryRemovedTag(type: TagType): QueryResult;
 
 	// Resources
 
@@ -119,6 +143,17 @@ export interface World {
 	onComponentChanged<T>(
 		type: ComponentType<T>,
 		handler: ComponentChangedHandler<T>,
+		entityId?: EntityId,
+	): Unsubscribe;
+	/**
+	 * Subscribes to component removals, optionally filtered to a single entity.
+	 * Handler fires synchronously before the data is deleted, so `prev` is the
+	 * value being torn down. Also fires for each component an entity owned at
+	 * the moment `destroyEntity` is called.
+	 */
+	onComponentRemoved<T>(
+		type: ComponentType<T>,
+		handler: ComponentRemovedHandler<T>,
 		entityId?: EntityId,
 	): Unsubscribe;
 	/** Subscribes to tag additions, optionally filtered to a single entity. */
