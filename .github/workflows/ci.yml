@@ -33,7 +33,7 @@ jobs:
       - run: pnpm run build
 
       - name: Verify package (publint + arethetypeswrong)
-        if: matrix.node == 24
+        if: matrix.node == 22
         run: |
           pnpm dlx publint
           pnpm dlx @arethetypeswrong/cli --pack
