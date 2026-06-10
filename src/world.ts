@@ -6,6 +6,9 @@ import type {
 	FrameHandler,
 	NotTerm,
 	QueryResult,
+	RelationEdge,
+	RelationHandler,
+	RelationType,
 	ResourceType,
 	TagChangedHandler,
 	TagType,
@@ -36,6 +39,37 @@ interface TagStore {
 	removedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 }
 
+/** Internal storage for a single relation type */
+interface RelationStore {
+	/** Identity anchor — used to detect name collisions across defineRelation() calls. */
+	type: RelationType;
+	/** source → targets (sourceExclusive ⇒ size ≤ 1) */
+	forward: Map<EntityId, Set<EntityId>>;
+	/** target → sources (targetExclusive ⇒ size ≤ 1) */
+	inverse: Map<EntityId, Set<EntityId>>;
+	/** Edge keys added this tick */
+	added: Set<string>;
+	/** Edge keys removed this tick (including destroy-driven removals) */
+	removed: Set<string>;
+	addedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
+	removedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
+}
+
+/** Buffer key for a single relation edge — `\0` cannot appear in a numeric id. */
+function edgeKey(source: EntityId, target: EntityId): string {
+	return `${source}\0${target}`;
+}
+
+/** Decode buffered edge keys back into numeric `[source, target]` pairs. */
+function decodeEdgeKeys(keys: Set<string>): [EntityId, EntityId][] {
+	const result: [EntityId, EntityId][] = [];
+	for (const key of keys) {
+		const sep = key.indexOf('\0');
+		result.push([Number(key.slice(0, sep)), Number(key.slice(sep + 1))]);
+	}
+	return result;
+}
+
 /**
  * Instantiate a value from `defaults`, applying optional `overrides`, and
  * deep-clone nested arrays / plain objects so callers can't accidentally share
@@ -63,6 +97,9 @@ export function createWorld(): World {
 	const components = new Map<string, ComponentStore>();
 	// Tag storage: one Set per tag type
 	const tags = new Map<string, TagStore>();
+	// Relation storage: one edge index per relation type — a side index,
+	// never an archetype/query key, so the query cache is untouched.
+	const relations = new Map<string, RelationStore>();
 	// Resources: one value per resource type
 	const resources = new Map<string, unknown>();
 	// Identity anchors for resources — same purpose as ComponentStore.type
@@ -230,6 +267,30 @@ export function createWorld(): World {
 		return store;
 	}
 
+	function getRelationStore(type: RelationType): RelationStore {
+		const existing = relations.get(type.name);
+		if (existing) {
+			if (existing.type !== type) {
+				throw new Error(
+					`Relation name collision: "${type.name}" is already registered to a different RelationType. ` +
+						`Names must be unique across all defineRelation() calls.`,
+				);
+			}
+			return existing;
+		}
+		const store: RelationStore = {
+			type,
+			forward: new Map(),
+			inverse: new Map(),
+			added: new Set(),
+			removed: new Set(),
+			addedHandlers: new Map(),
+			removedHandlers: new Map(),
+		};
+		relations.set(type.name, store);
+		return store;
+	}
+
 	function hasListeners<T>(store: ComponentStore<T>): boolean {
 		if (store.handlers.size === 0) return false;
 		for (const set of store.handlers.values()) {
@@ -287,6 +348,51 @@ export function createWorld(): World {
 		}
 	}
 
+	function emitRelationAdded(store: RelationStore, source: EntityId, target: EntityId) {
+		const sourceHandlers = store.addedHandlers.get(source);
+		if (sourceHandlers) {
+			for (const h of sourceHandlers) h(source, target);
+		}
+		const wildcardHandlers = store.addedHandlers.get('*');
+		if (wildcardHandlers) {
+			for (const h of wildcardHandlers) h(source, target);
+		}
+	}
+
+	function emitRelationRemoved(store: RelationStore, source: EntityId, target: EntityId) {
+		const sourceHandlers = store.removedHandlers.get(source);
+		if (sourceHandlers) {
+			for (const h of sourceHandlers) h(source, target);
+		}
+		const wildcardHandlers = store.removedHandlers.get('*');
+		if (wildcardHandlers) {
+			for (const h of wildcardHandlers) h(source, target);
+		}
+	}
+
+	/**
+	 * Remove a single edge from both indexes, populate the `removed` buffer
+	 * (net-cancelling a same-tick add), and emit onRelationRemoved. Shared by
+	 * unrelate, exclusivity replacement, and the destroy sweep.
+	 */
+	function removeRelationEdge(store: RelationStore, source: EntityId, target: EntityId) {
+		const targets = store.forward.get(source);
+		if (targets) {
+			targets.delete(target);
+			if (targets.size === 0) store.forward.delete(source);
+		}
+		const sources = store.inverse.get(target);
+		if (sources) {
+			sources.delete(source);
+			if (sources.size === 0) store.inverse.delete(target);
+		}
+		const key = edgeKey(source, target);
+		store.removed.add(key);
+		// Net-cancellation with queryRelationAdded in the same tick.
+		store.added.delete(key);
+		emitRelationRemoved(store, source, target);
+	}
+
 	const world: World = {
 		get currentTick() {
 			return currentTick;
@@ -341,6 +447,38 @@ export function createWorld(): World {
 			alive.delete(id);
 			// Remove from all cached queries
 			removeCachesForEntity(id);
+			// Relation sweep — BEFORE component/tag teardown so onRelationRemoved
+			// handlers can still read the dying entity's data. Policy effects are
+			// collected here and applied only after teardown completes: mutating
+			// mid-sweep would observe a half-destroyed world.
+			const deferredEffects: (
+				| { kind: 'destroy'; source: EntityId }
+				| { kind: 'tag'; source: EntityId; tag: TagType }
+			)[] = [];
+			for (const store of relations.values()) {
+				// id as source — outgoing edges simply vanish, symmetric to
+				// component teardown. No policy applies; the source is gone.
+				const targets = store.forward.get(id);
+				if (targets) {
+					for (const target of [...targets]) removeRelationEdge(store, id, target);
+				}
+				// id as target — each incoming edge is removed AND the relation's
+				// onTargetDestroy policy contributes a deferred effect per source.
+				const sources = store.inverse.get(id);
+				if (sources) {
+					const policy = store.type.options.onTargetDestroy;
+					for (const source of [...sources]) {
+						removeRelationEdge(store, source, id);
+						if (policy === 'cascade') {
+							deferredEffects.push({ kind: 'destroy', source });
+						} else if (policy !== 'clear') {
+							deferredEffects.push({ kind: 'tag', source, tag: policy.tag });
+						}
+					}
+				}
+				store.addedHandlers.delete(id);
+				store.removedHandlers.delete(id);
+			}
 			// Remove all components — fire onComponentRemoved per owned component
 			// and populate the per-tick `removed` buffer so queryRemoved sees the id.
 			for (const store of components.values()) {
@@ -366,6 +504,18 @@ export function createWorld(): World {
 				store.added.delete(id);
 				store.addedHandlers.delete(id);
 				store.removedHandlers.delete(id);
+			}
+			// Apply deferred relation policy effects — only now is mutation safe.
+			for (const effect of deferredEffects) {
+				if (effect.kind === 'destroy') {
+					// An already-dead source is a no-op via the alive guard above.
+					// Cascade chains and cycles terminate: ids are never reused and
+					// re-destroying is a no-op.
+					world.destroyEntity(effect.source);
+				} else if (alive.has(effect.source)) {
+					// Skipped if a prior effect destroyed the source.
+					world.addTag(effect.source, effect.tag);
+				}
 			}
 		},
 
@@ -472,6 +622,87 @@ export function createWorld(): World {
 			return store.entities.has(entity);
 		},
 
+		// === Relation access ===
+
+		relate(source: EntityId, type: RelationType, target: EntityId) {
+			if (!alive.has(source)) {
+				throw new Error(
+					`relate(${type.name}): source entity ${source} does not exist or has been destroyed`,
+				);
+			}
+			if (!alive.has(target)) {
+				throw new Error(
+					`relate(${type.name}): target entity ${target} does not exist or has been destroyed`,
+				);
+			}
+			const store = getRelationStore(type);
+			if (store.forward.get(source)?.has(target)) return;
+			// Exclusivity violation replaces — the displaced edge is removed with
+			// full removed-event semantics BEFORE the add, mirroring setComponent
+			// overwrite (removed-then-added).
+			if (type.options.sourceExclusive) {
+				const existingTargets = store.forward.get(source);
+				if (existingTargets) {
+					for (const t of [...existingTargets]) removeRelationEdge(store, source, t);
+				}
+			}
+			if (type.options.targetExclusive) {
+				const existingSources = store.inverse.get(target);
+				if (existingSources) {
+					for (const s of [...existingSources]) removeRelationEdge(store, s, target);
+				}
+			}
+			let targets = store.forward.get(source);
+			if (!targets) {
+				targets = new Set();
+				store.forward.set(source, targets);
+			}
+			targets.add(target);
+			let sources = store.inverse.get(target);
+			if (!sources) {
+				sources = new Set();
+				store.inverse.set(target, sources);
+			}
+			sources.add(source);
+			const key = edgeKey(source, target);
+			store.added.add(key);
+			// Net-cancellation with queryRelationRemoved in the same tick.
+			store.removed.delete(key);
+			emitRelationAdded(store, source, target);
+		},
+
+		unrelate(source: EntityId, type: RelationType, target?: EntityId) {
+			const store = getRelationStore(type);
+			const targets = store.forward.get(source);
+			if (!targets) return;
+			if (target === undefined) {
+				// Remove ALL of source's outgoing edges for this relation.
+				for (const t of [...targets]) removeRelationEdge(store, source, t);
+			} else if (targets.has(target)) {
+				removeRelationEdge(store, source, target);
+			}
+		},
+
+		getTargets(source: EntityId, type: RelationType): EntityId[] {
+			const store = getRelationStore(type);
+			const targets = store.forward.get(source);
+			return targets ? [...targets] : [];
+		},
+
+		getTarget(source: EntityId, type: RelationType): EntityId | undefined {
+			const store = getRelationStore(type);
+			const targets = store.forward.get(source);
+			if (!targets) return undefined;
+			for (const t of targets) return t;
+			return undefined;
+		},
+
+		getSources(type: RelationType, target: EntityId): EntityId[] {
+			const store = getRelationStore(type);
+			const sources = store.inverse.get(target);
+			return sources ? [...sources] : [];
+		},
+
 		// === Queries (cached) ===
 
 		query(...types: (ComponentType | TagType | NotTerm)[]): QueryResult {
@@ -552,6 +783,25 @@ export function createWorld(): World {
 		queryRemovedTag(type: TagType): QueryResult {
 			const store = getTagStore(type);
 			return [...store.removed];
+		},
+
+		queryRelation(type: RelationType): RelationEdge[] {
+			const store = getRelationStore(type);
+			const result: [EntityId, EntityId][] = [];
+			for (const [source, targets] of store.forward) {
+				for (const target of targets) result.push([source, target]);
+			}
+			return result;
+		},
+
+		queryRelationAdded(type: RelationType): RelationEdge[] {
+			const store = getRelationStore(type);
+			return decodeEdgeKeys(store.added);
+		},
+
+		queryRelationRemoved(type: RelationType): RelationEdge[] {
+			const store = getRelationStore(type);
+			return decodeEdgeKeys(store.removed);
 		},
 
 		// === Resources ===
@@ -645,6 +895,42 @@ export function createWorld(): World {
 			};
 		},
 
+		onRelationAdded(
+			type: RelationType,
+			handler: RelationHandler,
+			sourceId?: EntityId,
+		): Unsubscribe {
+			const store = getRelationStore(type);
+			const key: EntityId | '*' = sourceId ?? '*';
+			let handlers = store.addedHandlers.get(key);
+			if (!handlers) {
+				handlers = new Set();
+				store.addedHandlers.set(key, handlers);
+			}
+			handlers.add(handler);
+			return () => {
+				handlers.delete(handler);
+			};
+		},
+
+		onRelationRemoved(
+			type: RelationType,
+			handler: RelationHandler,
+			sourceId?: EntityId,
+		): Unsubscribe {
+			const store = getRelationStore(type);
+			const key: EntityId | '*' = sourceId ?? '*';
+			let handlers = store.removedHandlers.get(key);
+			if (!handlers) {
+				handlers = new Set();
+				store.removedHandlers.set(key, handlers);
+			}
+			handlers.add(handler);
+			return () => {
+				handlers.delete(handler);
+			};
+		},
+
 		onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe {
 			createListeners.add(callback);
 			return () => {
@@ -710,6 +996,10 @@ export function createWorld(): World {
 				store.removed.clear();
 			}
 			for (const store of tags.values()) {
+				store.added.clear();
+				store.removed.clear();
+			}
+			for (const store of relations.values()) {
 				store.added.clear();
 				store.removed.clear();
 			}

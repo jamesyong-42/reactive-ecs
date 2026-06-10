@@ -21,6 +21,38 @@ export interface NotTerm {
 	readonly __kind: 'not';
 }
 
+/**
+ * Options for defineRelation() — exclusivity bounds and the target-destroy policy.
+ * The two exclusivity bounds are independent: a `ChildOf` relation is
+ * `sourceExclusive` only (one parent, many children); a true 1:1 ownership
+ * edge sets both.
+ */
+export interface RelationOptions {
+	/** At most one target per source — relating to a second target replaces the first. Default: false. */
+	readonly sourceExclusive?: boolean;
+	/** At most one source per target — relating from a second source replaces the first. Default: false. */
+	readonly targetExclusive?: boolean;
+	/**
+	 * What happens to each source when its target is destroyed, applied after
+	 * the destroy sweep completes: `'clear'` drops the edge and leaves the
+	 * source alone, `'cascade'` destroys the source too, `{ tag }` adds the tag
+	 * to the source. Default: `'clear'`.
+	 */
+	readonly onTargetDestroy?: 'cascade' | 'clear' | { readonly tag: TagType };
+}
+
+/**
+ * Relation type definition created by defineRelation() — a managed,
+ * inverse-indexed, lifecycle-cleaned edge between two entities.
+ */
+export interface RelationType {
+	readonly name: string;
+	/** Normalized options — defaults applied by defineRelation(). */
+	readonly options: Readonly<Required<RelationOptions>>;
+	/** Internal brand to distinguish relations from components/tags */
+	readonly __kind: 'relation';
+}
+
 /** Resource type definition created by defineResource() */
 export interface ResourceType<T = unknown> {
 	readonly name: string;
@@ -67,6 +99,17 @@ export type ComponentRemovedHandler<T = unknown> = (entityId: EntityId, prev: T)
 
 export type TagChangedHandler = (entityId: EntityId) => void;
 
+/**
+ * Fired synchronously when a relation edge is added or removed. Removal
+ * handlers also fire for each edge torn down by `destroyEntity` of either
+ * endpoint — during the destroy sweep the dying entity's components and tags
+ * are still readable, but handlers must not mutate the world mid-destroy.
+ */
+export type RelationHandler = (source: EntityId, target: EntityId) => void;
+
+/** A single relation edge — `[source, target]`. */
+export type RelationEdge = readonly [EntityId, EntityId];
+
 export type FrameHandler = () => void;
 
 export type Unsubscribe = () => void;
@@ -101,7 +144,11 @@ export interface World {
 	 * forever instead of letting their ids be re-issued.
 	 */
 	setNextEntityId(n: number): void;
-	/** Destroys an entity and removes all its components and tags. */
+	/**
+	 * Destroys an entity and removes all its components, tags, and relation
+	 * edges (as source or target — applying each relation's `onTargetDestroy`
+	 * policy after teardown completes).
+	 */
 	destroyEntity(id: EntityId): void;
 	/** Checks if an entity ID is still alive. */
 	entityExists(id: EntityId): boolean;
@@ -127,6 +174,28 @@ export interface World {
 	removeTag(entity: EntityId, type: TagType): void;
 	/** Checks if an entity has a tag. */
 	hasTag(entity: EntityId, type: TagType): boolean;
+
+	// Relation access
+
+	/**
+	 * Adds a relation edge from `source` to `target`. Throws if source or
+	 * target is not alive — a born-dangling edge is impossible. No-op if the
+	 * exact edge already exists. If an exclusivity bound would be violated,
+	 * the existing edge is replaced: removed-then-added events fire, mirroring
+	 * setComponent overwrite semantics.
+	 */
+	relate(source: EntityId, type: RelationType, target: EntityId): void;
+	/**
+	 * Removes the edge from `source` to `target` — or, with `target` omitted,
+	 * ALL of source's outgoing edges for this relation. No-op if absent.
+	 */
+	unrelate(source: EntityId, type: RelationType, target?: EntityId): void;
+	/** Returns the targets `source` points at via this relation. `[]` if none. */
+	getTargets(source: EntityId, type: RelationType): EntityId[];
+	/** Returns source's single target — convenience for sourceExclusive relations. */
+	getTarget(source: EntityId, type: RelationType): EntityId | undefined;
+	/** Returns the sources pointing at `target` — the always-coherent inverse. `[]` if none. */
+	getSources(type: RelationType, target: EntityId): EntityId[];
 
 	// Queries
 
@@ -154,6 +223,19 @@ export interface World {
 	 * `destroyEntity`. Net-cancels with `addTag` in the same tick.
 	 */
 	queryRemovedTag(type: TagType): QueryResult;
+	/** Returns all live edges of a relation as `[source, target]` pairs. */
+	queryRelation(type: RelationType): RelationEdge[];
+	/**
+	 * Returns edges added this tick. Mirror of `queryAdded` for relations.
+	 * Net-cancels with `unrelate` of the same edge in the same tick.
+	 */
+	queryRelationAdded(type: RelationType): RelationEdge[];
+	/**
+	 * Returns edges removed this tick — via `unrelate`, exclusivity
+	 * replacement, or `destroyEntity` of either endpoint. Net-cancels with
+	 * `relate` of the same edge in the same tick.
+	 */
+	queryRelationRemoved(type: RelationType): RelationEdge[];
 
 	// Resources
 
@@ -185,6 +267,15 @@ export interface World {
 	onTagAdded(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
 	/** Subscribes to tag removals, optionally filtered to a single entity. */
 	onTagRemoved(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
+	/** Subscribes to relation edge additions, optionally filtered to a single source entity. */
+	onRelationAdded(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
+	/**
+	 * Subscribes to relation edge removals, optionally filtered to a single
+	 * source entity. Also fires for each edge torn down by `destroyEntity` of
+	 * either endpoint — the dying entity's components and tags are still
+	 * readable at fire-time, but handlers must not mutate mid-destroy.
+	 */
+	onRelationRemoved(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
 	/** Subscribes to entity creation events. */
 	onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe;
 	/** Subscribes to entity destruction events. */
