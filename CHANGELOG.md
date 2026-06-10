@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.10.0...reactive-ecs-v0.11.0) (2026-06-10)
+
+
+### Features
+
+* **devtools:** EcsInspector floating window ([baf6a61](https://github.com/jamesyong-42/reactive-ecs/commit/baf6a61b02464538dc1739859055d4724bb26212))
+* **devtools:** EntityTimeline canvas waterfall component ([0c53ef4](https://github.com/jamesyong-42/reactive-ecs/commit/0c53ef4e571ffb7728b6ab20055ba34c9de06e78))
+* **devtools:** headless lifecycle recorder with pluggable describer ([7a68bda](https://github.com/jamesyong-42/reactive-ecs/commit/7a68bdaa925f642e997565ea961f475eba6e17b0))
+* out-of-the-box devtools — lifecycle recorder, EntityTimeline, EcsInspector ([f73fc1b](https://github.com/jamesyong-42/reactive-ecs/commit/f73fc1bfa2f0ba598a782526907516e3f05bb610))
+
 ## [0.10.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.9.0...reactive-ecs-v0.10.0) (2026-06-10)
 
 
