@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.4.0...reactive-ecs-v0.5.0) (2026-06-10)
+
+
+### Features
+
+* id-preserving entity restore (RFC-002.2) ([53d1eca](https://github.com/jamesyong-42/reactive-ecs/commit/53d1ecaec806970974eb3f16245be2bac6c35821))
+* **world:** add createEntityWithId and setNextEntityId (RFC-002.2) ([cf1f6e0](https://github.com/jamesyong-42/reactive-ecs/commit/cf1f6e0d829dd2c37347821f7e17579a4976a141))
+
 ## [0.4.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.3.0...reactive-ecs-v0.4.0) (2026-05-21)
 
 
