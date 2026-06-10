@@ -1,3 +1,4 @@
+export { EcsInspector, type EcsInspectorProps, type InspectorTab } from './EcsInspector.js';
 export {
 	EntityTimeline,
 	type EntityTimelineProps,
