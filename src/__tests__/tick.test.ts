@@ -23,7 +23,7 @@ describe('tickWorld', () => {
 
 		tickWorld(world, (w) => {
 			order.push('fn');
-			w.setComponent(e, Position, { x: 2 });
+			w.patchComponent(e, Position, { x: 2 });
 		});
 
 		expect(order).toEqual(['fn', 'frame']);

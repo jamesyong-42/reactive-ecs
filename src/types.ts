@@ -232,23 +232,23 @@ export interface World {
 	/**
 	 * Reads a component from an entity. Returns undefined if not present.
 	 * The returned object is the live store value typed read-only; write
-	 * through `setComponent` / `replaceComponent`.
+	 * through `patchComponent` / `addComponent`.
 	 */
 	getComponent<T>(entity: EntityId, type: ComponentType<T>): Readonly<T> | undefined;
 	/** Checks if an entity has a component. */
 	hasComponent(entity: EntityId, type: ComponentType): boolean;
-	/** Partially updates a component on an entity (shallow merge). */
-	setComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>): void;
 	/**
-	 * Full-value upsert: the component's next value is a recursive clone of
-	 * `data` merged over the type's defaults. Unlike `setComponent` (shallow
-	 * merge into the existing value, no-op if absent) and `addComponent`
-	 * (defaults-merge attach-or-replace with optional partial data), the
-	 * caller supplies the complete value. Observers receive the true prev
-	 * (`undefined` if the component was absent); buffers record absent →
-	 * added + dirty, present → dirty only. Throws if the entity is not alive.
+	 * Strict shallow-merge update of an existing component: one level deep,
+	 * nested objects in `data` replace wholesale. Incoming plain data is
+	 * defensively cloned; observers receive a top-level snapshot of the prior
+	 * value as `prev`, and the entity lands in the `queryChanged` buffer.
+	 * Non-creating by design — absence is never silent: throws if the entity
+	 * is dead, and throws if the entity is alive but lacks the component (use
+	 * `addComponent` to attach). For writes that may race a destroy (async
+	 * callbacks, timers), the idiomatic guard is
+	 * `if (world.entityExists(id)) world.patchComponent(id, Type, data)`.
 	 */
-	replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T): void;
+	patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>): void;
 
 	// Tag access
 
@@ -266,7 +266,7 @@ export interface World {
 	 * target is not alive — a born-dangling edge is impossible. No-op if the
 	 * exact edge already exists. If an exclusivity bound would be violated,
 	 * the existing edge is replaced: removed-then-added events fire, mirroring
-	 * setComponent overwrite semantics.
+	 * addComponent overwrite semantics.
 	 */
 	relate(source: EntityId, type: RelationType, target: EntityId): void;
 	/**

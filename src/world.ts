@@ -164,7 +164,7 @@ function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
 /**
  * Defensive clone of incoming partial write data — same plain-data rules as
  * `instantiateDefaults` (arrays / plain objects cloned recursively, class
- * instances by reference). Used by `setComponent` / `setResource` so a
+ * instances by reference). Used by `patchComponent` / `setResource` so a
  * caller-held alias to nested data can never mutate world state silently.
  */
 function clonePartial<T>(data: Partial<T>): Partial<T> {
@@ -732,10 +732,20 @@ export function createWorld(): World {
 		},
 
 		// Only allocate prev object when there are listeners
-		setComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>) {
+		patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>) {
+			if (!alive.has(entity)) {
+				throw new Error(
+					`patchComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
+				);
+			}
 			const store = getComponentStore(type);
 			const existing = store.data.get(entity);
-			if (!existing) return;
+			if (existing === undefined) {
+				throw new Error(
+					`patchComponent(${type.name}): entity ${entity} has no ${type.name} — ` +
+						`use addComponent to attach`,
+				);
+			}
 			// Clone incoming plain data so a caller-held alias can't mutate
 			// world state behind the API later.
 			const incoming = clonePartial(data);
@@ -745,35 +755,13 @@ export function createWorld(): World {
 				// `next`, which is safe: write paths clone incoming data and
 				// stored nested values are only ever replaced, never mutated.
 				const prev = { ...existing };
-				Object.assign(existing, incoming);
+				Object.assign(existing as Record<string, unknown>, incoming);
 				store.dirty.add(entity);
 				emitComponentChanged(store, entity, prev, existing);
 			} else {
-				Object.assign(existing, incoming);
+				Object.assign(existing as Record<string, unknown>, incoming);
 				store.dirty.add(entity);
 			}
-		},
-
-		replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T) {
-			if (!alive.has(entity)) {
-				throw new Error(
-					`replaceComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
-				);
-			}
-			const store = getComponentStore(type);
-			const prev = store.data.get(entity);
-			const next = instantiateDefaults(type.defaults, data);
-			store.data.set(entity, next);
-			store.dirty.add(entity);
-			if (prev === undefined) {
-				store.added.add(entity);
-				// Net-cancellation with queryRemoved: re-adding within the same tick
-				// undoes a prior remove from the buffer.
-				store.removed.delete(entity);
-			}
-			// Update cached queries that include this component
-			updateCachesForEntity(type.name, entity);
-			emitComponentChanged(store, entity, prev, next);
 		},
 
 		// === Tag access ===
@@ -828,7 +816,7 @@ export function createWorld(): World {
 			const store = getRelationStore(type);
 			if (store.forward.get(source)?.has(target)) return;
 			// Exclusivity violation replaces — the displaced edge is removed with
-			// full removed-event semantics BEFORE the add, mirroring setComponent
+			// full removed-event semantics BEFORE the add, mirroring addComponent
 			// overwrite (removed-then-added).
 			if (type.options.sourceExclusive) {
 				const existingTargets = store.forward.get(source);
@@ -1013,12 +1001,12 @@ export function createWorld(): World {
 		setResource<T>(type: ResourceType<T>, data: Partial<T>) {
 			const store = getResourceStore(type);
 			changedResources.add(type.name);
-			// Clone incoming plain data — same aliasing guarantee as setComponent.
+			// Clone incoming plain data — same aliasing guarantee as patchComponent.
 			const incoming = clonePartial(data);
 			if (store.handlers.size > 0) {
 				// Top-level snapshot BEFORE the merge — `prev` itself never
 				// aliases the live value; untouched nested values are shared
-				// with `next` (safe — see setComponent).
+				// with `next` (safe — see patchComponent).
 				const prev = { ...store.value };
 				Object.assign(store.value as Record<string, unknown>, incoming);
 				emitResourceChanged(store, prev, store.value);

@@ -86,11 +86,11 @@ describe('World', () => {
 			expect(world.queryRemoved(Position)).toEqual([]);
 		});
 
-		it('sets partial component data', () => {
+		it('patches partial component data', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 10, y: 20 });
-			world.setComponent(e, Position, { x: 99 });
+			world.patchComponent(e, Position, { x: 99 });
 			const pos = world.getComponent(e, Position);
 			expect(pos).toBeDefined();
 			if (!pos) throw new Error('Position component missing');
@@ -143,22 +143,28 @@ describe('World', () => {
 		});
 	});
 
-	describe('replaceComponent', () => {
-		it('attaches when absent — emits prev undefined, lands in added + dirty', () => {
+	describe('patchComponent', () => {
+		it('shallow-merges one level — untouched fields survive', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			const handler = vi.fn();
-			world.onComponentChanged(Position, handler);
-
-			world.replaceComponent(e, Position, { x: 3, y: 4 });
-			expect(world.getComponent(e, Position)).toEqual({ x: 3, y: 4 });
-			expect(handler).toHaveBeenCalledTimes(1);
-			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 3, y: 4 });
-			expect(world.queryAdded(Position)).toEqual([e]);
-			expect(world.queryChanged(Position)).toEqual([e]);
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.patchComponent(e, Position, { x: 9 });
+			expect(world.getComponent(e, Position)).toEqual({ x: 9, y: 2 });
 		});
 
-		it('replaces when present — emits the true prev, lands in dirty only', () => {
+		it('nested objects in the patch replace wholesale — the merge is one level deep', () => {
+			const Style = defineComponent('PatchStyle', {
+				fill: { color: 'red', opacity: 1 } as Record<string, unknown>,
+			});
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Style);
+			world.patchComponent(e, Style, { fill: { color: 'blue' } });
+			// The nested object is replaced, not merged — opacity is gone.
+			expect(world.getComponent(e, Style)).toEqual({ fill: { color: 'blue' } });
+		});
+
+		it('emits onComponentChanged with a top-level prev snapshot and lands in queryChanged', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
@@ -166,42 +172,29 @@ describe('World', () => {
 
 			const handler = vi.fn();
 			world.onComponentChanged(Position, handler);
-			world.replaceComponent(e, Position, { x: 9, y: 9 });
+			world.patchComponent(e, Position, { x: 9 });
 
 			expect(handler).toHaveBeenCalledTimes(1);
-			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 9 });
+			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 2 });
 			expect(world.queryChanged(Position)).toEqual([e]);
 			expect(world.queryAdded(Position)).toEqual([]);
 		});
 
-		it('replaces the WHOLE value — no merge with the existing one', () => {
+		it('throws on a dead entity — absence is never silent', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			world.addComponent(e, Position, { x: 7, y: 7 });
-			world.replaceComponent(e, Position, { x: 1, y: 0 });
-			// y comes from the supplied value (full shape), not the prior 7.
-			expect(world.getComponent(e, Position)).toEqual({ x: 1, y: 0 });
-		});
-
-		it('net-cancels with removeComponent in the same tick', () => {
-			const world = createWorld();
-			const e = world.createEntity();
-			world.addComponent(e, Position, { x: 1, y: 2 });
-			world.clearDirty();
-
-			world.removeComponent(e, Position);
-			expect(world.queryRemoved(Position)).toEqual([e]);
-			world.replaceComponent(e, Position, { x: 5, y: 5 });
-			expect(world.queryRemoved(Position)).toEqual([]);
-			expect(world.queryAdded(Position)).toEqual([e]);
-		});
-
-		it('throws on a dead entity', () => {
-			const world = createWorld();
-			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
 			world.destroyEntity(e);
-			expect(() => world.replaceComponent(e, Position, { x: 0, y: 0 })).toThrow(
-				/does not exist or has been destroyed/,
+			expect(() => world.patchComponent(e, Position, { x: 1 })).toThrow(
+				`patchComponent(Position): entity ${e} does not exist or has been destroyed`,
+			);
+		});
+
+		it('throws when the entity is alive but lacks the component', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			expect(() => world.patchComponent(e, Position, { x: 1 })).toThrow(
+				`patchComponent(Position): entity ${e} has no Position — use addComponent to attach`,
 			);
 		});
 	});
@@ -293,8 +286,8 @@ describe('World', () => {
 			// Clear dirty
 			world.clearDirty();
 
-			// Only e1 is dirty after set
-			world.setComponent(e1, Position, { x: 99 });
+			// Only e1 is dirty after patch
+			world.patchComponent(e1, Position, { x: 99 });
 			const changed = world.queryChanged(Position);
 			expect(changed).toHaveLength(1);
 			expect(changed).toContain(e1);
@@ -762,7 +755,7 @@ describe('World', () => {
 			expect(handler).toHaveBeenCalledTimes(1);
 
 			unsub();
-			world.setComponent(e, Position, { x: 99 });
+			world.patchComponent(e, Position, { x: 99 });
 			expect(handler).toHaveBeenCalledTimes(1); // not called again
 		});
 
@@ -1225,14 +1218,14 @@ describe('World', () => {
 	});
 
 	describe('write aliasing', () => {
-		it('setComponent clones incoming plain data — caller aliases cannot mutate world state', () => {
+		it('patchComponent clones incoming plain data — caller aliases cannot mutate world state', () => {
 			const Box = defineComponent('AliasBox', { inner: { v: 0 }, list: [0] });
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Box);
 			const inner = { v: 99 };
 			const data = { inner, list: [1, 2] };
-			world.setComponent(e, Box, data);
+			world.patchComponent(e, Box, data);
 			inner.v = 123;
 			data.list.push(3);
 			expect(world.getComponent(e, Box)).toEqual({ inner: { v: 99 }, list: [1, 2] });
@@ -1247,7 +1240,7 @@ describe('World', () => {
 			expect(world.getResource(Cfg).opts.darkMode).toBe(true);
 		});
 
-		it('setComponent prev snapshot does not alias next at the top level', () => {
+		it('patchComponent prev snapshot does not alias next at the top level', () => {
 			const Box = defineComponent('AliasBox2', { v: 0 });
 			const world = createWorld();
 			const e = world.createEntity();
@@ -1256,7 +1249,7 @@ describe('World', () => {
 			world.onComponentChanged(Box, (_id, prev, next) => {
 				captured = { prev, next };
 			});
-			world.setComponent(e, Box, { v: 1 });
+			world.patchComponent(e, Box, { v: 1 });
 			expect(captured.prev).not.toBe(captured.next);
 			expect(captured.prev).toEqual({ v: 0 });
 			expect(captured.next).toEqual({ v: 1 });
