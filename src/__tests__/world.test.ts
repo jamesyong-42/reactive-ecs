@@ -1223,4 +1223,43 @@ describe('World', () => {
 			expect(w2.getResource(Config).tags).toEqual(['a', 'b']);
 		});
 	});
+
+	describe('write aliasing', () => {
+		it('setComponent clones incoming plain data — caller aliases cannot mutate world state', () => {
+			const Box = defineComponent('AliasBox', { inner: { v: 0 }, list: [0] });
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Box);
+			const inner = { v: 99 };
+			const data = { inner, list: [1, 2] };
+			world.setComponent(e, Box, data);
+			inner.v = 123;
+			data.list.push(3);
+			expect(world.getComponent(e, Box)).toEqual({ inner: { v: 99 }, list: [1, 2] });
+		});
+
+		it('setResource clones incoming plain data — caller aliases cannot mutate world state', () => {
+			const Cfg = defineResource('AliasConfig', { opts: { darkMode: false } });
+			const world = createWorld();
+			const opts = { darkMode: true };
+			world.setResource(Cfg, { opts });
+			opts.darkMode = false;
+			expect(world.getResource(Cfg).opts.darkMode).toBe(true);
+		});
+
+		it('setComponent prev snapshot does not alias next at the top level', () => {
+			const Box = defineComponent('AliasBox2', { v: 0 });
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Box);
+			let captured: { prev?: unknown; next?: unknown } = {};
+			world.onComponentChanged(Box, (_id, prev, next) => {
+				captured = { prev, next };
+			});
+			world.setComponent(e, Box, { v: 1 });
+			expect(captured.prev).not.toBe(captured.next);
+			expect(captured.prev).toEqual({ v: 0 });
+			expect(captured.next).toEqual({ v: 1 });
+		});
+	});
 });
