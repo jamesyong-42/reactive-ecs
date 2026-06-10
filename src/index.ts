@@ -12,6 +12,7 @@ export {
 	type SystemProfiler,
 	SystemScheduler,
 } from './scheduler.js';
+export { tickWorld } from './tick.js';
 export type {
 	ComponentChangedHandler,
 	ComponentInit,
