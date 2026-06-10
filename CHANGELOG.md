@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.7.0...reactive-ecs-v0.8.0) (2026-06-10)
+
+
+### Features
+
+* origin-tagged mutations (RFC-003) ([0bc382a](https://github.com/jamesyong-42/reactive-ecs/commit/0bc382af5e5fb0e0201e836867cd31439649e3f1))
+
 ## [0.7.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.6.0...reactive-ecs-v0.7.0) (2026-06-10)
 
 
