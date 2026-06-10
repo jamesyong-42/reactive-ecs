@@ -100,6 +100,15 @@ export type ComponentRemovedHandler<T = unknown> = (entityId: EntityId, prev: T)
 export type TagChangedHandler = (entityId: EntityId) => void;
 
 /**
+ * Fired synchronously inside `setResource`, AFTER the shallow merge is
+ * applied. `prev` is a shallow snapshot of the value before the merge — it
+ * never aliases the live object — and `next` is the live post-merge value.
+ * Handlers can read `world.mutationOrigin` to see the origin of the mutating
+ * call.
+ */
+export type ResourceChangedHandler<T = unknown> = (prev: T, next: T) => void;
+
+/**
  * Fired synchronously when a relation edge is added or removed. Removal
  * handlers also fire for each edge torn down by `destroyEntity` of either
  * endpoint — during the destroy sweep the dying entity's components and tags
@@ -263,6 +272,12 @@ export interface World {
 	 * `relate` of the same edge in the same tick.
 	 */
 	queryRelationRemoved(type: RelationType): RelationEdge[];
+	/**
+	 * Returns resource types whose `setResource` was called this tick, in
+	 * first-changed order. Mirror of `queryChanged` for resources. Lazy
+	 * creation via `getResource` is not a change — only `setResource` counts.
+	 */
+	queryChangedResources(): ResourceType[];
 
 	// Resources
 
@@ -303,6 +318,14 @@ export interface World {
 	 * readable at fire-time, but handlers must not mutate mid-destroy.
 	 */
 	onRelationRemoved(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
+	/**
+	 * Subscribes to resource changes — fires synchronously inside `setResource`
+	 * after the merge is applied, with a pre-merge snapshot as `prev` and the
+	 * live value as `next`. Resources are singletons, so there is no per-entity
+	 * filter. Handlers can read `world.mutationOrigin`. Subscribing lazily
+	 * creates the resource from its defaults, like `getResource`.
+	 */
+	onResourceChanged<T>(type: ResourceType<T>, handler: ResourceChangedHandler<T>): Unsubscribe;
 	/** Subscribes to entity creation events. */
 	onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe;
 	/** Subscribes to entity destruction events. */

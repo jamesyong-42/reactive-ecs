@@ -9,6 +9,7 @@ import type {
 	RelationEdge,
 	RelationHandler,
 	RelationType,
+	ResourceChangedHandler,
 	ResourceType,
 	TagChangedHandler,
 	TagType,
@@ -53,6 +54,14 @@ interface RelationStore {
 	removed: Set<string>;
 	addedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
+}
+
+/** Internal storage for a single resource type */
+interface ResourceStore<T = unknown> {
+	/** Identity anchor — used to detect name collisions across defineResource() calls. */
+	type: ResourceType<T>;
+	value: T;
+	handlers: Set<ResourceChangedHandler<T>>;
 }
 
 /** Buffer key for a single relation edge — `\0` cannot appear in a numeric id. */
@@ -104,10 +113,11 @@ export function createWorld(): World {
 	// Relation storage: one edge index per relation type — a side index,
 	// never an archetype/query key, so the query cache is untouched.
 	const relations = new Map<string, RelationStore>();
-	// Resources: one value per resource type
-	const resources = new Map<string, unknown>();
-	// Identity anchors for resources — same purpose as ComponentStore.type
-	const resourceTypes = new Map<string, ResourceType>();
+	// Resource storage: one store per resource type
+	const resources = new Map<string, ResourceStore>();
+	// Resource type names set this tick — Set iteration preserves insertion
+	// order, so this doubles as the first-changed order for queryChangedResources.
+	const changedResources = new Set<string>();
 	// Frame handlers
 	const frameHandlers = new Set<FrameHandler>();
 	// Create listeners — called after the entity id is assigned and marked alive
@@ -295,6 +305,27 @@ export function createWorld(): World {
 		return store;
 	}
 
+	function getResourceStore<T>(type: ResourceType<T>): ResourceStore<T> {
+		const existing = resources.get(type.name) as ResourceStore<T> | undefined;
+		if (existing) {
+			if (existing.type !== type) {
+				throw new Error(
+					`Resource name collision: "${type.name}" is already registered to a different ResourceType. ` +
+						`Names must be unique across all defineResource() calls.`,
+				);
+			}
+			return existing;
+		}
+		const store: ResourceStore<T> = {
+			type,
+			value: instantiateDefaults(type.defaults),
+			handlers: new Set(),
+		};
+		// Cast to the erased type held in the Map. Safe — see note on getComponentStore's return.
+		resources.set(type.name, store as ResourceStore);
+		return store;
+	}
+
 	function hasListeners<T>(store: ComponentStore<T>): boolean {
 		if (store.handlers.size === 0) return false;
 		for (const set of store.handlers.values()) {
@@ -361,6 +392,10 @@ export function createWorld(): World {
 		if (wildcardHandlers) {
 			for (const h of wildcardHandlers) h(source, target);
 		}
+	}
+
+	function emitResourceChanged<T>(store: ResourceStore<T>, prev: T, next: T) {
+		for (const h of store.handlers) h(prev, next);
 	}
 
 	function emitRelationRemoved(store: RelationStore, source: EntityId, target: EntityId) {
@@ -828,29 +863,33 @@ export function createWorld(): World {
 			return decodeEdgeKeys(store.removed);
 		},
 
+		queryChangedResources(): ResourceType[] {
+			const result: ResourceType[] = [];
+			for (const name of changedResources) {
+				const store = resources.get(name);
+				if (store) result.push(store.type);
+			}
+			return result;
+		},
+
 		// === Resources ===
 
 		getResource<T>(type: ResourceType<T>): T {
-			const existing = resourceTypes.get(type.name);
-			if (existing) {
-				if (existing !== (type as ResourceType)) {
-					throw new Error(
-						`Resource name collision: "${type.name}" is already registered to a different ResourceType. ` +
-							`Names must be unique across all defineResource() calls.`,
-					);
-				}
-			} else {
-				resourceTypes.set(type.name, type as ResourceType);
-			}
-			if (!resources.has(type.name)) {
-				resources.set(type.name, instantiateDefaults(type.defaults));
-			}
-			return resources.get(type.name) as T;
+			return getResourceStore(type).value;
 		},
 
+		// Only allocate the prev snapshot when there are listeners
 		setResource<T>(type: ResourceType<T>, data: Partial<T>) {
-			const existing = world.getResource(type);
-			Object.assign(existing as Record<string, unknown>, data);
+			const store = getResourceStore(type);
+			changedResources.add(type.name);
+			if (store.handlers.size > 0) {
+				// Snapshot BEFORE the merge — prev must never alias the live value.
+				const prev = { ...store.value };
+				Object.assign(store.value as Record<string, unknown>, data);
+				emitResourceChanged(store, prev, store.value);
+			} else {
+				Object.assign(store.value as Record<string, unknown>, data);
+			}
 		},
 
 		// === Events ===
@@ -955,6 +994,14 @@ export function createWorld(): World {
 			};
 		},
 
+		onResourceChanged<T>(type: ResourceType<T>, handler: ResourceChangedHandler<T>): Unsubscribe {
+			const store = getResourceStore(type);
+			store.handlers.add(handler);
+			return () => {
+				store.handlers.delete(handler);
+			};
+		},
+
 		onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe {
 			createListeners.add(callback);
 			return () => {
@@ -993,7 +1040,9 @@ export function createWorld(): World {
 		},
 
 		getRegisteredResources(): ResourceType[] {
-			return [...resourceTypes.values()];
+			const result: ResourceType[] = [];
+			for (const store of resources.values()) result.push(store.type);
+			return result;
 		},
 
 		getComponentsOf(entity: EntityId): ComponentType[] {
@@ -1027,6 +1076,7 @@ export function createWorld(): World {
 				store.added.clear();
 				store.removed.clear();
 			}
+			changedResources.clear();
 		},
 
 		incrementTick() {
