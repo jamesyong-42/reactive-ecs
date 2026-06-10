@@ -429,6 +429,124 @@ describe('World', () => {
 		});
 	});
 
+	describe('resource observability', () => {
+		const Settings = defineResource('Settings', { volume: 1, muted: false });
+
+		it('onResourceChanged receives a pre-merge prev snapshot and the live post-merge next', () => {
+			const world = createWorld();
+			world.setResource(Camera, { x: 5 });
+
+			let seenPrev: { x: number; y: number; zoom: number } | undefined;
+			let seenNext: { x: number; y: number; zoom: number } | undefined;
+			world.onResourceChanged(Camera, (prev, next) => {
+				seenPrev = prev;
+				seenNext = next;
+			});
+
+			world.setResource(Camera, { zoom: 2 });
+			expect(seenPrev).toEqual({ x: 5, y: 0, zoom: 1 });
+			expect(seenNext).toEqual({ x: 5, y: 0, zoom: 2 });
+			// next is the live value; prev is a snapshot that never aliases it
+			expect(seenNext).toBe(world.getResource(Camera));
+			expect(seenPrev).not.toBe(seenNext);
+		});
+
+		it('fires on the first setResource with the defaults-only value as prev', () => {
+			const world = createWorld();
+			const handler = vi.fn();
+			world.onResourceChanged(Camera, handler);
+
+			world.setResource(Camera, { zoom: 3 });
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith({ x: 0, y: 0, zoom: 1 }, { x: 0, y: 0, zoom: 3 });
+		});
+
+		it('fires on every setResource, not just the first', () => {
+			const world = createWorld();
+			const handler = vi.fn();
+			world.onResourceChanged(Camera, handler);
+
+			world.setResource(Camera, { x: 1 });
+			world.setResource(Camera, { x: 2 });
+			expect(handler).toHaveBeenCalledTimes(2);
+			expect(handler).toHaveBeenLastCalledWith({ x: 1, y: 0, zoom: 1 }, { x: 2, y: 0, zoom: 1 });
+		});
+
+		it('lazy getResource fires nothing and does not count as a change', () => {
+			const world = createWorld();
+			const handler = vi.fn();
+			world.onResourceChanged(Camera, handler);
+
+			world.getResource(Camera);
+			expect(handler).not.toHaveBeenCalled();
+			expect(world.queryChangedResources()).toEqual([]);
+		});
+
+		it('multiple handlers fire in subscription order', () => {
+			const world = createWorld();
+			const order: string[] = [];
+			world.onResourceChanged(Camera, () => order.push('first'));
+			world.onResourceChanged(Camera, () => order.push('second'));
+
+			world.setResource(Camera, { x: 1 });
+			expect(order).toEqual(['first', 'second']);
+		});
+
+		it('unsubscribes handlers', () => {
+			const world = createWorld();
+			const handler = vi.fn();
+			const unsub = world.onResourceChanged(Camera, handler);
+
+			world.setResource(Camera, { x: 1 });
+			expect(handler).toHaveBeenCalledTimes(1);
+
+			unsub();
+			world.setResource(Camera, { x: 2 });
+			expect(handler).toHaveBeenCalledTimes(1); // not called again
+		});
+
+		it('queryChangedResources contains the type after setResource', () => {
+			const world = createWorld();
+			world.setResource(Camera, { zoom: 2 });
+			expect(world.queryChangedResources()).toEqual([Camera]);
+		});
+
+		it('queryChangedResources dedupes multiple sets of the same resource in one tick', () => {
+			const world = createWorld();
+			world.setResource(Camera, { x: 1 });
+			world.setResource(Camera, { x: 2 });
+			expect(world.queryChangedResources()).toEqual([Camera]);
+		});
+
+		it('queryChangedResources is cleared by clearDirty', () => {
+			const world = createWorld();
+			world.setResource(Camera, { x: 1 });
+			expect(world.queryChangedResources()).toEqual([Camera]);
+
+			world.clearDirty();
+			expect(world.queryChangedResources()).toEqual([]);
+		});
+
+		it('queryChangedResources lists distinct resources in first-changed order', () => {
+			const world = createWorld();
+			world.setResource(Settings, { volume: 0.5 });
+			world.setResource(Camera, { x: 1 });
+			world.setResource(Settings, { muted: true }); // re-set does not reorder
+			expect(world.queryChangedResources()).toEqual([Settings, Camera]);
+		});
+
+		it('handlers read the withOrigin origin, and undefined outside any window', () => {
+			const world = createWorld();
+			const REMOTE = Symbol('remote');
+			const seen: (string | symbol | undefined)[] = [];
+			world.onResourceChanged(Camera, () => seen.push(world.mutationOrigin));
+
+			world.withOrigin(REMOTE, () => world.setResource(Camera, { x: 1 }));
+			world.setResource(Camera, { x: 2 });
+			expect(seen).toEqual([REMOTE, undefined]);
+		});
+	});
+
 	describe('events', () => {
 		it('fires component changed events', () => {
 			const world = createWorld();
