@@ -400,6 +400,54 @@ describe('World', () => {
 			expect(world.query(Position, Not(Velocity))).toEqual([]);
 		});
 
+		it('component and tag sharing a name never share a cache key — component queried first', () => {
+			// Repro for the aliasing bug: bare type names in the cache key let
+			// query(Position, SelectedComponent) and query(Position, SelectedTag)
+			// collide and return each other's results.
+			const SelectedComponent = defineComponent('Selected', { weight: 0 });
+			const world = createWorld();
+			const viaComponent = world.createEntity();
+			const viaTag = world.createEntity();
+			world.addComponent(viaComponent, Position, { x: 0, y: 0 });
+			world.addComponent(viaComponent, SelectedComponent, { weight: 1 });
+			world.addComponent(viaTag, Position, { x: 1, y: 1 });
+			world.addTag(viaTag, Selected);
+
+			expect(world.query(Position, SelectedComponent)).toEqual([viaComponent]);
+			expect(world.query(Position, Selected)).toEqual([viaTag]);
+		});
+
+		it('component and tag sharing a name never share a cache key — tag queried first', () => {
+			const SelectedComponent = defineComponent('Selected', { weight: 0 });
+			const world = createWorld();
+			const viaComponent = world.createEntity();
+			const viaTag = world.createEntity();
+			world.addComponent(viaComponent, Position, { x: 0, y: 0 });
+			world.addComponent(viaComponent, SelectedComponent, { weight: 1 });
+			world.addComponent(viaTag, Position, { x: 1, y: 1 });
+			world.addTag(viaTag, Selected);
+
+			expect(world.query(Position, Selected)).toEqual([viaTag]);
+			expect(world.query(Position, SelectedComponent)).toEqual([viaComponent]);
+		});
+
+		it('Not(component) and Not(tag) sharing a name never share a cache key, in either order', () => {
+			const SelectedComponent = defineComponent('Selected', { weight: 0 });
+			const world = createWorld();
+			const viaComponent = world.createEntity();
+			const viaTag = world.createEntity();
+			world.addComponent(viaComponent, Position, { x: 0, y: 0 });
+			world.addComponent(viaComponent, SelectedComponent, { weight: 1 });
+			world.addComponent(viaTag, Position, { x: 1, y: 1 });
+			world.addTag(viaTag, Selected);
+
+			expect(world.query(Position, Not(SelectedComponent))).toEqual([viaTag]);
+			expect(world.query(Position, Not(Selected))).toEqual([viaComponent]);
+			// Re-read in the opposite order — both cached sets stay correct.
+			expect(world.query(Position, Not(Selected))).toEqual([viaComponent]);
+			expect(world.query(Position, Not(SelectedComponent))).toEqual([viaTag]);
+		});
+
 		it('query(A, Not(B)) and query(A, B) never share a cache key', () => {
 			const world = createWorld();
 			const both = world.createEntity();

@@ -126,8 +126,10 @@ export function createWorld(): World {
 	const destroyListeners = new Set<(entity: EntityId) => void>();
 
 	// === Query cache ===
-	// Key: sorted type names joined by '\0' — negated names are prefixed with '!'
-	// so query(A, Not(B)) and query(A, B) can never collide
+	// Key: sorted kind-prefixed type names joined by '\0' — `c:Name` for
+	// components, `t:Name` for tags, with `!` prepended for Not() terms — so
+	// query(A, Not(B)) and query(A, B) can never collide, and a component and
+	// a tag sharing a name can never alias each other's cache entry
 	// Value: live Set<EntityId> of entities matching all types in the key
 	const queryCache = new Map<string, Set<EntityId>>();
 	// Reverse index: typeName → Set<queryKey> — which cached queries use this type.
@@ -142,7 +144,12 @@ export function createWorld(): World {
 
 	function getQueryKey(types: (ComponentType | TagType | NotTerm)[]): string {
 		return types
-			.map((t) => (t.__kind === 'not' ? `!${t.type.name}` : t.name))
+			.map((t) => {
+				if (t.__kind === 'not') {
+					return `!${t.type.__kind === 'component' ? 'c' : 't'}:${t.type.name}`;
+				}
+				return `${t.__kind === 'component' ? 'c' : 't'}:${t.name}`;
+			})
 			.sort()
 			.join('\0');
 	}
