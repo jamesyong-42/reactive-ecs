@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.11.0...reactive-ecs-v0.12.0) (2026-06-10)
+
+
+### Features
+
+* **core:** tickWorld frame helper ([231e1c7](https://github.com/jamesyong-42/reactive-ecs/commit/231e1c7b1d54d0042d3633f00cc704116a78f7cd))
+* **types:** readonly component and resource reads ([deacdd7](https://github.com/jamesyong-42/reactive-ecs/commit/deacdd762d762950926909923fc2587f39a5e5fb))
+* **world:** relation observer target filters ([5c679a0](https://github.com/jamesyong-42/reactive-ecs/commit/5c679a024468b551f91b3798b588c41bdfc1133e))
+* **world:** replaceComponent ([bad75d7](https://github.com/jamesyong-42/reactive-ecs/commit/bad75d7e597eb0d7a8ad7cdcbe020acad9d35900))
+
+
+### Bug Fixes
+
+* query-cache aliasing + honest addComponent; feat: replaceComponent, target filters, tickWorld, readonly reads ([cd2ffce](https://github.com/jamesyong-42/reactive-ecs/commit/cd2ffceb6c267665230ccf0e6ed1d17f04c6481a))
+* **query:** kind-prefixed cache keys prevent component/tag name aliasing ([588b436](https://github.com/jamesyong-42/reactive-ecs/commit/588b43681f116e32a95047cebbfa84bf4acabe77))
+* **world:** honest addComponent semantics, recursive defensive clone, Partial typing ([6d7a61b](https://github.com/jamesyong-42/reactive-ecs/commit/6d7a61b45303f7063a0bd23cfb98d9f316df2690))
+
 ## [0.11.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.10.0...reactive-ecs-v0.11.0) (2026-06-10)
 
 
