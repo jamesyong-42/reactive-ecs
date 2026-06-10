@@ -76,6 +76,25 @@ export interface World {
 
 	/** Creates a new entity and returns its ID. */
 	createEntity(): EntityId;
+	/**
+	 * Creates an entity with a caller-chosen id — the restore primitive for
+	 * id-preserving deserialization. Throws if `id` is not a positive integer,
+	 * is already alive, or is below the internal id counter (ids are never
+	 * reused, so restore must create entities in ascending id order). On
+	 * success the counter advances to `id + 1` and `onEntityCreated` fires —
+	 * observably identical to a `createEntity()` that landed on `id`.
+	 */
+	createEntityWithId(id: EntityId): EntityId;
+	/**
+	 * Restores the internal id counter exactly, so subsequent `createEntity()`
+	 * calls allocate from `n`. The counter only moves forward — throws if `n`
+	 * is not an integer or is below the current counter. Call this after an
+	 * ascending `createEntityWithId` restore loop: the saved counter can
+	 * legitimately exceed the highest restored id (entities destroyed before
+	 * the save consumed ids), and restoring it keeps stale references stale
+	 * forever instead of letting their ids be re-issued.
+	 */
+	setNextEntityId(n: number): void;
 	/** Destroys an entity and removes all its components and tags. */
 	destroyEntity(id: EntityId): void;
 	/** Checks if an entity ID is still alive. */

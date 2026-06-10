@@ -280,6 +280,34 @@ export function createWorld(): World {
 			return id;
 		},
 
+		createEntityWithId(id: EntityId): EntityId {
+			if (!Number.isInteger(id) || id < 1) {
+				throw new Error(`createEntityWithId(${id}): id must be a positive integer`);
+			}
+			if (alive.has(id)) {
+				throw new Error(`createEntityWithId(${id}): id is already alive`);
+			}
+			if (id < nextEntityId) {
+				throw new Error(
+					`createEntityWithId(${id}): id is below the counter (${nextEntityId}); ` +
+						`ids are never reused — restore entities in ascending order`,
+				);
+			}
+			nextEntityId = id + 1;
+			alive.add(id);
+			for (const listener of createListeners) listener(id);
+			return id;
+		},
+
+		setNextEntityId(n: number): void {
+			if (!Number.isInteger(n) || n < nextEntityId) {
+				throw new Error(
+					`setNextEntityId(${n}): counter only moves forward (currently ${nextEntityId})`,
+				);
+			}
+			nextEntityId = n;
+		},
+
 		destroyEntity(id: EntityId) {
 			if (!alive.has(id)) return;
 			// Notify destroy listeners BEFORE removing components/tags
