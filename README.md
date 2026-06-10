@@ -88,12 +88,15 @@ world.onComponentRemoved(Position, (id, prev) => { /* release GPU buffer keyed b
 
 world.onTagAdded(Selected, (id) => { /* ... */ });
 world.onTagRemoved(Selected, (id) => { /* ... */ });
+world.onResourceChanged(Camera, (prev, next) => { /* re-render the viewport */ });
 world.onEntityCreated((id) => { /* ... */ });
 world.onEntityDestroyed((id) => { /* cleanup caches */ });
 world.onFrame(() => { /* end-of-tick hook */ });
 
 unsub(); // all subscriptions return an Unsubscribe function
 ```
+
+Resources are no exception: `onResourceChanged` fires synchronously inside `setResource` after the shallow merge, with a pre-merge snapshot as `prev` and the live value as `next`.
 
 This is what makes it practical to drive React / Vue / Svelte components from the world — wire the event callbacks to `useState`/`signal`/store updates.
 
@@ -236,8 +239,8 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
   ```
 
   Not-queries are maintained incrementally like any other: adding the negated type to a matching entity evicts it from the cached result, and removing it re-admits.
-- **Change tracking** — `queryChanged`, `queryAdded`, `queryRemoved`, `queryAddedTag`, `queryRemovedTag`, per-tick dirty sets. Removed-buffers include entities torn down by `destroyEntity` so consumers managing external resources (GPU buffers, DOM nodes, subscriptions) get a single channel for "this entity no longer has C."
-- **Events** — `onComponentChanged`, `onComponentRemoved`, `onTagAdded`, `onTagRemoved`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`. `onComponentRemoved` fires synchronously before the data is deleted (so `prev` is readable) and also fires during `destroyEntity` for every component the entity owned.
+- **Change tracking** — `queryChanged`, `queryAdded`, `queryRemoved`, `queryAddedTag`, `queryRemovedTag`, `queryChangedResources`, per-tick dirty sets. Removed-buffers include entities torn down by `destroyEntity` so consumers managing external resources (GPU buffers, DOM nodes, subscriptions) get a single channel for "this entity no longer has C." `queryChangedResources` lists the resources set this tick, in first-changed order.
+- **Events** — `onComponentChanged`, `onComponentRemoved`, `onTagAdded`, `onTagRemoved`, `onResourceChanged`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`. `onComponentRemoved` fires synchronously before the data is deleted (so `prev` is readable) and also fires during `destroyEntity` for every component the entity owned.
 - **Introspection** — enumerate entities, registered types, and per-entity component/tag composition for editors and debugging tools.
 - **Scheduler** — `SystemScheduler` orders systems via `after` / `before` with Kahn's topological sort (stable on registration order).
 - **Phased scheduler** — `PhasedScheduler` runs systems in a caller-defined phase order. You declare the phases at construction time (`new PhasedScheduler({ phases: [...] })`); the library ships zero phase opinions. Within a phase, the same `after` / `before` constraints continue to topo-sort; cross-phase ordering is implicit in phase order, and cross-phase constraints are rejected.
