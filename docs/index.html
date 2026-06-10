@@ -10,447 +10,447 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <style>
   :root {
-                  --paper: #f7f4ed;
-                  --paper-deep: #efeadf;
-                  --ink: #1d1a13;
-                  --ink-soft: #4f4a3d;
-                  --ink-faint: #8a8371;
-                  --line: #ded7c6;
-                  --accent: #0d7a68;
-                  --accent-deep: #0a5d50;
-                  --accent-wash: #e2efeb;
-                  --amber: #b4690e;
-                  --amber-wash: #f6ecdb;
-                  --code-bg: #142420;
-                  --code-ink: #d8e6e0;
-                  --code-cmt: #6f8d83;
-                  --code-str: #c9b97a;
-                  --code-kw: #7fc8b4;
-                  --code-fn: #e3c98f;
-                  --code-typ: #a9c9e8;
-                  --code-num: #d8a0a0;
-                  --sidebar-w: 272px;
-                  --content-w: 736px;
-                  --radius: 6px;
-                }
+                          --paper: #f7f4ed;
+                          --paper-deep: #efeadf;
+                          --ink: #1d1a13;
+                          --ink-soft: #4f4a3d;
+                          --ink-faint: #8a8371;
+                          --line: #ded7c6;
+                          --accent: #0d7a68;
+                          --accent-deep: #0a5d50;
+                          --accent-wash: #e2efeb;
+                          --amber: #b4690e;
+                          --amber-wash: #f6ecdb;
+                          --code-bg: #142420;
+                          --code-ink: #d8e6e0;
+                          --code-cmt: #6f8d83;
+                          --code-str: #c9b97a;
+                          --code-kw: #7fc8b4;
+                          --code-fn: #e3c98f;
+                          --code-typ: #a9c9e8;
+                          --code-num: #d8a0a0;
+                          --sidebar-w: 272px;
+                          --content-w: 736px;
+                          --radius: 6px;
+                        }
 
-                * { box-sizing: border-box; }
+                        * { box-sizing: border-box; }
 
-                html { scroll-behavior: smooth; }
+                        html { scroll-behavior: smooth; }
 
-                body {
-                  margin: 0;
-                  background: var(--paper);
-                  color: var(--ink);
-                  font-family: 'Schibsted Grotesk', sans-serif;
-                  font-size: 16.5px;
-                  line-height: 1.65;
-                  -webkit-font-smoothing: antialiased;
-                  background-image:
-                    radial-gradient(circle at 1px 1px, rgba(29,26,19,0.05) 1px, transparent 0);
-                  background-size: 26px 26px;
-                }
+                        body {
+                          margin: 0;
+                          background: var(--paper);
+                          color: var(--ink);
+                          font-family: 'Schibsted Grotesk', sans-serif;
+                          font-size: 16.5px;
+                          line-height: 1.65;
+                          -webkit-font-smoothing: antialiased;
+                          background-image:
+                            radial-gradient(circle at 1px 1px, rgba(29,26,19,0.05) 1px, transparent 0);
+                          background-size: 26px 26px;
+                        }
 
-                ::selection { background: var(--accent); color: #fff; }
+                        ::selection { background: var(--accent); color: #fff; }
 
-                /* ---------- Sidebar ---------- */
+                        /* ---------- Sidebar ---------- */
 
-                .sidebar {
-                  position: fixed;
-                  top: 0; left: 0; bottom: 0;
-                  width: var(--sidebar-w);
-                  padding: 32px 28px 48px;
-                  overflow-y: auto;
-                  border-right: 1px solid var(--line);
-                  background: var(--paper);
-                  z-index: 40;
-                  scrollbar-width: thin;
-                }
+                        .sidebar {
+                          position: fixed;
+                          top: 0; left: 0; bottom: 0;
+                          width: var(--sidebar-w);
+                          padding: 32px 28px 48px;
+                          overflow-y: auto;
+                          border-right: 1px solid var(--line);
+                          background: var(--paper);
+                          z-index: 40;
+                          scrollbar-width: thin;
+                        }
 
-                .brand {
-                  display: flex;
-                  align-items: center;
-                  gap: 12px;
-                  text-decoration: none;
-                  color: var(--ink);
-                  margin-bottom: 6px;
-                }
-                .brand .pulse-mini {
-                  position: relative;
-                  width: 10px; height: 10px;
-                  border-radius: 50%;
-                  background: var(--accent);
-                  flex: none;
-                }
-                .brand .pulse-mini::after {
-                  content: '';
-                  position: absolute; inset: 0;
-                  border-radius: 50%;
-                  border: 1.5px solid var(--accent);
-                  animation: ripple 2.6s cubic-bezier(.2,.6,.3,1) infinite;
-                }
-                .brand b {
-                  font-family: 'Fraunces', serif;
-                  font-weight: 600;
-                  font-size: 19px;
-                  letter-spacing: -0.01em;
-                }
-                .brand-version {
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 11px;
-                  color: var(--ink-faint);
-                  margin: 0 0 22px 22px;
-                }
+                        .brand {
+                          display: flex;
+                          align-items: center;
+                          gap: 12px;
+                          text-decoration: none;
+                          color: var(--ink);
+                          margin-bottom: 6px;
+                        }
+                        .brand .pulse-mini {
+                          position: relative;
+                          width: 10px; height: 10px;
+                          border-radius: 50%;
+                          background: var(--accent);
+                          flex: none;
+                        }
+                        .brand .pulse-mini::after {
+                          content: '';
+                          position: absolute; inset: 0;
+                          border-radius: 50%;
+                          border: 1.5px solid var(--accent);
+                          animation: ripple 2.6s cubic-bezier(.2,.6,.3,1) infinite;
+                        }
+                        .brand b {
+                          font-family: 'Fraunces', serif;
+                          font-weight: 600;
+                          font-size: 19px;
+                          letter-spacing: -0.01em;
+                        }
+                        .brand-version {
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 11px;
+                          color: var(--ink-faint);
+                          margin: 0 0 22px 22px;
+                        }
 
-                .nav-group { margin-bottom: 22px; }
-                .nav-group > span {
-                  display: block;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 10.5px;
-                  font-weight: 600;
-                  text-transform: uppercase;
-                  letter-spacing: 0.14em;
-                  color: var(--ink-faint);
-                  margin-bottom: 8px;
-                }
-                .nav-group a {
-                  display: block;
-                  padding: 4px 10px;
-                  margin-left: -10px;
-                  font-size: 14.5px;
-                  color: var(--ink-soft);
-                  text-decoration: none;
-                  border-left: 2px solid transparent;
-                  border-radius: 0 var(--radius) var(--radius) 0;
-                  transition: color .12s, background .12s;
-                }
-                .nav-group a.sub { padding-left: 24px; font-size: 13.5px; }
-                .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
-                .nav-group a.active {
-                  color: var(--accent-deep);
-                  border-left-color: var(--accent);
-                  background: var(--accent-wash);
-                  font-weight: 600;
-                }
+                        .nav-group { margin-bottom: 22px; }
+                        .nav-group > span {
+                          display: block;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 10.5px;
+                          font-weight: 600;
+                          text-transform: uppercase;
+                          letter-spacing: 0.14em;
+                          color: var(--ink-faint);
+                          margin-bottom: 8px;
+                        }
+                        .nav-group a {
+                          display: block;
+                          padding: 4px 10px;
+                          margin-left: -10px;
+                          font-size: 14.5px;
+                          color: var(--ink-soft);
+                          text-decoration: none;
+                          border-left: 2px solid transparent;
+                          border-radius: 0 var(--radius) var(--radius) 0;
+                          transition: color .12s, background .12s;
+                        }
+                        .nav-group a.sub { padding-left: 24px; font-size: 13.5px; }
+                        .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
+                        .nav-group a.active {
+                          color: var(--accent-deep);
+                          border-left-color: var(--accent);
+                          background: var(--accent-wash);
+                          font-weight: 600;
+                        }
 
-                .sidebar-foot {
-                  margin-top: 30px;
-                  padding-top: 18px;
-                  border-top: 1px solid var(--line);
-                  font-size: 13px;
-                }
-                .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
-                .sidebar-foot a:hover { color: var(--accent-deep); }
+                        .sidebar-foot {
+                          margin-top: 30px;
+                          padding-top: 18px;
+                          border-top: 1px solid var(--line);
+                          font-size: 13px;
+                        }
+                        .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
+                        .sidebar-foot a:hover { color: var(--accent-deep); }
 
-                .nav-toggle {
-                  display: none;
-                  position: fixed;
-                  top: 14px; left: 14px;
-                  z-index: 60;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 12px;
-                  padding: 7px 12px;
-                  background: var(--ink);
-                  color: var(--paper);
-                  border: none;
-                  border-radius: var(--radius);
-                  cursor: pointer;
-                }
+                        .nav-toggle {
+                          display: none;
+                          position: fixed;
+                          top: 14px; left: 14px;
+                          z-index: 60;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 12px;
+                          padding: 7px 12px;
+                          background: var(--ink);
+                          color: var(--paper);
+                          border: none;
+                          border-radius: var(--radius);
+                          cursor: pointer;
+                        }
 
-                /* ---------- Main column ---------- */
+                        /* ---------- Main column ---------- */
 
-                main {
-                  margin-left: var(--sidebar-w);
-                  padding: 0 48px 120px;
-                }
-                .measure { max-width: var(--content-w); margin: 0 auto; }
+                        main {
+                          margin-left: var(--sidebar-w);
+                          padding: 0 48px 120px;
+                        }
+                        .measure { max-width: var(--content-w); margin: 0 auto; }
 
-                /* ---------- Hero ---------- */
+                        /* ---------- Hero ---------- */
 
-                .hero {
-                  padding: 96px 0 64px;
-                  border-bottom: 1px solid var(--line);
-                  margin-bottom: 56px;
-                  position: relative;
-                }
-                .hero-kicker {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 14px;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 12px;
-                  letter-spacing: 0.12em;
-                  text-transform: uppercase;
-                  color: var(--accent-deep);
-                  margin-bottom: 26px;
-                  animation: rise .7s cubic-bezier(.2,.7,.3,1) both;
-                }
-                .pulse {
-                  position: relative;
-                  width: 12px; height: 12px;
-                  border-radius: 50%;
-                  background: var(--accent);
-                  flex: none;
-                }
-                .pulse::before, .pulse::after {
-                  content: '';
-                  position: absolute; inset: 0;
-                  border-radius: 50%;
-                  border: 1.5px solid var(--accent);
-                  animation: ripple 2.8s cubic-bezier(.2,.6,.3,1) infinite;
-                }
-                .pulse::after { animation-delay: 1.4s; }
-                @keyframes ripple {
-                  from { transform: scale(1); opacity: .8; }
-                  to   { transform: scale(6.5); opacity: 0; }
-                }
+                        .hero {
+                          padding: 96px 0 64px;
+                          border-bottom: 1px solid var(--line);
+                          margin-bottom: 56px;
+                          position: relative;
+                        }
+                        .hero-kicker {
+                          display: inline-flex;
+                          align-items: center;
+                          gap: 14px;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 12px;
+                          letter-spacing: 0.12em;
+                          text-transform: uppercase;
+                          color: var(--accent-deep);
+                          margin-bottom: 26px;
+                          animation: rise .7s cubic-bezier(.2,.7,.3,1) both;
+                        }
+                        .pulse {
+                          position: relative;
+                          width: 12px; height: 12px;
+                          border-radius: 50%;
+                          background: var(--accent);
+                          flex: none;
+                        }
+                        .pulse::before, .pulse::after {
+                          content: '';
+                          position: absolute; inset: 0;
+                          border-radius: 50%;
+                          border: 1.5px solid var(--accent);
+                          animation: ripple 2.8s cubic-bezier(.2,.6,.3,1) infinite;
+                        }
+                        .pulse::after { animation-delay: 1.4s; }
+                        @keyframes ripple {
+                          from { transform: scale(1); opacity: .8; }
+                          to   { transform: scale(6.5); opacity: 0; }
+                        }
 
-                .hero h1 {
-                  font-family: 'Fraunces', serif;
-                  font-size: clamp(44px, 6vw, 64px);
-                  font-weight: 600;
-                  letter-spacing: -0.025em;
-                  line-height: 1.04;
-                  margin: 0 0 24px;
-                  animation: rise .7s .08s cubic-bezier(.2,.7,.3,1) both;
-                }
-                .hero h1 em {
-                  font-style: italic;
-                  font-weight: 500;
-                  color: var(--accent-deep);
-                }
-                .hero p.lede {
-                  font-size: 19px;
-                  line-height: 1.6;
-                  color: var(--ink-soft);
-                  max-width: 620px;
-                  margin: 0 0 34px;
-                  animation: rise .7s .16s cubic-bezier(.2,.7,.3,1) both;
-                }
-                .hero-meta {
-                  display: flex;
-                  flex-wrap: wrap;
-                  gap: 10px;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 12px;
-                  color: var(--ink-soft);
-                  animation: rise .7s .24s cubic-bezier(.2,.7,.3,1) both;
-                }
-                .hero-meta span {
-                  border: 1px solid var(--line);
-                  background: var(--paper-deep);
-                  border-radius: 100px;
-                  padding: 4px 12px;
-                }
-                @keyframes rise {
-                  from { opacity: 0; transform: translateY(14px); }
-                  to   { opacity: 1; transform: none; }
-                }
+                        .hero h1 {
+                          font-family: 'Fraunces', serif;
+                          font-size: clamp(44px, 6vw, 64px);
+                          font-weight: 600;
+                          letter-spacing: -0.025em;
+                          line-height: 1.04;
+                          margin: 0 0 24px;
+                          animation: rise .7s .08s cubic-bezier(.2,.7,.3,1) both;
+                        }
+                        .hero h1 em {
+                          font-style: italic;
+                          font-weight: 500;
+                          color: var(--accent-deep);
+                        }
+                        .hero p.lede {
+                          font-size: 19px;
+                          line-height: 1.6;
+                          color: var(--ink-soft);
+                          max-width: 620px;
+                          margin: 0 0 34px;
+                          animation: rise .7s .16s cubic-bezier(.2,.7,.3,1) both;
+                        }
+                        .hero-meta {
+                          display: flex;
+                          flex-wrap: wrap;
+                          gap: 10px;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 12px;
+                          color: var(--ink-soft);
+                          animation: rise .7s .24s cubic-bezier(.2,.7,.3,1) both;
+                        }
+                        .hero-meta span {
+                          border: 1px solid var(--line);
+                          background: var(--paper-deep);
+                          border-radius: 100px;
+                          padding: 4px 12px;
+                        }
+                        @keyframes rise {
+                          from { opacity: 0; transform: translateY(14px); }
+                          to   { opacity: 1; transform: none; }
+                        }
 
-                /* ---------- Typography ---------- */
+                        /* ---------- Typography ---------- */
 
-                section { margin-bottom: 72px; }
+                        section { margin-bottom: 72px; }
 
-                h2 {
-                  font-family: 'Fraunces', serif;
-                  font-size: 32px;
-                  font-weight: 600;
-                  letter-spacing: -0.015em;
-                  line-height: 1.15;
-                  margin: 0 0 8px;
-                  padding-top: 18px;
-                  scroll-margin-top: 28px;
-                }
-                h2::before {
-                  content: '';
-                  display: block;
-                  width: 34px; height: 3px;
-                  background: var(--accent);
-                  margin-bottom: 22px;
-                }
-                h3 {
-                  font-family: 'Fraunces', serif;
-                  font-size: 21.5px;
-                  font-weight: 600;
-                  margin: 40px 0 10px;
-                  scroll-margin-top: 28px;
-                }
-                h4 {
-                  font-size: 16px;
-                  font-weight: 700;
-                  margin: 28px 0 8px;
-                }
+                        h2 {
+                          font-family: 'Fraunces', serif;
+                          font-size: 32px;
+                          font-weight: 600;
+                          letter-spacing: -0.015em;
+                          line-height: 1.15;
+                          margin: 0 0 8px;
+                          padding-top: 18px;
+                          scroll-margin-top: 28px;
+                        }
+                        h2::before {
+                          content: '';
+                          display: block;
+                          width: 34px; height: 3px;
+                          background: var(--accent);
+                          margin-bottom: 22px;
+                        }
+                        h3 {
+                          font-family: 'Fraunces', serif;
+                          font-size: 21.5px;
+                          font-weight: 600;
+                          margin: 40px 0 10px;
+                          scroll-margin-top: 28px;
+                        }
+                        h4 {
+                          font-size: 16px;
+                          font-weight: 700;
+                          margin: 28px 0 8px;
+                        }
 
-                p { margin: 0 0 16px; }
-                p, li { color: var(--ink); }
-                strong { font-weight: 650; }
-                a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13,122,104,.35); text-underline-offset: 2px; }
-                a:hover { text-decoration-color: var(--accent); }
+                        p { margin: 0 0 16px; }
+                        p, li { color: var(--ink); }
+                        strong { font-weight: 650; }
+                        a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13,122,104,.35); text-underline-offset: 2px; }
+                        a:hover { text-decoration-color: var(--accent); }
 
-                ul, ol { padding-left: 22px; margin: 0 0 16px; }
-                li { margin-bottom: 6px; }
+                        ul, ol { padding-left: 22px; margin: 0 0 16px; }
+                        li { margin-bottom: 6px; }
 
-                code {
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 0.86em;
-                  background: var(--paper-deep);
-                  border: 1px solid var(--line);
-                  border-radius: 4px;
-                  padding: 1px 5px;
-                  white-space: nowrap;
-                }
+                        code {
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 0.86em;
+                          background: var(--paper-deep);
+                          border: 1px solid var(--line);
+                          border-radius: 4px;
+                          padding: 1px 5px;
+                          white-space: nowrap;
+                        }
 
-                .anchor {
-                  margin-left: 8px;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 0.65em;
-                  color: var(--ink-faint);
-                  text-decoration: none;
-                  opacity: 0;
-                  transition: opacity .12s;
-                }
-                h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+                        .anchor {
+                          margin-left: 8px;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 0.65em;
+                          color: var(--ink-faint);
+                          text-decoration: none;
+                          opacity: 0;
+                          transition: opacity .12s;
+                        }
+                        h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 
-                /* ---------- Code blocks ---------- */
+                        /* ---------- Code blocks ---------- */
 
-                figure.code {
-                  position: relative;
-                  margin: 20px 0 24px;
-                  border-radius: 8px;
-                  background: var(--code-bg);
-                  box-shadow: 0 1px 0 rgba(29,26,19,.18), 0 12px 28px -18px rgba(20,36,32,.55);
-                  overflow: hidden;
-                }
-                figure.code::before {
-                  content: attr(data-lang);
-                  position: absolute;
-                  top: 9px; right: 64px;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 10.5px;
-                  letter-spacing: .1em;
-                  text-transform: uppercase;
-                  color: var(--code-cmt);
-                }
-                figure.code pre {
-                  margin: 0;
-                  padding: 20px 24px;
-                  overflow-x: auto;
-                }
-                figure.code code {
-                  background: none;
-                  border: none;
-                  padding: 0;
-                  white-space: pre;
-                  font-size: 13.5px;
-                  line-height: 1.62;
-                  color: var(--code-ink);
-                }
-                .tok-cmt { color: var(--code-cmt); font-style: italic; }
-                .tok-str { color: var(--code-str); }
-                .tok-kw  { color: var(--code-kw); }
-                .tok-fn  { color: var(--code-fn); }
-                .tok-typ { color: var(--code-typ); }
-                .tok-num { color: var(--code-num); }
+                        figure.code {
+                          position: relative;
+                          margin: 20px 0 24px;
+                          border-radius: 8px;
+                          background: var(--code-bg);
+                          box-shadow: 0 1px 0 rgba(29,26,19,.18), 0 12px 28px -18px rgba(20,36,32,.55);
+                          overflow: hidden;
+                        }
+                        figure.code::before {
+                          content: attr(data-lang);
+                          position: absolute;
+                          top: 9px; right: 64px;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 10.5px;
+                          letter-spacing: .1em;
+                          text-transform: uppercase;
+                          color: var(--code-cmt);
+                        }
+                        figure.code pre {
+                          margin: 0;
+                          padding: 20px 24px;
+                          overflow-x: auto;
+                        }
+                        figure.code code {
+                          background: none;
+                          border: none;
+                          padding: 0;
+                          white-space: pre;
+                          font-size: 13.5px;
+                          line-height: 1.62;
+                          color: var(--code-ink);
+                        }
+                        .tok-cmt { color: var(--code-cmt); font-style: italic; }
+                        .tok-str { color: var(--code-str); }
+                        .tok-kw  { color: var(--code-kw); }
+                        .tok-fn  { color: var(--code-fn); }
+                        .tok-typ { color: var(--code-typ); }
+                        .tok-num { color: var(--code-num); }
 
-                button.copy {
-                  position: absolute;
-                  top: 8px; right: 8px;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 10.5px;
-                  letter-spacing: .06em;
-                  text-transform: uppercase;
-                  color: var(--code-cmt);
-                  background: rgba(255,255,255,.04);
-                  border: 1px solid rgba(216,230,224,.18);
-                  border-radius: 4px;
-                  padding: 4px 9px;
-                  cursor: pointer;
-                  transition: color .12s, border-color .12s;
-                }
-                button.copy:hover { color: var(--code-ink); border-color: rgba(216,230,224,.4); }
-                button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
+                        button.copy {
+                          position: absolute;
+                          top: 8px; right: 8px;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 10.5px;
+                          letter-spacing: .06em;
+                          text-transform: uppercase;
+                          color: var(--code-cmt);
+                          background: rgba(255,255,255,.04);
+                          border: 1px solid rgba(216,230,224,.18);
+                          border-radius: 4px;
+                          padding: 4px 9px;
+                          cursor: pointer;
+                          transition: color .12s, border-color .12s;
+                        }
+                        button.copy:hover { color: var(--code-ink); border-color: rgba(216,230,224,.4); }
+                        button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
 
-                /* ---------- Callouts ---------- */
+                        /* ---------- Callouts ---------- */
 
-                .callout {
-                  margin: 20px 0 24px;
-                  padding: 14px 18px 14px 16px;
-                  border-left: 3px solid var(--accent);
-                  background: var(--accent-wash);
-                  border-radius: 0 var(--radius) var(--radius) 0;
-                  font-size: 15px;
-                }
-                .callout > p:last-child { margin-bottom: 0; }
-                .callout .callout-tag {
-                  display: inline-block;
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 10.5px;
-                  font-weight: 600;
-                  text-transform: uppercase;
-                  letter-spacing: .12em;
-                  color: var(--accent-deep);
-                  margin-bottom: 4px;
-                }
-                .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
-                .callout.warn .callout-tag { color: var(--amber); }
+                        .callout {
+                          margin: 20px 0 24px;
+                          padding: 14px 18px 14px 16px;
+                          border-left: 3px solid var(--accent);
+                          background: var(--accent-wash);
+                          border-radius: 0 var(--radius) var(--radius) 0;
+                          font-size: 15px;
+                        }
+                        .callout > p:last-child { margin-bottom: 0; }
+                        .callout .callout-tag {
+                          display: inline-block;
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 10.5px;
+                          font-weight: 600;
+                          text-transform: uppercase;
+                          letter-spacing: .12em;
+                          color: var(--accent-deep);
+                          margin-bottom: 4px;
+                        }
+                        .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
+                        .callout.warn .callout-tag { color: var(--amber); }
 
-                /* ---------- Tables ---------- */
+                        /* ---------- Tables ---------- */
 
-                .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
-                table {
-                  width: 100%;
-                  border-collapse: collapse;
-                  font-size: 14px;
-                  background: #fbf9f4;
-                  border: 1px solid var(--line);
-                  border-radius: 8px;
-                  overflow: hidden;
-                }
-                th {
-                  font-family: 'IBM Plex Mono', monospace;
-                  font-size: 11px;
-                  font-weight: 600;
-                  text-transform: uppercase;
-                  letter-spacing: .1em;
-                  text-align: left;
-                  color: var(--ink-faint);
-                  background: var(--paper-deep);
-                  padding: 10px 14px;
-                  border-bottom: 1px solid var(--line);
-                }
-                td {
-                  padding: 10px 14px;
-                  border-bottom: 1px solid var(--line);
-                  vertical-align: top;
-                }
-                tr:last-child td { border-bottom: none; }
-                td code { white-space: nowrap; }
-                td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
+                        .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+                        table {
+                          width: 100%;
+                          border-collapse: collapse;
+                          font-size: 14px;
+                          background: #fbf9f4;
+                          border: 1px solid var(--line);
+                          border-radius: 8px;
+                          overflow: hidden;
+                        }
+                        th {
+                          font-family: 'IBM Plex Mono', monospace;
+                          font-size: 11px;
+                          font-weight: 600;
+                          text-transform: uppercase;
+                          letter-spacing: .1em;
+                          text-align: left;
+                          color: var(--ink-faint);
+                          background: var(--paper-deep);
+                          padding: 10px 14px;
+                          border-bottom: 1px solid var(--line);
+                        }
+                        td {
+                          padding: 10px 14px;
+                          border-bottom: 1px solid var(--line);
+                          vertical-align: top;
+                        }
+                        tr:last-child td { border-bottom: none; }
+                        td code { white-space: nowrap; }
+                        td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
 
-                /* ---------- Hr / footer ---------- */
+                        /* ---------- Hr / footer ---------- */
 
-                footer {
-                  border-top: 1px solid var(--line);
-                  margin-top: 80px;
-                  padding-top: 28px;
-                  font-size: 14px;
-                  color: var(--ink-faint);
-                  display: flex;
-                  justify-content: space-between;
-                  flex-wrap: wrap;
-                  gap: 12px;
-                }
-                footer a { color: var(--ink-soft); }
+                        footer {
+                          border-top: 1px solid var(--line);
+                          margin-top: 80px;
+                          padding-top: 28px;
+                          font-size: 14px;
+                          color: var(--ink-faint);
+                          display: flex;
+                          justify-content: space-between;
+                          flex-wrap: wrap;
+                          gap: 12px;
+                        }
+                        footer a { color: var(--ink-soft); }
 
-                /* ---------- Responsive ---------- */
+                        /* ---------- Responsive ---------- */
 
-                @media (max-width: 980px) {
-                  .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29,26,19,.4); }
-                  body.nav-open .sidebar { transform: none; }
-                  .nav-toggle { display: block; }
-                  main { margin-left: 0; padding: 0 22px 90px; }
-                  .hero { padding-top: 84px; }
-                }
+                        @media (max-width: 980px) {
+                          .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29,26,19,.4); }
+                          body.nav-open .sidebar { transform: none; }
+                          .nav-toggle { display: block; }
+                          main { margin-left: 0; padding: 0 22px 90px; }
+                          .hero { padding-top: 84px; }
+                        }
 </style>
 </head>
 <body>
@@ -666,6 +666,11 @@ world.entityCount;  // number of live entities</code></pre></figure>
         <tr><td><code>incrementTick()</code></td><td>Advances <code>currentTick</code> by one.</td></tr>
       </tbody>
     </table></div>
+    <p>
+      Or let the helper encode the order:
+      <code>tickWorld(world, (w) =&gt; scheduler.execute(w))</code> runs your callback and then
+      the three calls above — equivalent, harder to get wrong.
+    </p>
     <div class="callout">
       <span class="callout-tag">Note</span>
       <p>
@@ -680,7 +685,10 @@ world.entityCount;  // number of live entities</code></pre></figure>
   <section id="entities">
     <h2>Entities<a class="anchor" href="#entities">#</a></h2>
     <p>
-      Entities are opaque integer ids (<code>EntityId</code>). Creation and destruction are O(1).
+      Entities are opaque integer ids (<code>EntityId</code>). Creation is O(1); destruction
+      does work proportional to what the entity owns (components, tags, relation edges) plus
+      the number of registered stores and query caches — fine at this library's scale, stated
+      for honesty.
     </p>
 <figure class="code" data-lang="ts"><pre><code>const e = world.createEntity();
 
@@ -732,7 +740,7 @@ world.getComponent(e, Position);                   // { x: 15, y: 20 }
 world.removeComponent(e, Position);                // detach (fires onComponentRemoved)</code></pre></figure>
     <ul>
       <li><strong>Defaults merge on add.</strong> <code>addComponent</code> shallow-merges your data over the defined defaults, so partial initialization is safe.</li>
-      <li><strong>Defensive clone on add.</strong> Initial data is cloned two levels deep (the top level, plus nested plain objects and arrays), so two entities never share nested state by accident. Class instances — and anything nested deeper — are kept by reference, deliberately: the library never clones what it can't reconstruct.</li>
+      <li><strong>Defensive clone on add.</strong> Plain objects and arrays in the initial data are deep-cloned at any depth, so two entities never share nested state by accident. Class instances are kept by reference, deliberately: the library never clones what it can't reconstruct. (Initial data must be acyclic.)</li>
       <li><strong>Shallow merge on set.</strong> <code>setComponent</code> takes a <code>Partial&lt;T&gt;</code> and merges it over the current value — <em>one level deep</em> — and emits a change event.</li>
     </ul>
     <p>One level deep means nested objects are replaced wholesale, not merged into:</p>
@@ -752,7 +760,8 @@ world.setComponent(e, Transform, { position: { ...t.position, x: 10 } });</code>
     <div class="table-wrap"><table>
       <thead><tr><th>Operation</th><th>If present</th><th>If missing</th><th>If entity dead</th></tr></thead>
       <tbody>
-        <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev = undefined</code>, id lands in <code>queryAdded</code></td><td>attaches</td><td>throws</td></tr>
+        <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev =</code> the old value, id lands in <code>queryChanged</code> (not <code>queryAdded</code>)</td><td>attaches (<code>data</code> optional/partial — merged over defaults)</td><td>throws</td></tr>
+        <tr><td><code>replaceComponent</code></td><td>replaces the full value + emits true <code>prev</code></td><td>attaches</td><td>throws</td></tr>
         <tr><td><code>setComponent</code></td><td>shallow-merges + emits</td><td><strong>silent no-op</strong></td><td>silent no-op</td></tr>
         <tr><td><code>removeComponent</code></td><td>removes (event fires first)</td><td>no-op</td><td>no-op</td></tr>
         <tr><td><code>addTag</code></td><td>no-op</td><td>adds</td><td>throws</td></tr>
@@ -762,8 +771,9 @@ world.setComponent(e, Transform, { position: { ...t.position, x: 10 } });</code>
     </table></div>
     <p>
       Two rows worth memorizing: <code>setComponent</code> on an entity that doesn't have the
-      component does nothing — use <code>addComponent</code> to attach — and re-adding an
-      existing component overwrites it while reporting <code>prev = undefined</code>.
+      component does nothing — use <code>addComponent</code> to attach — and because
+      re-adding reports the true previous value, <code>prev === undefined</code> in
+      <code>onComponentChanged</code> reliably means "first attach".
     </p>
     <div class="callout">
       <span class="callout-tag">The contract</span>
@@ -859,7 +869,8 @@ world.queryRelation(ChildOf);         // all live edges: [source, target][]
 world.queryRelationAdded(ChildOf);    // edges added this tick
 world.queryRelationRemoved(ChildOf);  // edges removed this tick — INCLUDING destroys
 
-// Synchronous observers — optional per-source filter, like onComponentChanged
+// Synchronous observers — filter by source (bare id) or target ({ target })
+world.onRelationAdded(ChildOf, handler, { target: parent }); // watch a parent's children
 const unsub = world.onRelationAdded(ChildOf, (source, target) =&gt; { /* ... */ });
 world.onRelationRemoved(ChildOf, (source, target) =&gt; {
   // fires during destroy too — the dying entity's components are still readable here
@@ -1261,7 +1272,7 @@ scheduler.execute(world); // runs phase by phase, topo-sorted within each</code>
     <ul>
       <li><strong>Within a phase</strong>, <code>after</code> / <code>before</code> topo-sort exactly as in <code>SystemScheduler</code> (it runs one internally per phase).</li>
       <li><strong>Across phases</strong>, ordering is implicit in phase order — earlier phase always runs first.</li>
-      <li><strong>Cross-phase constraints are rejected</strong> at first <code>execute()</code> with an error that explains the fix — ordering stays single-sourced.</li>
+      <li><strong>Cross-phase constraints that contradict phase order are rejected</strong> at first <code>execute()</code> with an error that explains the fix. Redundant ones — an <code>after</code> pointing at an <em>earlier</em> phase — are tolerated, since phase order already satisfies them.</li>
       <li><strong>Phase membership is validated at register time:</strong> an unknown phase throws immediately.</li>
       <li><strong>Re-registering into a different phase moves the system</strong> — it never runs twice.</li>
     </ul>
@@ -1433,6 +1444,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>defineResource(name, defaults)</code></td><td><code>ResourceType&lt;T&gt;</code></td><td>World-level singleton.</td></tr>
         <tr><td><code>defineSystem(def)</code></td><td><code>SystemDef</code></td><td><code>{ name, execute, phase?, after?, before?, runIf? }</code>.</td></tr>
         <tr><td><code>createWorld()</code></td><td><code>World</code></td><td>New independent world.</td></tr>
+        <tr><td><code>tickWorld(world, fn?)</code></td><td><code>void</code></td><td>Runs <code>fn</code>, then <code>emitFrame</code> / <code>clearDirty</code> / <code>incrementTick</code>.</td></tr>
       </tbody>
     </table></div>
 
@@ -1452,6 +1464,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>getComponent(e, C)</code></td><td>Current value or <code>undefined</code>.</td></tr>
         <tr><td><code>hasComponent(e, C)</code></td><td>Presence check.</td></tr>
         <tr><td><code>setComponent(e, C, partial)</code></td><td>Shallow-merge update; emits change event.</td></tr>
+        <tr><td><code>replaceComponent(e, C, data)</code></td><td>Full-value upsert; emits true <code>prev</code>.</td></tr>
         <tr><td><code>addTag(e, T)</code> / <code>removeTag(e, T)</code> / <code>hasTag(e, T)</code></td><td>Tag operations.</td></tr>
         <tr><td><code>getResource(R)</code></td><td>Read singleton (created lazily from defaults).</td></tr>
         <tr><td><code>setResource(R, partial)</code></td><td>Shallow-merge update.</td></tr>
@@ -1484,8 +1497,8 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>onTagAdded(T, h, e?)</code></td><td><code>(id)</code></td><td>Optional per-entity filter.</td></tr>
         <tr><td><code>onTagRemoved(T, h, e?)</code></td><td><code>(id)</code></td><td>Also fires during <code>destroyEntity</code>.</td></tr>
         <tr><td><code>onResourceChanged(R, h)</code></td><td><code>(prev, next)</code></td><td><code>prev</code> is a pre-merge snapshot.</td></tr>
-        <tr><td><code>onRelationAdded(R, h, s?)</code></td><td><code>(source, target)</code></td><td>Optional per-source filter.</td></tr>
-        <tr><td><code>onRelationRemoved(R, h, s?)</code></td><td><code>(source, target)</code></td><td>Also fires during destroys, before teardown.</td></tr>
+        <tr><td><code>onRelationAdded(R, h, f?)</code></td><td><code>(source, target)</code></td><td>Filter: bare id = source, or <code>{ source?, target? }</code>.</td></tr>
+        <tr><td><code>onRelationRemoved(R, h, f?)</code></td><td><code>(source, target)</code></td><td>Also fires during destroys, before teardown. Same filter shapes.</td></tr>
         <tr><td><code>onEntityCreated(cb)</code></td><td><code>(id)</code></td><td></td></tr>
         <tr><td><code>onEntityDestroyed(cb)</code></td><td><code>(id)</code></td><td>Fires while the entity's data is still readable.</td></tr>
         <tr><td><code>onFrame(h)</code></td><td><code>()</code></td><td>Fired by <code>emitFrame()</code>.</td></tr>
@@ -1632,87 +1645,87 @@ const recorder = createLifecycleRecorder(world);
 
 <script>
   // ---------- Tiny TS syntax highlighter ----------
-                (() => {
-                  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                  const re = new RegExp(
-                    [
-                      '(\\/\\/[^\\n]*)',                                                  // 1 comment
-                      "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string
-                      '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this)\\b', // 3 keyword
-                      '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',                                    // 4 number
-                      '([A-Za-z_$][\\w$]*)(?=\\s*\\()',                                    // 5 call
-                      '\\b([A-Z][\\w$]*)\\b',                                              // 6 type
-                    ].join('|'),
-                    'g'
-                  );
-                  document.querySelectorAll('figure.code code').forEach((el) => {
-                    if (el.closest('figure').dataset.lang === 'sh') {
-                      el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
-                      return;
-                    }
-                    const src = el.textContent;
-                    let out = '';
-                    let last = 0;
-                    let m = re.exec(src);
-                    while (m) {
-                      out += esc(src.slice(last, m.index));
-                      const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
-                      out += `<span class="${cls}">${esc(m[0])}</span>`;
-                      last = m.index + m[0].length;
-                      m = re.exec(src);
-                    }
-                    el.innerHTML = out + esc(src.slice(last));
-                  });
-                })();
+                        (() => {
+                          const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                          const re = new RegExp(
+                            [
+                              '(\\/\\/[^\\n]*)',                                                  // 1 comment
+                              "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string
+                              '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this)\\b', // 3 keyword
+                              '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',                                    // 4 number
+                              '([A-Za-z_$][\\w$]*)(?=\\s*\\()',                                    // 5 call
+                              '\\b([A-Z][\\w$]*)\\b',                                              // 6 type
+                            ].join('|'),
+                            'g'
+                          );
+                          document.querySelectorAll('figure.code code').forEach((el) => {
+                            if (el.closest('figure').dataset.lang === 'sh') {
+                              el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
+                              return;
+                            }
+                            const src = el.textContent;
+                            let out = '';
+                            let last = 0;
+                            let m = re.exec(src);
+                            while (m) {
+                              out += esc(src.slice(last, m.index));
+                              const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
+                              out += `<span class="${cls}">${esc(m[0])}</span>`;
+                              last = m.index + m[0].length;
+                              m = re.exec(src);
+                            }
+                            el.innerHTML = out + esc(src.slice(last));
+                          });
+                        })();
 
-                // ---------- Copy buttons ----------
-                document.querySelectorAll('figure.code').forEach((fig) => {
-                  const btn = document.createElement('button');
-                  btn.className = 'copy';
-                  btn.textContent = 'copy';
-                  btn.addEventListener('click', async () => {
-                    try {
-                      await navigator.clipboard.writeText(fig.querySelector('code').textContent);
-                      btn.textContent = 'copied';
-                      btn.classList.add('done');
-                      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
-                    } catch { /* clipboard unavailable (e.g. file://) — ignore */ }
-                  });
-                  fig.appendChild(btn);
-                });
+                        // ---------- Copy buttons ----------
+                        document.querySelectorAll('figure.code').forEach((fig) => {
+                          const btn = document.createElement('button');
+                          btn.className = 'copy';
+                          btn.textContent = 'copy';
+                          btn.addEventListener('click', async () => {
+                            try {
+                              await navigator.clipboard.writeText(fig.querySelector('code').textContent);
+                              btn.textContent = 'copied';
+                              btn.classList.add('done');
+                              setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
+                            } catch { /* clipboard unavailable (e.g. file://) — ignore */ }
+                          });
+                          fig.appendChild(btn);
+                        });
 
-                // ---------- Scrollspy ----------
-                (() => {
-                  const sections = Array.from(document.querySelectorAll('main section[id]'));
-                  const links = new Map(
-                    sections.map((s) => [s.id, document.querySelector(`.sidebar a[href="#${s.id}"]`)])
-                  );
-                  let active = null;
-                  function onScroll() {
-                    let current = sections[0];
-                    for (const s of sections) {
-                      if (s.getBoundingClientRect().top < 140) current = s;
-                    }
-                    if (current === active) return;
-                    active = current;
-                    links.forEach((l) => {
-                      l?.classList.remove('active');
-                    });
-                    const link = links.get(current.id);
-                    if (link) link.classList.add('active');
-                  }
-                  document.addEventListener('scroll', onScroll, { passive: true });
-                  onScroll();
-                })();
+                        // ---------- Scrollspy ----------
+                        (() => {
+                          const sections = Array.from(document.querySelectorAll('main section[id]'));
+                          const links = new Map(
+                            sections.map((s) => [s.id, document.querySelector(`.sidebar a[href="#${s.id}"]`)])
+                          );
+                          let active = null;
+                          function onScroll() {
+                            let current = sections[0];
+                            for (const s of sections) {
+                              if (s.getBoundingClientRect().top < 140) current = s;
+                            }
+                            if (current === active) return;
+                            active = current;
+                            links.forEach((l) => {
+                              l?.classList.remove('active');
+                            });
+                            const link = links.get(current.id);
+                            if (link) link.classList.add('active');
+                          }
+                          document.addEventListener('scroll', onScroll, { passive: true });
+                          onScroll();
+                        })();
 
-                // ---------- Mobile nav ----------
-                (() => {
-                  const toggle = document.getElementById('navToggle');
-                  toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
-                  document.querySelectorAll('.sidebar a').forEach((a) => {
-                    a.addEventListener('click', () => document.body.classList.remove('nav-open'));
-                  });
-                })();
+                        // ---------- Mobile nav ----------
+                        (() => {
+                          const toggle = document.getElementById('navToggle');
+                          toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+                          document.querySelectorAll('.sidebar a').forEach((a) => {
+                            a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+                          });
+                        })();
 </script>
 
 </body>
