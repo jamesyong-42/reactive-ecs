@@ -10,391 +10,391 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <style>
   :root {
-        --paper: #f7f4ed;
-        --paper-deep: #efeadf;
-        --ink: #1d1a13;
-        --ink-soft: #4f4a3d;
-        --ink-faint: #8a8371;
-        --line: #ded7c6;
-        --accent: #0d7a68;
-        --accent-deep: #0a5d50;
-        --accent-wash: #e2efeb;
-        --amber: #b4690e;
-        --amber-wash: #f6ecdb;
-        --code-bg: #142420;
-        --code-ink: #d8e6e0;
-        --code-cmt: #6f8d83;
-        --code-str: #c9b97a;
-        --code-kw: #7fc8b4;
-        --code-fn: #e3c98f;
-        --code-typ: #a9c9e8;
-        --code-num: #d8a0a0;
-        --sidebar-w: 272px;
-        --content-w: 736px;
-        --radius: 6px;
-      }
+          --paper: #f7f4ed;
+          --paper-deep: #efeadf;
+          --ink: #1d1a13;
+          --ink-soft: #4f4a3d;
+          --ink-faint: #8a8371;
+          --line: #ded7c6;
+          --accent: #0d7a68;
+          --accent-deep: #0a5d50;
+          --accent-wash: #e2efeb;
+          --amber: #b4690e;
+          --amber-wash: #f6ecdb;
+          --code-bg: #142420;
+          --code-ink: #d8e6e0;
+          --code-cmt: #6f8d83;
+          --code-str: #c9b97a;
+          --code-kw: #7fc8b4;
+          --code-fn: #e3c98f;
+          --code-typ: #a9c9e8;
+          --code-num: #d8a0a0;
+          --sidebar-w: 272px;
+          --content-w: 736px;
+          --radius: 6px;
+        }
 
-      * { box-sizing: border-box; }
+        * { box-sizing: border-box; }
 
-      html { scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; }
 
-      body {
-        margin: 0;
-        background: var(--paper);
-        color: var(--ink);
-        font-family: 'Schibsted Grotesk', sans-serif;
-        font-size: 16.5px;
-        line-height: 1.65;
-        -webkit-font-smoothing: antialiased;
-        background-image: radial-gradient(circle at 1px 1px, rgba(29, 26, 19, 0.05) 1px, transparent 0);
-        background-size: 26px 26px;
-      }
+        body {
+          margin: 0;
+          background: var(--paper);
+          color: var(--ink);
+          font-family: 'Schibsted Grotesk', sans-serif;
+          font-size: 16.5px;
+          line-height: 1.65;
+          -webkit-font-smoothing: antialiased;
+          background-image: radial-gradient(circle at 1px 1px, rgba(29, 26, 19, 0.05) 1px, transparent 0);
+          background-size: 26px 26px;
+        }
 
-      ::selection { background: var(--accent); color: #fff; }
+        ::selection { background: var(--accent); color: #fff; }
 
-      /* ---------- Sidebar ---------- */
+        /* ---------- Sidebar ---------- */
 
-      .sidebar {
-        position: fixed;
-        top: 0; left: 0; bottom: 0;
-        width: var(--sidebar-w);
-        padding: 32px 28px 48px;
-        overflow-y: auto;
-        border-right: 1px solid var(--line);
-        background: var(--paper);
-        z-index: 40;
-        scrollbar-width: thin;
-      }
+        .sidebar {
+          position: fixed;
+          top: 0; left: 0; bottom: 0;
+          width: var(--sidebar-w);
+          padding: 32px 28px 48px;
+          overflow-y: auto;
+          border-right: 1px solid var(--line);
+          background: var(--paper);
+          z-index: 40;
+          scrollbar-width: thin;
+        }
 
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        text-decoration: none;
-        color: var(--ink);
-        margin-bottom: 6px;
-      }
-      .brand .pulse-mini {
-        position: relative;
-        width: 10px; height: 10px;
-        border-radius: 50%;
-        background: var(--accent);
-        flex: none;
-      }
-      .brand .pulse-mini::after {
-        content: '';
-        position: absolute; inset: 0;
-        border-radius: 50%;
-        border: 1.5px solid var(--accent);
-        animation: ripple 2.6s cubic-bezier(.2, .6, .3, 1) infinite;
-      }
-      @keyframes ripple {
-        from { transform: scale(1); opacity: .8; }
-        to { transform: scale(6.5); opacity: 0; }
-      }
-      .brand b {
-        font-family: 'Fraunces', serif;
-        font-weight: 600;
-        font-size: 19px;
-        letter-spacing: -0.01em;
-      }
-      .brand-version {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 11px;
-        color: var(--ink-faint);
-        margin: 0 0 18px 22px;
-      }
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          text-decoration: none;
+          color: var(--ink);
+          margin-bottom: 6px;
+        }
+        .brand .pulse-mini {
+          position: relative;
+          width: 10px; height: 10px;
+          border-radius: 50%;
+          background: var(--accent);
+          flex: none;
+        }
+        .brand .pulse-mini::after {
+          content: '';
+          position: absolute; inset: 0;
+          border-radius: 50%;
+          border: 1.5px solid var(--accent);
+          animation: ripple 2.6s cubic-bezier(.2, .6, .3, 1) infinite;
+        }
+        @keyframes ripple {
+          from { transform: scale(1); opacity: .8; }
+          to { transform: scale(6.5); opacity: 0; }
+        }
+        .brand b {
+          font-family: 'Fraunces', serif;
+          font-weight: 600;
+          font-size: 19px;
+          letter-spacing: -0.01em;
+        }
+        .brand-version {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          color: var(--ink-faint);
+          margin: 0 0 18px 22px;
+        }
 
-      .nav-group { margin-bottom: 18px; }
-      .nav-group > span {
-        display: block;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 10.5px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.14em;
-        color: var(--ink-faint);
-        margin-bottom: 6px;
-      }
-      .nav-group a {
-        display: block;
-        padding: 2px 10px;
-        margin-left: -10px;
-        font-size: 13px;
-        font-family: 'IBM Plex Mono', monospace;
-        color: var(--ink-soft);
-        text-decoration: none;
-        border-left: 2px solid transparent;
-        border-radius: 0 var(--radius) var(--radius) 0;
-        transition: color .12s, background .12s;
-      }
-      .nav-group a.guide-link {
-        font-family: 'Schibsted Grotesk', sans-serif;
-        font-size: 14px;
-      }
-      .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
-      .nav-group a.active {
-        color: var(--accent-deep);
-        border-left-color: var(--accent);
-        background: var(--accent-wash);
-        font-weight: 600;
-      }
+        .nav-group { margin-bottom: 18px; }
+        .nav-group > span {
+          display: block;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 10.5px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          color: var(--ink-faint);
+          margin-bottom: 6px;
+        }
+        .nav-group a {
+          display: block;
+          padding: 2px 10px;
+          margin-left: -10px;
+          font-size: 13px;
+          font-family: 'IBM Plex Mono', monospace;
+          color: var(--ink-soft);
+          text-decoration: none;
+          border-left: 2px solid transparent;
+          border-radius: 0 var(--radius) var(--radius) 0;
+          transition: color .12s, background .12s;
+        }
+        .nav-group a.guide-link {
+          font-family: 'Schibsted Grotesk', sans-serif;
+          font-size: 14px;
+        }
+        .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
+        .nav-group a.active {
+          color: var(--accent-deep);
+          border-left-color: var(--accent);
+          background: var(--accent-wash);
+          font-weight: 600;
+        }
 
-      .sidebar-foot {
-        margin-top: 26px;
-        padding-top: 18px;
-        border-top: 1px solid var(--line);
-        font-size: 13px;
-      }
-      .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
-      .sidebar-foot a:hover { color: var(--accent-deep); }
+        .sidebar-foot {
+          margin-top: 26px;
+          padding-top: 18px;
+          border-top: 1px solid var(--line);
+          font-size: 13px;
+        }
+        .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
+        .sidebar-foot a:hover { color: var(--accent-deep); }
 
-      .nav-toggle {
-        display: none;
-        position: fixed;
-        top: 14px; left: 14px;
-        z-index: 60;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 12px;
-        padding: 7px 12px;
-        background: var(--ink);
-        color: var(--paper);
-        border: none;
-        border-radius: var(--radius);
-        cursor: pointer;
-      }
+        .nav-toggle {
+          display: none;
+          position: fixed;
+          top: 14px; left: 14px;
+          z-index: 60;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 12px;
+          padding: 7px 12px;
+          background: var(--ink);
+          color: var(--paper);
+          border: none;
+          border-radius: var(--radius);
+          cursor: pointer;
+        }
 
-      /* ---------- Main column ---------- */
+        /* ---------- Main column ---------- */
 
-      main {
-        margin-left: var(--sidebar-w);
-        padding: 0 48px 120px;
-      }
-      .measure { max-width: var(--content-w); margin: 0 auto; }
+        main {
+          margin-left: var(--sidebar-w);
+          padding: 0 48px 120px;
+        }
+        .measure { max-width: var(--content-w); margin: 0 auto; }
 
-      /* ---------- Page header ---------- */
+        /* ---------- Page header ---------- */
 
-      .page-head {
-        padding: 72px 0 36px;
-        border-bottom: 1px solid var(--line);
-        margin-bottom: 48px;
-      }
-      .page-head .kicker {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 12px;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--accent-deep);
-        margin-bottom: 14px;
-      }
-      .page-head h1 {
-        font-family: 'Fraunces', serif;
-        font-size: clamp(34px, 5vw, 46px);
-        font-weight: 600;
-        letter-spacing: -0.02em;
-        line-height: 1.08;
-        margin: 0 0 14px;
-      }
-      .page-head p {
-        color: var(--ink-soft);
-        max-width: 620px;
-        margin: 0;
-      }
+        .page-head {
+          padding: 72px 0 36px;
+          border-bottom: 1px solid var(--line);
+          margin-bottom: 48px;
+        }
+        .page-head .kicker {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 12px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: var(--accent-deep);
+          margin-bottom: 14px;
+        }
+        .page-head h1 {
+          font-family: 'Fraunces', serif;
+          font-size: clamp(34px, 5vw, 46px);
+          font-weight: 600;
+          letter-spacing: -0.02em;
+          line-height: 1.08;
+          margin: 0 0 14px;
+        }
+        .page-head p {
+          color: var(--ink-soft);
+          max-width: 620px;
+          margin: 0;
+        }
 
-      /* ---------- Typography ---------- */
+        /* ---------- Typography ---------- */
 
-      section { margin-bottom: 64px; }
+        section { margin-bottom: 64px; }
 
-      h2 {
-        font-family: 'Fraunces', serif;
-        font-size: 28px;
-        font-weight: 600;
-        letter-spacing: -0.015em;
-        line-height: 1.15;
-        margin: 0 0 8px;
-        padding-top: 14px;
-        scroll-margin-top: 28px;
-      }
-      h2::before {
-        content: '';
-        display: block;
-        width: 34px; height: 3px;
-        background: var(--accent);
-        margin-bottom: 20px;
-      }
-      h3 {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 17px;
-        font-weight: 600;
-        margin: 40px 0 8px;
-        scroll-margin-top: 28px;
-        color: var(--accent-deep);
-      }
+        h2 {
+          font-family: 'Fraunces', serif;
+          font-size: 28px;
+          font-weight: 600;
+          letter-spacing: -0.015em;
+          line-height: 1.15;
+          margin: 0 0 8px;
+          padding-top: 14px;
+          scroll-margin-top: 28px;
+        }
+        h2::before {
+          content: '';
+          display: block;
+          width: 34px; height: 3px;
+          background: var(--accent);
+          margin-bottom: 20px;
+        }
+        h3 {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 17px;
+          font-weight: 600;
+          margin: 40px 0 8px;
+          scroll-margin-top: 28px;
+          color: var(--accent-deep);
+        }
 
-      p { margin: 0 0 14px; }
-      p, li { color: var(--ink); }
-      strong { font-weight: 650; }
-      a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13, 122, 104, .35); text-underline-offset: 2px; }
-      a:hover { text-decoration-color: var(--accent); }
+        p { margin: 0 0 14px; }
+        p, li { color: var(--ink); }
+        strong { font-weight: 650; }
+        a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13, 122, 104, .35); text-underline-offset: 2px; }
+        a:hover { text-decoration-color: var(--accent); }
 
-      ul, ol { padding-left: 22px; margin: 0 0 14px; }
-      li { margin-bottom: 5px; }
+        ul, ol { padding-left: 22px; margin: 0 0 14px; }
+        li { margin-bottom: 5px; }
 
-      code {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.86em;
-        background: var(--paper-deep);
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        padding: 1px 5px;
-        white-space: nowrap;
-      }
+        code {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.86em;
+          background: var(--paper-deep);
+          border: 1px solid var(--line);
+          border-radius: 4px;
+          padding: 1px 5px;
+          white-space: nowrap;
+        }
 
-      .anchor {
-        margin-left: 8px;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.65em;
-        color: var(--ink-faint);
-        text-decoration: none;
-        opacity: 0;
-        transition: opacity .12s;
-      }
-      h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+        .anchor {
+          margin-left: 8px;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 0.65em;
+          color: var(--ink-faint);
+          text-decoration: none;
+          opacity: 0;
+          transition: opacity .12s;
+        }
+        h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 
-      /* ---------- Code blocks ---------- */
+        /* ---------- Code blocks ---------- */
 
-      figure.code {
-        position: relative;
-        margin: 14px 0 18px;
-        border-radius: 8px;
-        background: var(--code-bg);
-        box-shadow: 0 1px 0 rgba(29, 26, 19, .18), 0 12px 28px -18px rgba(20, 36, 32, .55);
-        overflow: hidden;
-      }
-      figure.code::before {
-        content: attr(data-lang);
-        position: absolute;
-        top: 9px; right: 64px;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 10.5px;
-        letter-spacing: .1em;
-        text-transform: uppercase;
-        color: var(--code-cmt);
-      }
-      figure.code pre {
-        margin: 0;
-        padding: 20px 24px;
-        overflow-x: auto;
-      }
-      figure.code.sig pre { padding: 13px 24px; }
-      figure.code code {
-        background: none;
-        border: none;
-        padding: 0;
-        white-space: pre;
-        font-size: 13.5px;
-        line-height: 1.62;
-        color: var(--code-ink);
-      }
-      .tok-cmt { color: var(--code-cmt); font-style: italic; }
-      .tok-str { color: var(--code-str); }
-      .tok-kw { color: var(--code-kw); }
-      .tok-fn { color: var(--code-fn); }
-      .tok-typ { color: var(--code-typ); }
-      .tok-num { color: var(--code-num); }
+        figure.code {
+          position: relative;
+          margin: 14px 0 18px;
+          border-radius: 8px;
+          background: var(--code-bg);
+          box-shadow: 0 1px 0 rgba(29, 26, 19, .18), 0 12px 28px -18px rgba(20, 36, 32, .55);
+          overflow: hidden;
+        }
+        figure.code::before {
+          content: attr(data-lang);
+          position: absolute;
+          top: 9px; right: 64px;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 10.5px;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          color: var(--code-cmt);
+        }
+        figure.code pre {
+          margin: 0;
+          padding: 20px 24px;
+          overflow-x: auto;
+        }
+        figure.code.sig pre { padding: 13px 24px; }
+        figure.code code {
+          background: none;
+          border: none;
+          padding: 0;
+          white-space: pre;
+          font-size: 13.5px;
+          line-height: 1.62;
+          color: var(--code-ink);
+        }
+        .tok-cmt { color: var(--code-cmt); font-style: italic; }
+        .tok-str { color: var(--code-str); }
+        .tok-kw { color: var(--code-kw); }
+        .tok-fn { color: var(--code-fn); }
+        .tok-typ { color: var(--code-typ); }
+        .tok-num { color: var(--code-num); }
 
-      button.copy {
-        position: absolute;
-        top: 8px; right: 8px;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 10.5px;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-        color: var(--code-cmt);
-        background: rgba(255, 255, 255, .04);
-        border: 1px solid rgba(216, 230, 224, .18);
-        border-radius: 4px;
-        padding: 4px 9px;
-        cursor: pointer;
-        transition: color .12s, border-color .12s;
-      }
-      button.copy:hover { color: var(--code-ink); border-color: rgba(216, 230, 224, .4); }
-      button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
+        button.copy {
+          position: absolute;
+          top: 8px; right: 8px;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 10.5px;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          color: var(--code-cmt);
+          background: rgba(255, 255, 255, .04);
+          border: 1px solid rgba(216, 230, 224, .18);
+          border-radius: 4px;
+          padding: 4px 9px;
+          cursor: pointer;
+          transition: color .12s, border-color .12s;
+        }
+        button.copy:hover { color: var(--code-ink); border-color: rgba(216, 230, 224, .4); }
+        button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
 
-      /* ---------- Callouts & tables ---------- */
+        /* ---------- Callouts & tables ---------- */
 
-      .callout {
-        margin: 16px 0 20px;
-        padding: 14px 18px 14px 16px;
-        border-left: 3px solid var(--accent);
-        background: var(--accent-wash);
-        border-radius: 0 var(--radius) var(--radius) 0;
-        font-size: 15px;
-      }
-      .callout > p:last-child { margin-bottom: 0; }
-      .callout .callout-tag {
-        display: inline-block;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 10.5px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: .12em;
-        color: var(--accent-deep);
-        margin-bottom: 4px;
-      }
-      .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
-      .callout.warn .callout-tag { color: var(--amber); }
+        .callout {
+          margin: 16px 0 20px;
+          padding: 14px 18px 14px 16px;
+          border-left: 3px solid var(--accent);
+          background: var(--accent-wash);
+          border-radius: 0 var(--radius) var(--radius) 0;
+          font-size: 15px;
+        }
+        .callout > p:last-child { margin-bottom: 0; }
+        .callout .callout-tag {
+          display: inline-block;
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 10.5px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: .12em;
+          color: var(--accent-deep);
+          margin-bottom: 4px;
+        }
+        .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
+        .callout.warn .callout-tag { color: var(--amber); }
 
-      .table-wrap { overflow-x: auto; margin: 14px 0 20px; }
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-        background: #fbf9f4;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      th {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: .1em;
-        text-align: left;
-        color: var(--ink-faint);
-        background: var(--paper-deep);
-        padding: 9px 14px;
-        border-bottom: 1px solid var(--line);
-      }
-      td {
-        padding: 9px 14px;
-        border-bottom: 1px solid var(--line);
-        vertical-align: top;
-      }
-      tr:last-child td { border-bottom: none; }
-      td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
+        .table-wrap { overflow-x: auto; margin: 14px 0 20px; }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 14px;
+          background: #fbf9f4;
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        th {
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: .1em;
+          text-align: left;
+          color: var(--ink-faint);
+          background: var(--paper-deep);
+          padding: 9px 14px;
+          border-bottom: 1px solid var(--line);
+        }
+        td {
+          padding: 9px 14px;
+          border-bottom: 1px solid var(--line);
+          vertical-align: top;
+        }
+        tr:last-child td { border-bottom: none; }
+        td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
 
-      footer {
-        border-top: 1px solid var(--line);
-        margin-top: 80px;
-        padding-top: 28px;
-        font-size: 14px;
-        color: var(--ink-faint);
-        display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-      footer a { color: var(--ink-soft); }
+        footer {
+          border-top: 1px solid var(--line);
+          margin-top: 80px;
+          padding-top: 28px;
+          font-size: 14px;
+          color: var(--ink-faint);
+          display: flex;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        footer a { color: var(--ink-soft); }
 
-      @media (max-width: 980px) {
-        .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29, 26, 19, .4); }
-        body.nav-open .sidebar { transform: none; }
-        .nav-toggle { display: block; }
-        main { margin-left: 0; padding: 0 22px 90px; }
-        .page-head { padding-top: 70px; }
-      }
+        @media (max-width: 980px) {
+          .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29, 26, 19, .4); }
+          body.nav-open .sidebar { transform: none; }
+          .nav-toggle { display: block; }
+          main { margin-left: 0; padding: 0 22px 90px; }
+          .page-head { padding-top: 70px; }
+        }
 </style>
 </head>
 <body>
@@ -728,10 +728,13 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 <figure class="code sig" data-lang="ts"><pre><code>addComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: T): void</code></pre></figure>
     <p>
       Attaches a component. <code>data</code> is shallow-merged over the type's defaults and
-      deep-cloned, so two entities never share nested state. Fires
+      defensively cloned two levels deep (plain objects/arrays; class instances kept by
+      reference), so two entities never share nested state by accident. Fires
       <a href="#oncomponentchanged"><code>onComponentChanged</code></a> with
       <code>prev === undefined</code> and lands in the <code>queryAdded</code> /
-      <code>queryChanged</code> buffers. Throws if the entity is not alive.
+      <code>queryChanged</code> buffers. Throws if the entity is not alive. Calling it on an
+      entity that already has the component <strong>replaces</strong> the value — observers
+      still see <code>prev = undefined</code>; use <code>setComponent</code> to update.
     </p>
 
     <h3 id="removecomponent">removeComponent<a class="anchor" href="#removecomponent">#</a></h3>
@@ -752,7 +755,13 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 
     <h3 id="setcomponent">setComponent<a class="anchor" href="#setcomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>setComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
-    <p>Shallow-merges a partial update over the current value. Fires <code>onComponentChanged</code> with the previous value and lands in the <code>queryChanged</code> buffer.</p>
+    <p>
+      Shallow-merges a partial update over the current value — one level deep: nested objects
+      in <code>data</code> replace, they don't merge into. Fires <code>onComponentChanged</code>
+      with the previous value and lands in the <code>queryChanged</code> buffer.
+      <strong>Silent no-op</strong> if the entity doesn't have the component (or is dead) —
+      use <code>addComponent</code> to attach.
+    </p>
   </section>
 
   <!-- ============================ TAGS ============================ -->
@@ -848,7 +857,7 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 
     <h3 id="querychanged">queryChanged<a class="anchor" href="#querychanged">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryChanged(type: ComponentType): EntityId[]</code></pre></figure>
-    <p>Entities whose component was written this tick (add or set).</p>
+    <p>Entities whose component was written this tick — <strong>adds included</strong>: a newly added component appears in both <code>queryAdded</code> and <code>queryChanged</code>, so consumers handling both must dedupe.</p>
 
     <h3 id="queryadded">queryAdded<a class="anchor" href="#queryadded">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryAdded(type: ComponentType): EntityId[]</code></pre></figure>
@@ -1310,99 +1319,99 @@ type ComponentInit              = [ComponentType&lt;unknown&gt;, unknown] | [Tag
 
 <script>
   // ---------- Tiny TS syntax highlighter ----------
-      (() => {
-        const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const re = new RegExp(
-          [
-            '(\\/\\/[^\\n]*)',
-            "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)",
-            '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this|get)\\b',
-            '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',
-            '([A-Za-z_$][\\w$]*)(?=\\s*\\()',
-            '\\b([A-Z][\\w$]*)\\b',
-          ].join('|'),
-          'g'
-        );
-        document.querySelectorAll('figure.code code').forEach((el) => {
-          if (el.closest('figure').dataset.lang === 'sh') {
-            el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
-            return;
-          }
-          const src = el.textContent;
-          let out = '';
-          let last = 0;
-          let m = re.exec(src);
-          while (m) {
-            out += esc(src.slice(last, m.index));
-            const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
-            out += `<span class="${cls}">${esc(m[0])}</span>`;
-            last = m.index + m[0].length;
-            m = re.exec(src);
-          }
-          el.innerHTML = out + esc(src.slice(last));
-        });
-      })();
-
-      // ---------- Copy buttons ----------
-      document.querySelectorAll('figure.code').forEach((fig) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'copy';
-        btn.textContent = 'copy';
-        btn.addEventListener('click', async () => {
-          try {
-            await navigator.clipboard.writeText(fig.querySelector('code').textContent);
-            btn.textContent = 'copied';
-            btn.classList.add('done');
-            setTimeout(() => {
-              btn.textContent = 'copy';
-              btn.classList.remove('done');
-            }, 1400);
-          } catch {
-            /* clipboard unavailable (e.g. file://) — ignore */
-          }
-        });
-        fig.appendChild(btn);
-      });
-
-      // ---------- Scrollspy (h3-level) ----------
-      (() => {
-        const heads = Array.from(document.querySelectorAll('main h3[id], main h2[id]'));
-        const links = new Map(
-          heads.map((h) => [h.id, document.querySelector(`.sidebar a[href="#${h.id}"]`)])
-        );
-        let active = null;
-        function onScroll() {
-          let current = heads[0];
-          for (const h of heads) {
-            if (h.getBoundingClientRect().top < 140) current = h;
-          }
-          if (current === active) return;
-          active = current;
-          links.forEach((l) => {
-            l?.classList.remove('active');
+        (() => {
+          const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const re = new RegExp(
+            [
+              '(\\/\\/[^\\n]*)',
+              "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)",
+              '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this|get)\\b',
+              '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',
+              '([A-Za-z_$][\\w$]*)(?=\\s*\\()',
+              '\\b([A-Z][\\w$]*)\\b',
+            ].join('|'),
+            'g'
+          );
+          document.querySelectorAll('figure.code code').forEach((el) => {
+            if (el.closest('figure').dataset.lang === 'sh') {
+              el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
+              return;
+            }
+            const src = el.textContent;
+            let out = '';
+            let last = 0;
+            let m = re.exec(src);
+            while (m) {
+              out += esc(src.slice(last, m.index));
+              const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
+              out += `<span class="${cls}">${esc(m[0])}</span>`;
+              last = m.index + m[0].length;
+              m = re.exec(src);
+            }
+            el.innerHTML = out + esc(src.slice(last));
           });
-          const link = links.get(current.id);
-          if (link) {
-            link.classList.add('active');
-            const r = link.getBoundingClientRect();
-            if (r.top < 0 || r.bottom > window.innerHeight) {
-              link.scrollIntoView({ block: 'center' });
+        })();
+
+        // ---------- Copy buttons ----------
+        document.querySelectorAll('figure.code').forEach((fig) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'copy';
+          btn.textContent = 'copy';
+          btn.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(fig.querySelector('code').textContent);
+              btn.textContent = 'copied';
+              btn.classList.add('done');
+              setTimeout(() => {
+                btn.textContent = 'copy';
+                btn.classList.remove('done');
+              }, 1400);
+            } catch {
+              /* clipboard unavailable (e.g. file://) — ignore */
+            }
+          });
+          fig.appendChild(btn);
+        });
+
+        // ---------- Scrollspy (h3-level) ----------
+        (() => {
+          const heads = Array.from(document.querySelectorAll('main h3[id], main h2[id]'));
+          const links = new Map(
+            heads.map((h) => [h.id, document.querySelector(`.sidebar a[href="#${h.id}"]`)])
+          );
+          let active = null;
+          function onScroll() {
+            let current = heads[0];
+            for (const h of heads) {
+              if (h.getBoundingClientRect().top < 140) current = h;
+            }
+            if (current === active) return;
+            active = current;
+            links.forEach((l) => {
+              l?.classList.remove('active');
+            });
+            const link = links.get(current.id);
+            if (link) {
+              link.classList.add('active');
+              const r = link.getBoundingClientRect();
+              if (r.top < 0 || r.bottom > window.innerHeight) {
+                link.scrollIntoView({ block: 'center' });
+              }
             }
           }
-        }
-        document.addEventListener('scroll', onScroll, { passive: true });
-        onScroll();
-      })();
+          document.addEventListener('scroll', onScroll, { passive: true });
+          onScroll();
+        })();
 
-      // ---------- Mobile nav ----------
-      (() => {
-        const toggle = document.getElementById('navToggle');
-        toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
-        document.querySelectorAll('.sidebar a').forEach((a) => {
-          a.addEventListener('click', () => document.body.classList.remove('nav-open'));
-        });
-      })();
+        // ---------- Mobile nav ----------
+        (() => {
+          const toggle = document.getElementById('navToggle');
+          toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+          document.querySelectorAll('.sidebar a').forEach((a) => {
+            a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+          });
+        })();
 </script>
 
 </body>

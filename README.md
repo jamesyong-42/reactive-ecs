@@ -224,7 +224,7 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
 ## What it gives you
 
 - **Entities** — opaque integer IDs, O(1) create/destroy.
-- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). Shallow defaults merge, deep-clone on add to prevent shared mutation.
+- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). Shallow defaults merge; initial data is defensively cloned two levels deep (plain objects/arrays — class instances are kept by reference) to prevent accidental shared mutation.
 - **Tags** — zero-data boolean markers (`defineTag('Selected')`).
 - **Relations** — managed entity-to-entity edges (`defineRelation('ChildOf', { ... })`) with an always-coherent inverse index and lifecycle cleanup: `relate`, `unrelate`, `getTargets`, `getTarget`, `getSources`, `queryRelation`, `queryRelationAdded`, `queryRelationRemoved`, `onRelationAdded`, `onRelationRemoved`. Exclusivity bounds and `onTargetDestroy` policies (`'clear'` / `'cascade'` / `{ tag }`) per relation type.
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
