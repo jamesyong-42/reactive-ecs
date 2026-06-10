@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.9.0...reactive-ecs-v0.10.0) (2026-06-10)
+
+
+### Features
+
+* runIf run conditions + skipSystem profiler hook ([72a2fc5](https://github.com/jamesyong-42/reactive-ecs/commit/72a2fc5b41b0b69ecb0593b2a19a47f9e14f5624))
+
 ## [0.9.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.8.0...reactive-ecs-v0.9.0) (2026-06-10)
 
 
