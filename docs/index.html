@@ -1,0 +1,1531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>reactive-ecs — a reactive TypeScript ECS for UIs</title>
+<meta name="description" content="Documentation for @jamesyong42/reactive-ecs — a reactive, dependency-free TypeScript Entity-Component-System designed for UI frameworks. Every mutation is observable." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+            --paper: #f7f4ed;
+            --paper-deep: #efeadf;
+            --ink: #1d1a13;
+            --ink-soft: #4f4a3d;
+            --ink-faint: #8a8371;
+            --line: #ded7c6;
+            --accent: #0d7a68;
+            --accent-deep: #0a5d50;
+            --accent-wash: #e2efeb;
+            --amber: #b4690e;
+            --amber-wash: #f6ecdb;
+            --code-bg: #142420;
+            --code-ink: #d8e6e0;
+            --code-cmt: #6f8d83;
+            --code-str: #c9b97a;
+            --code-kw: #7fc8b4;
+            --code-fn: #e3c98f;
+            --code-typ: #a9c9e8;
+            --code-num: #d8a0a0;
+            --sidebar-w: 272px;
+            --content-w: 736px;
+            --radius: 6px;
+          }
+
+          * { box-sizing: border-box; }
+
+          html { scroll-behavior: smooth; }
+
+          body {
+            margin: 0;
+            background: var(--paper);
+            color: var(--ink);
+            font-family: 'Schibsted Grotesk', sans-serif;
+            font-size: 16.5px;
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
+            background-image:
+              radial-gradient(circle at 1px 1px, rgba(29,26,19,0.05) 1px, transparent 0);
+            background-size: 26px 26px;
+          }
+
+          ::selection { background: var(--accent); color: #fff; }
+
+          /* ---------- Sidebar ---------- */
+
+          .sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-w);
+            padding: 32px 28px 48px;
+            overflow-y: auto;
+            border-right: 1px solid var(--line);
+            background: var(--paper);
+            z-index: 40;
+            scrollbar-width: thin;
+          }
+
+          .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--ink);
+            margin-bottom: 6px;
+          }
+          .brand .pulse-mini {
+            position: relative;
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex: none;
+          }
+          .brand .pulse-mini::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            border: 1.5px solid var(--accent);
+            animation: ripple 2.6s cubic-bezier(.2,.6,.3,1) infinite;
+          }
+          .brand b {
+            font-family: 'Fraunces', serif;
+            font-weight: 600;
+            font-size: 19px;
+            letter-spacing: -0.01em;
+          }
+          .brand-version {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            color: var(--ink-faint);
+            margin: 0 0 22px 22px;
+          }
+
+          .nav-group { margin-bottom: 22px; }
+          .nav-group > span {
+            display: block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--ink-faint);
+            margin-bottom: 8px;
+          }
+          .nav-group a {
+            display: block;
+            padding: 4px 10px;
+            margin-left: -10px;
+            font-size: 14.5px;
+            color: var(--ink-soft);
+            text-decoration: none;
+            border-left: 2px solid transparent;
+            border-radius: 0 var(--radius) var(--radius) 0;
+            transition: color .12s, background .12s;
+          }
+          .nav-group a.sub { padding-left: 24px; font-size: 13.5px; }
+          .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
+          .nav-group a.active {
+            color: var(--accent-deep);
+            border-left-color: var(--accent);
+            background: var(--accent-wash);
+            font-weight: 600;
+          }
+
+          .sidebar-foot {
+            margin-top: 30px;
+            padding-top: 18px;
+            border-top: 1px solid var(--line);
+            font-size: 13px;
+          }
+          .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
+          .sidebar-foot a:hover { color: var(--accent-deep); }
+
+          .nav-toggle {
+            display: none;
+            position: fixed;
+            top: 14px; left: 14px;
+            z-index: 60;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            padding: 7px 12px;
+            background: var(--ink);
+            color: var(--paper);
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+          }
+
+          /* ---------- Main column ---------- */
+
+          main {
+            margin-left: var(--sidebar-w);
+            padding: 0 48px 120px;
+          }
+          .measure { max-width: var(--content-w); margin: 0 auto; }
+
+          /* ---------- Hero ---------- */
+
+          .hero {
+            padding: 96px 0 64px;
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 56px;
+            position: relative;
+          }
+          .hero-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 14px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent-deep);
+            margin-bottom: 26px;
+            animation: rise .7s cubic-bezier(.2,.7,.3,1) both;
+          }
+          .pulse {
+            position: relative;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex: none;
+          }
+          .pulse::before, .pulse::after {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: 50%;
+            border: 1.5px solid var(--accent);
+            animation: ripple 2.8s cubic-bezier(.2,.6,.3,1) infinite;
+          }
+          .pulse::after { animation-delay: 1.4s; }
+          @keyframes ripple {
+            from { transform: scale(1); opacity: .8; }
+            to   { transform: scale(6.5); opacity: 0; }
+          }
+
+          .hero h1 {
+            font-family: 'Fraunces', serif;
+            font-size: clamp(44px, 6vw, 64px);
+            font-weight: 600;
+            letter-spacing: -0.025em;
+            line-height: 1.04;
+            margin: 0 0 24px;
+            animation: rise .7s .08s cubic-bezier(.2,.7,.3,1) both;
+          }
+          .hero h1 em {
+            font-style: italic;
+            font-weight: 500;
+            color: var(--accent-deep);
+          }
+          .hero p.lede {
+            font-size: 19px;
+            line-height: 1.6;
+            color: var(--ink-soft);
+            max-width: 620px;
+            margin: 0 0 34px;
+            animation: rise .7s .16s cubic-bezier(.2,.7,.3,1) both;
+          }
+          .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 12px;
+            color: var(--ink-soft);
+            animation: rise .7s .24s cubic-bezier(.2,.7,.3,1) both;
+          }
+          .hero-meta span {
+            border: 1px solid var(--line);
+            background: var(--paper-deep);
+            border-radius: 100px;
+            padding: 4px 12px;
+          }
+          @keyframes rise {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: none; }
+          }
+
+          /* ---------- Typography ---------- */
+
+          section { margin-bottom: 72px; }
+
+          h2 {
+            font-family: 'Fraunces', serif;
+            font-size: 32px;
+            font-weight: 600;
+            letter-spacing: -0.015em;
+            line-height: 1.15;
+            margin: 0 0 8px;
+            padding-top: 18px;
+            scroll-margin-top: 28px;
+          }
+          h2::before {
+            content: '';
+            display: block;
+            width: 34px; height: 3px;
+            background: var(--accent);
+            margin-bottom: 22px;
+          }
+          h3 {
+            font-family: 'Fraunces', serif;
+            font-size: 21.5px;
+            font-weight: 600;
+            margin: 40px 0 10px;
+            scroll-margin-top: 28px;
+          }
+          h4 {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 28px 0 8px;
+          }
+
+          p { margin: 0 0 16px; }
+          p, li { color: var(--ink); }
+          strong { font-weight: 650; }
+          a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13,122,104,.35); text-underline-offset: 2px; }
+          a:hover { text-decoration-color: var(--accent); }
+
+          ul, ol { padding-left: 22px; margin: 0 0 16px; }
+          li { margin-bottom: 6px; }
+
+          code {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.86em;
+            background: var(--paper-deep);
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 1px 5px;
+            white-space: nowrap;
+          }
+
+          .anchor {
+            margin-left: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.65em;
+            color: var(--ink-faint);
+            text-decoration: none;
+            opacity: 0;
+            transition: opacity .12s;
+          }
+          h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+
+          /* ---------- Code blocks ---------- */
+
+          figure.code {
+            position: relative;
+            margin: 20px 0 24px;
+            border-radius: 8px;
+            background: var(--code-bg);
+            box-shadow: 0 1px 0 rgba(29,26,19,.18), 0 12px 28px -18px rgba(20,36,32,.55);
+            overflow: hidden;
+          }
+          figure.code::before {
+            content: attr(data-lang);
+            position: absolute;
+            top: 9px; right: 64px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10.5px;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: var(--code-cmt);
+          }
+          figure.code pre {
+            margin: 0;
+            padding: 20px 24px;
+            overflow-x: auto;
+          }
+          figure.code code {
+            background: none;
+            border: none;
+            padding: 0;
+            white-space: pre;
+            font-size: 13.5px;
+            line-height: 1.62;
+            color: var(--code-ink);
+          }
+          .tok-cmt { color: var(--code-cmt); font-style: italic; }
+          .tok-str { color: var(--code-str); }
+          .tok-kw  { color: var(--code-kw); }
+          .tok-fn  { color: var(--code-fn); }
+          .tok-typ { color: var(--code-typ); }
+          .tok-num { color: var(--code-num); }
+
+          button.copy {
+            position: absolute;
+            top: 8px; right: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10.5px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--code-cmt);
+            background: rgba(255,255,255,.04);
+            border: 1px solid rgba(216,230,224,.18);
+            border-radius: 4px;
+            padding: 4px 9px;
+            cursor: pointer;
+            transition: color .12s, border-color .12s;
+          }
+          button.copy:hover { color: var(--code-ink); border-color: rgba(216,230,224,.4); }
+          button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
+
+          /* ---------- Callouts ---------- */
+
+          .callout {
+            margin: 20px 0 24px;
+            padding: 14px 18px 14px 16px;
+            border-left: 3px solid var(--accent);
+            background: var(--accent-wash);
+            border-radius: 0 var(--radius) var(--radius) 0;
+            font-size: 15px;
+          }
+          .callout > p:last-child { margin-bottom: 0; }
+          .callout .callout-tag {
+            display: inline-block;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            color: var(--accent-deep);
+            margin-bottom: 4px;
+          }
+          .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
+          .callout.warn .callout-tag { color: var(--amber); }
+
+          /* ---------- Tables ---------- */
+
+          .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            background: #fbf9f4;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden;
+          }
+          th {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            text-align: left;
+            color: var(--ink-faint);
+            background: var(--paper-deep);
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--line);
+          }
+          td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+          }
+          tr:last-child td { border-bottom: none; }
+          td code { white-space: nowrap; }
+          td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
+
+          /* ---------- Hr / footer ---------- */
+
+          footer {
+            border-top: 1px solid var(--line);
+            margin-top: 80px;
+            padding-top: 28px;
+            font-size: 14px;
+            color: var(--ink-faint);
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+          footer a { color: var(--ink-soft); }
+
+          /* ---------- Responsive ---------- */
+
+          @media (max-width: 980px) {
+            .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29,26,19,.4); }
+            body.nav-open .sidebar { transform: none; }
+            .nav-toggle { display: block; }
+            main { margin-left: 0; padding: 0 22px 90px; }
+            .hero { padding-top: 84px; }
+          }
+</style>
+</head>
+<body>
+
+<button type="button" class="nav-toggle" id="navToggle" aria-label="Toggle navigation">menu</button>
+
+<nav class="sidebar" id="sidebar">
+  <a class="brand" href="#top">
+    <span class="pulse-mini"></span>
+    <b>reactive-ecs</b>
+  </a>
+  <div class="brand-version">v0.7.0 · MIT</div>
+
+  <div class="nav-group">
+    <span>Start</span>
+    <a href="#introduction">Introduction</a>
+    <a href="#installation">Installation</a>
+    <a href="#quick-start">Quick start</a>
+  </div>
+
+  <div class="nav-group">
+    <span>Core concepts</span>
+    <a href="#world">World &amp; the tick</a>
+    <a href="#entities">Entities</a>
+    <a href="#components">Components</a>
+    <a href="#tags">Tags</a>
+    <a href="#relations">Relations</a>
+    <a href="#resources">Resources</a>
+  </div>
+
+  <div class="nav-group">
+    <span>Queries</span>
+    <a href="#queries">Cached queries</a>
+    <a href="#change-tracking">Change tracking</a>
+  </div>
+
+  <div class="nav-group">
+    <span>Reactivity</span>
+    <a href="#events">Events</a>
+    <a href="#origin-tagging">Origin tagging</a>
+    <a href="#destroy-semantics">Destroy semantics</a>
+    <a href="#driving-ui">Driving a UI</a>
+  </div>
+
+  <div class="nav-group">
+    <span>Scheduling</span>
+    <a href="#system-scheduler">SystemScheduler</a>
+    <a href="#phased-scheduler">PhasedScheduler</a>
+    <a href="#profiler">Profiler hook</a>
+  </div>
+
+  <div class="nav-group">
+    <span>Reference</span>
+    <a href="#introspection">Introspection</a>
+    <a href="#restore">Saving &amp; restoring</a>
+    <a href="#api">API reference</a>
+    <a href="#non-goals">Non-goals</a>
+  </div>
+
+  <div class="sidebar-foot">
+    <a href="https://github.com/jamesyong-42/reactive-ecs">GitHub ↗</a>
+    <a href="https://www.npmjs.com/package/@jamesyong42/reactive-ecs">npm ↗</a>
+  </div>
+</nav>
+
+<main id="top">
+<div class="measure">
+
+  <!-- ================================ HERO ================================ -->
+  <header class="hero">
+    <div class="hero-kicker"><span class="pulse"></span> every mutation is observable</div>
+    <h1>A <em>reactive</em> ECS<br />built for UIs.</h1>
+    <p class="lede">
+      reactive-ecs is a dependency-free TypeScript Entity-Component-System designed for
+      UI frameworks, editors, and tools — not just game loops. Component changes, tag flips,
+      and resource updates all emit events you can subscribe to. Queries are cached and
+      update incrementally. A topological scheduler keeps systems ordered.
+    </p>
+    <div class="hero-meta">
+      <span>zero dependencies</span>
+      <span>typescript-first</span>
+      <span>esm + cjs</span>
+      <span>browser · node · bun · deno</span>
+    </div>
+  </header>
+
+  <!-- ================================ INTRO ================================ -->
+  <section id="introduction">
+    <h2>Introduction<a class="anchor" href="#introduction">#</a></h2>
+    <p>
+      Most ECS libraries are built for throughput: pack data flat, scan it fast, and leave
+      change detection to you. That is the right trade for a game simulating 100k entities.
+      It is the wrong trade for an editor, a canvas tool, or any app where a UI must
+      <strong>react</strong> to world state.
+    </p>
+    <p>reactive-ecs makes the opposite trade. The library owns component storage, and because it owns the store, it can make guarantees a bring-your-own-storage toolkit cannot:</p>
+    <ul>
+      <li><strong>Every mutation emits.</strong> There is no way to write component data that bypasses observers — no <code>set()</code> ceremony to forget.</li>
+      <li><strong>Subscriptions can target a single entity.</strong> <code>onComponentChanged(Position, handler, entityId)</code> is exactly the shape a <code>useComponent()</code> hook needs.</li>
+      <li><strong>Removal is observable with the data still readable.</strong> <code>onComponentRemoved</code> fires <em>before</em> deletion, so handlers can release GPU buffers, DOM nodes, or subscriptions keyed by the dying value.</li>
+      <li><strong>Entity ids never lie.</strong> Ids are monotonic and never reused — <code>entityExists(staleId)</code> is <code>false</code> forever.</li>
+      <li><strong>Edges are managed.</strong> <a href="#relations">Relations</a> keep an always-coherent inverse index, and no edge ever survives the destruction of either endpoint.</li>
+    </ul>
+    <div class="callout">
+      <span class="callout-tag">Positioning</span>
+      <p>
+        If you want raw per-frame throughput for tens of thousands of game entities, use
+        <a href="https://github.com/NateTheGreatt/bitECS">bitECS</a> or
+        <a href="https://lastolivegames.github.io/becsy/">becsy</a>.
+        If you want structured world state that a UI can subscribe to without reinventing
+        the plumbing, this is for you. See <a href="#non-goals">non-goals</a> for the full list of trade-offs.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ INSTALL ================================ -->
+  <section id="installation">
+    <h2>Installation<a class="anchor" href="#installation">#</a></h2>
+<figure class="code" data-lang="sh"><pre><code>npm i @jamesyong42/reactive-ecs
+# or
+pnpm add @jamesyong42/reactive-ecs</code></pre></figure>
+    <p>
+      Ships ESM and CJS with bundled type declarations. No runtime dependencies.
+      Requires Node ≥ 20 when used server-side.
+    </p>
+  </section>
+
+  <!-- ================================ QUICK START ================================ -->
+  <section id="quick-start">
+    <h2>Quick start<a class="anchor" href="#quick-start">#</a></h2>
+<figure class="code" data-lang="ts"><pre><code>import {
+  createWorld,
+  defineComponent,
+  defineResource,
+  defineSystem,
+  defineTag,
+  SystemScheduler,
+} from '@jamesyong42/reactive-ecs';
+
+// 1. Define types
+const Position = defineComponent('Position', { x: 0, y: 0 });
+const Velocity = defineComponent('Velocity', { dx: 0, dy: 0 });
+const Selected = defineTag('Selected');
+const Camera   = defineResource('Camera', { x: 0, y: 0, zoom: 1 });
+
+// 2. Build a world
+const world = createWorld();
+
+const e = world.createEntity();
+world.addComponent(e, Position, { x: 10, y: 20 });
+world.addComponent(e, Velocity, { dx: 1, dy: 0 });
+world.addTag(e, Selected);
+
+// 3. Systems (named, ordered by after/before)
+const movement = defineSystem({
+  name: 'movement',
+  execute: (w) =&gt; {
+    for (const id of w.query(Position, Velocity)) {
+      const p = w.getComponent(id, Position)!;
+      const v = w.getComponent(id, Velocity)!;
+      w.setComponent(id, Position, { x: p.x + v.dx, y: p.y + v.dy });
+    }
+  },
+});
+
+// 4. Schedule &amp; tick
+const scheduler = new SystemScheduler();
+scheduler.register(movement);
+
+function tick() {
+  scheduler.execute(world);
+  world.emitFrame();
+  world.clearDirty();
+  world.incrementTick();
+}</code></pre></figure>
+    <p>
+      The four calls in <code>tick()</code> are the whole frame protocol — run systems,
+      notify frame subscribers, reset per-tick change buffers, advance the tick counter.
+      Drive it from <code>requestAnimationFrame</code>, a <code>setInterval</code>, or
+      only when something actually changed; the library has no opinion.
+    </p>
+  </section>
+
+  <!-- ================================ WORLD ================================ -->
+  <section id="world">
+    <h2>World &amp; the tick<a class="anchor" href="#world">#</a></h2>
+    <p>
+      A world is the container for all ECS state: entities, component stores, tag stores,
+      resources, query caches, and subscriptions. Worlds are independent — create as many
+      as you need.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>import { createWorld } from '@jamesyong42/reactive-ecs';
+
+const world = createWorld();
+
+world.currentTick;  // number — incremented by incrementTick()
+world.entityCount;  // number of live entities</code></pre></figure>
+
+    <h3 id="frame-lifecycle">Frame lifecycle<a class="anchor" href="#frame-lifecycle">#</a></h3>
+    <p>Three methods make up the end-of-frame protocol. Call them in this order after your systems run:</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Method</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>emitFrame()</code></td><td>Fires every <code>onFrame</code> subscriber. The end-of-tick hook — flush batched UI updates here.</td></tr>
+        <tr><td><code>clearDirty()</code></td><td>Resets the per-tick buffers behind <code>queryChanged</code> / <code>queryAdded</code> / <code>queryRemoved</code> / <code>queryAddedTag</code> / <code>queryRemovedTag</code>.</td></tr>
+        <tr><td><code>incrementTick()</code></td><td>Advances <code>currentTick</code> by one.</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout">
+      <span class="callout-tag">Note</span>
+      <p>
+        Per-tick buffers accumulate until <em>you</em> call <code>clearDirty()</code>.
+        If you skip frames (e.g. only ticking on input), the buffers simply hold
+        everything that changed since the last clear — often exactly what you want.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ ENTITIES ================================ -->
+  <section id="entities">
+    <h2>Entities<a class="anchor" href="#entities">#</a></h2>
+    <p>
+      Entities are opaque integer ids (<code>EntityId</code>). Creation and destruction are O(1).
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const e = world.createEntity();
+
+world.entityExists(e);  // true
+world.destroyEntity(e); // tears down components, tags, queries, subscriptions
+world.entityExists(e);  // false — and stays false forever</code></pre></figure>
+
+    <h3 id="id-model">Ids are never reused<a class="anchor" href="#id-model">#</a></h3>
+    <p>
+      Ids are allocated from a monotonic counter and never recycled. Once an entity is
+      destroyed, its id is dead for the lifetime of the world.
+    </p>
+    <div class="callout">
+      <span class="callout-tag">Why this matters</span>
+      <p>
+        Many ECS libraries recycle ids immediately, which means a stale id held by your UI,
+        an undo stack, or a network message can silently alias a brand-new entity.
+        Here a dangling reference is always <em>detectably</em> dangling:
+        <code>entityExists(staleId)</code> returns <code>false</code>, never a lie.
+        No generational indices required.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ COMPONENTS ================================ -->
+  <section id="components">
+    <h2>Components<a class="anchor" href="#components">#</a></h2>
+    <p>
+      Components are typed data attached to entities. Define one with a name and a
+      defaults object — the defaults double as the component's TypeScript shape.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const Position = defineComponent('Position', { x: 0, y: 0 });
+
+// Data can be any shape — numbers, strings, arrays, nested objects,
+// even class instances. Not restricted to flat numeric fields.
+const Path = defineComponent('Path', {
+  points: [] as { x: number; y: number }[],
+  closed: false,
+});</code></pre></figure>
+
+    <h3 id="component-access">Reading and writing<a class="anchor" href="#component-access">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>world.addComponent(e, Position, { x: 10, y: 20 }); // attach (merged over defaults)
+world.hasComponent(e, Position);                   // true
+world.getComponent(e, Position);                   // { x: 10, y: 20 } | undefined
+
+world.setComponent(e, Position, { x: 15 });        // shallow-merge partial update
+world.getComponent(e, Position);                   // { x: 15, y: 20 }
+
+world.removeComponent(e, Position);                // detach (fires onComponentRemoved)</code></pre></figure>
+    <ul>
+      <li><strong>Defaults merge on add.</strong> <code>addComponent</code> shallow-merges your data over the defined defaults, so partial initialization is safe.</li>
+      <li><strong>Deep clone on add.</strong> Initial data is deep-cloned, so two entities never share nested state by accident.</li>
+      <li><strong>Shallow merge on set.</strong> <code>setComponent</code> takes a <code>Partial&lt;T&gt;</code> and merges it over the current value — and emits a change event.</li>
+    </ul>
+    <div class="callout">
+      <span class="callout-tag">The contract</span>
+      <p>
+        All writes go through <code>addComponent</code> / <code>setComponent</code> /
+        <code>removeComponent</code>, which is what lets the library guarantee that every
+        change is queryable via <a href="#change-tracking">change tracking</a> and
+        observable via <a href="#events">events</a>. Don't mutate the object returned by
+        <code>getComponent</code> in place — the world can't see that.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ TAGS ================================ -->
+  <section id="tags">
+    <h2>Tags<a class="anchor" href="#tags">#</a></h2>
+    <p>
+      Tags are zero-data boolean markers — presence is the information.
+      Use them for states like <code>Selected</code>, <code>Hovered</code>, <code>Dirty</code>.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const Selected = defineTag('Selected');
+
+world.addTag(e, Selected);
+world.hasTag(e, Selected);     // true
+world.queryTagged(Selected);   // every entity with the tag
+world.removeTag(e, Selected);  // fires onTagRemoved</code></pre></figure>
+    <p>
+      Tags participate in <code>query()</code> alongside components, have their own
+      add/remove events, and their own per-tick buffers
+      (<code>queryAddedTag</code> / <code>queryRemovedTag</code>).
+    </p>
+  </section>
+
+  <!-- ================================ RELATIONS ================================ -->
+  <section id="relations">
+    <h2>Relations<a class="anchor" href="#relations">#</a></h2>
+    <p>
+      A relation is a managed, inverse-indexed, lifecycle-cleaned edge between two
+      entities — for hierarchies, ownership, targeting, or any entity-to-entity reference
+      you would otherwise store as a raw <code>EntityId</code> field and guard by hand.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const ChildOf = defineRelation('ChildOf', {
+  sourceExclusive: true,     // ≤ 1 target per source (default: false)
+  targetExclusive: false,    // ≤ 1 source per target (default: false)
+  onTargetDestroy: 'clear',  // 'cascade' | 'clear' | { tag: TagType } (default: 'clear')
+});
+
+world.relate(child, ChildOf, parent);  // throws if either endpoint is dead
+world.getTargets(child, ChildOf);      // [parent]
+world.getTarget(child, ChildOf);       // parent — convenience for sourceExclusive
+world.getSources(ChildOf, parent);     // all children — the always-coherent inverse
+world.unrelate(child, ChildOf);        // target omitted → all outgoing edges</code></pre></figure>
+    <p>
+      The inverse index is maintained by the store, never by you — no more materialized
+      children arrays kept in sync by hand. The litmus for when to use a relation instead
+      of a plain id field: <strong>make it a relation only if you query the inverse.</strong>
+    </p>
+    <ul>
+      <li><strong>Born-dangling edges are impossible</strong> — <code>relate</code> throws if either endpoint is not alive.</li>
+      <li><strong>Exclusivity replaces.</strong> On a <code>sourceExclusive</code> relation, relating to a new target unrelates the old one first — observable as removed-then-added, mirroring <code>setComponent</code> overwrite semantics.</li>
+      <li><strong>Re-relating an existing edge is a no-op</strong>, mirroring <code>addTag</code>.</li>
+    </ul>
+
+    <h3 id="relation-policies">Destroy policies<a class="anchor" href="#relation-policies">#</a></h3>
+    <p>
+      When a <em>target</em> dies, every edge pointing at it is removed and the relation's
+      <code>onTargetDestroy</code> policy is applied to each source. Policy effects are
+      deferred until the destroy completes, so handlers never observe a half-destroyed
+      world:
+    </p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Policy</th><th>Effect on each source</th><th>Typical use</th></tr></thead>
+      <tbody>
+        <tr><td><code>'clear'</code> <em>(default)</em></td><td>none — the edge is dropped, the source lives on</td><td>parent removed → child returns to root</td></tr>
+        <tr><td><code>'cascade'</code></td><td>the source is destroyed too</td><td>selection chrome reaped with its target</td></tr>
+        <tr><td><code>{ tag: T }</code></td><td>tag <code>T</code> is added to the source</td><td>recognizer cancelled when its capture target dies</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout">
+      <span class="callout-tag">The guarantee</span>
+      <p>
+        No relation edge ever survives the destruction of either endpoint, and every
+        removal — including destroy-driven ones — is observable through the same two
+        channels as every other primitive: the per-tick batch and the synchronous observer.
+        Cascade chains terminate even on cyclic edges (ids never recycle; re-destroying is
+        a no-op).
+      </p>
+    </div>
+
+    <h3 id="relation-reactivity">Relation reactivity<a class="anchor" href="#relation-reactivity">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>// Per-tick batches — mirror queryAdded / queryRemoved; cleared by clearDirty()
+world.queryRelation(ChildOf);         // all live edges: [source, target][]
+world.queryRelationAdded(ChildOf);    // edges added this tick
+world.queryRelationRemoved(ChildOf);  // edges removed this tick — INCLUDING destroys
+
+// Synchronous observers — optional per-source filter, like onComponentChanged
+const unsub = world.onRelationAdded(ChildOf, (source, target) =&gt; { /* ... */ });
+world.onRelationRemoved(ChildOf, (source, target) =&gt; {
+  // fires during destroy too — the dying entity's components are still readable here
+}, sourceId);</code></pre></figure>
+    <p>
+      Net-cancellation applies as everywhere else: unrelate-then-relate of the same edge in
+      one tick nets to nothing in the buffers.
+    </p>
+  </section>
+
+  <!-- ================================ RESOURCES ================================ -->
+  <section id="resources">
+    <h2>Resources<a class="anchor" href="#resources">#</a></h2>
+    <p>
+      Resources are singletons — world-level state that isn't attached to any entity.
+      Viewport state, configuration, the current tool, or a class instance like a spatial index.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const Camera = defineResource('Camera', { x: 0, y: 0, zoom: 1 });
+
+world.getResource(Camera);            // { x: 0, y: 0, zoom: 1 }
+world.setResource(Camera, { zoom: 2 }); // shallow-merge partial update</code></pre></figure>
+    <p>
+      A resource store is created lazily on first access, seeded from its defaults.
+      Like components, updates are partial and shallow-merged.
+    </p>
+  </section>
+
+  <!-- ================================ QUERIES ================================ -->
+  <section id="queries">
+    <h2>Cached queries<a class="anchor" href="#queries">#</a></h2>
+    <p>
+      <code>query()</code> returns the ids of every entity that has <em>all</em> of the
+      given components and tags. Results are cached per type-combination and updated
+      incrementally as components and tags are added or removed — repeat queries are
+      cheap, with no per-call world scan.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>// All entities with Position AND Velocity AND the Selected tag
+for (const id of world.query(Position, Velocity, Selected)) {
+  // ...
+}
+
+// Single-tag shorthand
+world.queryTagged(Selected);</code></pre></figure>
+    <h3 id="not">Negation with Not()<a class="anchor" href="#not">#</a></h3>
+    <p>
+      Wrap a component or tag in <code>Not()</code> to require its <em>absence</em>.
+      Negated terms participate in the same incremental cache maintenance: adding the
+      negated type to an entity evicts it from the cached result, removing the type
+      re-admits it.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>import { Not } from '@jamesyong42/reactive-ecs';
+
+// Position AND NOT Velocity AND NOT the Hidden tag
+for (const id of world.query(Position, Not(Velocity), Not(Hidden))) {
+  // static, visible entities only
+}</code></pre></figure>
+    <div class="callout">
+      <span class="callout-tag">Note</span>
+      <p>
+        A query needs at least one positive term — a query of only <code>Not()</code> terms
+        would have to scan every entity, so it throws instead. There is deliberately no
+        <code>Or</code> operator: union two queries in user code if you need one.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ CHANGE TRACKING ================================ -->
+  <section id="change-tracking">
+    <h2>Change tracking<a class="anchor" href="#change-tracking">#</a></h2>
+    <p>
+      Beyond "who has X right now," the world answers "whose X changed <em>this tick</em>."
+      Five batch queries read the per-tick buffers, which reset when you call
+      <code>clearDirty()</code>:
+    </p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Query</th><th>Returns entities that…</th></tr></thead>
+      <tbody>
+        <tr><td><code>queryAdded(C)</code></td><td>received component <code>C</code> this tick.</td></tr>
+        <tr><td><code>queryChanged(C)</code></td><td>had <code>C</code> written this tick (add or set).</td></tr>
+        <tr><td><code>queryRemoved(C)</code></td><td>lost <code>C</code> this tick — via <code>removeComponent</code> <em>or</em> <code>destroyEntity</code>.</td></tr>
+        <tr><td><code>queryAddedTag(T)</code></td><td>gained tag <code>T</code> this tick.</td></tr>
+        <tr><td><code>queryRemovedTag(T)</code></td><td>lost tag <code>T</code> this tick — via <code>removeTag</code> <em>or</em> <code>destroyEntity</code>.</td></tr>
+      </tbody>
+    </table></div>
+    <p>The canonical consumer is a system that maintains derived state — for example, keeping a spatial index in sync:</p>
+<figure class="code" data-lang="ts"><pre><code>const spatialIndexSync = defineSystem({
+  name: 'spatialIndexSync',
+  execute: (w) =&gt; {
+    for (const id of w.queryAdded(Position))   index.insert(id, w.getComponent(id, Position)!);
+    for (const id of w.queryChanged(Position)) index.update(id, w.getComponent(id, Position)!);
+    for (const id of w.queryRemoved(Position)) index.remove(id);
+  },
+});</code></pre></figure>
+    <h3 id="net-cancellation">Net-cancellation<a class="anchor" href="#net-cancellation">#</a></h3>
+    <p>
+      The buffers report <em>net</em> state for the tick. If a component is added and removed
+      within the same tick, it appears in neither <code>queryAdded</code> nor
+      <code>queryRemoved</code> — consumers never see a phantom transition.
+      The same holds for tags.
+    </p>
+    <div class="callout">
+      <span class="callout-tag">Removal includes destruction</span>
+      <p>
+        <code>queryRemoved</code> and <code>queryRemovedTag</code> include entities torn down
+        by <code>destroyEntity</code>. Consumers managing external resources (GPU buffers,
+        DOM nodes, subscriptions) get a <em>single</em> channel for "this entity no longer
+        has C" — no separate destroy bookkeeping.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ EVENTS ================================ -->
+  <section id="events">
+    <h2>Events<a class="anchor" href="#events">#</a></h2>
+    <p>
+      This is the part most ECS libraries skip. Every mutation emits a synchronous event,
+      and every subscription returns an <code>Unsubscribe</code> function.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>// Any entity with this component…
+world.onComponentChanged(Position, (id, prev, next) =&gt; {
+  console.log(`entity ${id} moved from ${prev?.x} to ${next.x}`);
+});
+
+// …or one specific entity (third argument filters)
+const unsub = world.onComponentChanged(Position, handler, entityId);
+
+// Fires BEFORE the data is gone — `prev` is the soon-to-be-discarded value.
+// Also fires for each component an entity owned when destroyEntity is called.
+world.onComponentRemoved(Position, (id, prev) =&gt; {
+  gpuBuffers.release(prev.bufferId);
+});
+
+world.onTagAdded(Selected, (id) =&gt; { /* ... */ });
+world.onTagRemoved(Selected, (id) =&gt; { /* ... */ });
+world.onEntityCreated((id) =&gt; { /* ... */ });
+world.onEntityDestroyed((id) =&gt; { /* data still readable here */ });
+world.onFrame(() =&gt; { /* end-of-tick hook */ });
+
+unsub(); // every subscription returns an Unsubscribe</code></pre></figure>
+
+    <h3 id="event-semantics">Semantics worth knowing<a class="anchor" href="#event-semantics">#</a></h3>
+    <ul>
+      <li><strong>Synchronous.</strong> Handlers run inside the mutating call, in the order they subscribed. Per-entity handlers fire before wildcard handlers.</li>
+      <li><strong><code>onComponentChanged</code> fires on add too,</strong> with <code>prev === undefined</code> — one subscription covers both "appeared" and "updated."</li>
+      <li><strong><code>onComponentRemoved</code> fires before deletion.</strong> The store still holds the value, and <code>prev</code> hands it to you — the right moment to release anything keyed by it.</li>
+      <li><strong>Per-entity filtering is built in.</strong> Pass an <code>entityId</code> as the last argument to <code>onComponentChanged</code>, <code>onComponentRemoved</code>, <code>onTagAdded</code>, or <code>onTagRemoved</code>.</li>
+    </ul>
+  </section>
+
+  <!-- ================================ ORIGIN TAGGING ================================ -->
+  <section id="origin-tagging">
+    <h2>Origin tagging<a class="anchor" href="#origin-tagging">#</a></h2>
+    <p>
+      Modules that both observe the world <em>and</em> mutate it — a sync adapter applying
+      remote changes, an undo journal replaying inverse patches — must not re-observe their
+      own writes, or you get echo loops and corrupted history. <code>withOrigin</code> tags
+      every mutation made synchronously inside its callback; <code>world.mutationOrigin</code>
+      exposes the tag to every handler that mutation fires.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const REMOTE = Symbol('remote');
+const UNDO = Symbol('undo-replay');
+
+// The sync adapter applies a remote batch without re-broadcasting it:
+world.withOrigin(REMOTE, () =&gt; {
+  world.setComponent(id, Position, { x: 10 });
+});
+
+// The broadcaster skips remote echoes and undo replays:
+world.onComponentChanged(Position, (id, prev, next) =&gt; {
+  if (world.mutationOrigin === REMOTE || world.mutationOrigin === UNDO) return;
+  broadcast(id, next);
+});
+
+// The undo journal records only what the user did:
+world.onComponentChanged(Position, (id, prev, next) =&gt; {
+  if (world.mutationOrigin !== undefined) return; // not user-originated
+  journal.record({ id, type: Position, prev, next });
+});</code></pre></figure>
+    <ul>
+      <li><strong>Default is <code>undefined</code></strong> — the implicit "local user" origin. The library defines no origin values; the vocabulary is yours.</li>
+      <li><strong>Synchronous and exact.</strong> Events fire inside the mutating call, so a handler always sees the origin of exactly the mutation that fired it.</li>
+      <li><strong>Re-entrant.</strong> Nested calls stack — innermost wins, restored on exit, exception-safe.</li>
+      <li><strong>Cascades inherit.</strong> Everything <code>destroyEntity</code> triggers — including relation policy effects — carries the origin of the original call.</li>
+      <li><strong>Synchronous window only.</strong> Mutations after an <code>await</code> are untagged; async continuations re-enter <code>withOrigin</code>.</li>
+    </ul>
+    <div class="callout">
+      <span class="callout-tag">What it is not</span>
+      <p>
+        Not a transaction: there is no batching or deferred delivery — events stay
+        synchronous and per-mutation, and the per-tick buffers remain origin-blind
+        (derived-state systems must converge on world state no matter who wrote it).
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ DESTROY SEMANTICS ================================ -->
+  <section id="destroy-semantics">
+    <h2>Destroy semantics<a class="anchor" href="#destroy-semantics">#</a></h2>
+    <p>
+      <code>destroyEntity</code> is not a silent teardown. It runs a precise, observable
+      sequence:
+    </p>
+    <ol>
+      <li><strong><code>onEntityDestroyed</code> listeners fire first</strong> — while the entity's components, tags, and relations are still fully readable, so callbacks can snapshot whatever they need.</li>
+      <li><strong>Query caches drop the entity.</strong></li>
+      <li><strong>The relation sweep runs:</strong> every edge where the entity is source or target is removed — <code>onRelationRemoved</code> fires per edge (the dying entity's components are still readable from these handlers), ids land in the <code>queryRelationRemoved</code> buffer, and each relation's <code>onTargetDestroy</code> policy effect is <em>collected</em>, not yet applied.</li>
+      <li><strong>Each owned component is removed:</strong> <code>onComponentRemoved</code> fires with the dying value, and the id lands in the <code>queryRemoved</code> buffer.</li>
+      <li><strong>Each owned tag is removed:</strong> <code>onTagRemoved</code> fires, and the id lands in the <code>queryRemovedTag</code> buffer. Per-entity subscriptions are cleaned up.</li>
+      <li><strong>Deferred policy effects apply last</strong> — cascades destroy their sources, <code>{ tag }</code> effects add their tags (skipped if a prior cascade already killed the source). Only now is mutation safe again.</li>
+    </ol>
+    <div class="callout">
+      <span class="callout-tag">Design rule</span>
+      <p>
+        Destruction is just removal, observed through the same channels. If your cleanup
+        logic handles <code>onComponentRemoved</code> / <code>queryRemoved</code>, it already
+        handles destruction — there is no second code path to forget.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ DRIVING UI ================================ -->
+  <section id="driving-ui">
+    <h2>Driving a UI<a class="anchor" href="#driving-ui">#</a></h2>
+    <p>
+      Per-entity subscriptions plus unsubscribe functions map directly onto framework
+      primitives. A React hook is a few lines:
+    </p>
+<figure class="code" data-lang="tsx"><pre><code>import { useEffect, useState } from 'react';
+import type { EntityId, World } from '@jamesyong42/reactive-ecs';
+
+function usePosition(world: World, id: EntityId) {
+  const [pos, setPos] = useState(() =&gt; world.getComponent(id, Position));
+
+  useEffect(() =&gt; {
+    // subscribe to ONE entity's Position; the return value is the cleanup fn
+    return world.onComponentChanged(Position, (_id, _prev, next) =&gt; setPos(next), id);
+  }, [world, id]);
+
+  return pos;
+}
+
+function NodeView({ world, id }: { world: World; id: EntityId }) {
+  const pos = usePosition(world, id);
+  if (!pos) return null;
+  return &lt;div style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }} /&gt;;
+}</code></pre></figure>
+    <p>
+      The same shape works with Vue's <code>ref</code>, Svelte stores, or signals — wire
+      the event callback to the framework's reactivity primitive, return the unsubscribe
+      as the cleanup. For coarse-grained updates (e.g. re-render a list when membership
+      changes), subscribe to <code>onTagAdded</code> / <code>onTagRemoved</code> or batch
+      on <code>onFrame</code> and read the <a href="#change-tracking">per-tick buffers</a>.
+    </p>
+  </section>
+
+  <!-- ================================ SYSTEM SCHEDULER ================================ -->
+  <section id="system-scheduler">
+    <h2>SystemScheduler<a class="anchor" href="#system-scheduler">#</a></h2>
+    <p>
+      Systems are named functions over the world, declared with <code>defineSystem</code>.
+      <code>SystemScheduler</code> orders them by <code>after</code> / <code>before</code>
+      constraints using a stable topological sort (Kahn's algorithm — registration order
+      breaks ties), and runs them in that order each <code>execute()</code>.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const physics = defineSystem({
+  name: 'physics',
+  execute: (w) =&gt; { /* ... */ },
+});
+
+const render = defineSystem({
+  name: 'render',
+  after: 'physics',            // string or string[]
+  execute: (w) =&gt; { /* ... */ },
+});
+
+const scheduler = new SystemScheduler();
+scheduler.register(physics);
+scheduler.register(render);
+
+scheduler.execute(world);      // physics, then render
+scheduler.getSystemNames();    // ['physics', 'render'] — resolved order
+scheduler.remove('render');
+scheduler.size;                // 1</code></pre></figure>
+    <ul>
+      <li><strong>Re-registering a name replaces the system</strong> — handy for hot-reload.</li>
+      <li><strong>Unknown constraint targets are tolerated</strong> — <code>after: 'notRegistered'</code> is ignored rather than an error, so systems can be registered in any order.</li>
+      <li><strong>Cycles throw</strong> with the names involved.</li>
+    </ul>
+  </section>
+
+  <!-- ================================ PHASED SCHEDULER ================================ -->
+  <section id="phased-scheduler">
+    <h2>PhasedScheduler<a class="anchor" href="#phased-scheduler">#</a></h2>
+    <p>
+      Once a project grows past a handful of systems, a pure constraint graph stops
+      describing <em>intent</em> — <code>after: 'cull'</code> works, but doesn't say why.
+      <code>PhasedScheduler</code> adds named phases that <strong>you</strong> declare at
+      construction time. The library ships zero phase opinions — it's purely the mechanism:
+      bucketing, cross-phase validation, and profiler instrumentation.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const scheduler = new PhasedScheduler({
+  phases: ['input', 'react', 'simulate', 'derive', 'present', 'cleanup'] as const,
+  defaultPhase: 'derive', // optional — used when a system has no `phase`
+});
+
+scheduler.register(defineSystem({
+  name: 'drainInput', phase: 'input',
+  execute: (w) =&gt; { /* fold raw events into ECS */ },
+}));
+scheduler.register(defineSystem({
+  name: 'physics', phase: 'simulate',
+  execute: (w) =&gt; { /* time-driven mutations */ },
+}));
+
+scheduler.execute(world); // runs phase by phase, topo-sorted within each</code></pre></figure>
+
+    <h3 id="phased-options">Options<a class="anchor" href="#phased-options">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>phases</code></td><td>yes</td>
+          <td>Phase order, earliest first. Non-empty, no duplicates. Use <code>as const</code> on the array literal to get type-narrowed phase strings throughout the API.</td>
+        </tr>
+        <tr>
+          <td><code>defaultPhase</code></td><td>no</td>
+          <td>Phase applied when <code>register()</code> receives a system without a <code>phase</code>. If unset, registering an unstamped system throws — phase membership becomes mandatory at the call site.</td>
+        </tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="phased-rules">Rules<a class="anchor" href="#phased-rules">#</a></h3>
+    <ul>
+      <li><strong>Within a phase</strong>, <code>after</code> / <code>before</code> topo-sort exactly as in <code>SystemScheduler</code> (it runs one internally per phase).</li>
+      <li><strong>Across phases</strong>, ordering is implicit in phase order — earlier phase always runs first.</li>
+      <li><strong>Cross-phase constraints are rejected</strong> at first <code>execute()</code> with an error that explains the fix — ordering stays single-sourced.</li>
+      <li><strong>Phase membership is validated at register time:</strong> an unknown phase throws immediately.</li>
+      <li><strong>Re-registering into a different phase moves the system</strong> — it never runs twice.</li>
+    </ul>
+<figure class="code" data-lang="ts"><pre><code>const s = new PhasedScheduler({ phases: ['a', 'b'] as const });
+s.register(defineSystem({ name: 'x', phase: 'unknown', execute: () =&gt; {} }));
+// Error: system 'x' uses phase 'unknown',
+//        which is not in configured phases ["a","b"].</code></pre></figure>
+
+    <h3 id="phase-vocabularies">Pick a vocabulary that matches your domain<a class="anchor" href="#phase-vocabularies">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>// 2-phase render loop
+new PhasedScheduler({ phases: ['update', 'render'] as const });
+
+// Physics game
+new PhasedScheduler({
+  phases: ['ingest', 'react', 'control', 'applyPhysics', 'cleanup'] as const,
+});
+
+// Agent simulator
+new PhasedScheduler({ phases: ['perceive', 'think', 'act'] as const });</code></pre></figure>
+    <div class="callout">
+      <span class="callout-tag">Which scheduler?</span>
+      <p>
+        <strong><code>SystemScheduler</code></strong> for small projects and custom pipelines.
+        <strong><code>PhasedScheduler</code></strong> past ~6–8 systems, especially when
+        observers and invariant-maintenance mix with derived-state computation — a phase
+        gives the next contributor a one-line answer to "when does this run?"
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ PROFILER ================================ -->
+  <section id="profiler">
+    <h2>Profiler hook<a class="anchor" href="#profiler">#</a></h2>
+    <p>
+      Both schedulers accept any object matching <code>SystemProfiler</code> on their
+      <code>profiler</code> property. The scheduler knows nothing about measurement —
+      it just calls the hooks if present.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>import { type SystemProfiler, SystemScheduler } from '@jamesyong42/reactive-ecs';
+
+const profiler: SystemProfiler = {
+  beginSystem: (name) =&gt; performance.mark(`${name}-start`),
+  endSystem:   (name) =&gt; {
+    performance.mark(`${name}-end`);
+    performance.measure(name, `${name}-start`, `${name}-end`);
+  },
+  // Optional — consulted only by PhasedScheduler.
+  beginPhase: (phase) =&gt; performance.mark(`phase:${phase}-start`),
+  endPhase:   (phase) =&gt; {
+    performance.mark(`phase:${phase}-end`);
+    performance.measure(`phase:${phase}`, `phase:${phase}-start`, `phase:${phase}-end`);
+  },
+};
+
+const scheduler = new SystemScheduler();
+scheduler.profiler = profiler;</code></pre></figure>
+    <p>
+      <code>beginPhase</code> / <code>endPhase</code> are optional, so a profiler written
+      for one scheduler works with the other unchanged.
+    </p>
+  </section>
+
+  <!-- ================================ INTROSPECTION ================================ -->
+  <section id="introspection">
+    <h2>Introspection<a class="anchor" href="#introspection">#</a></h2>
+    <p>
+      For devtools, editors, and serialization, the world can enumerate everything it holds —
+      because the library owns the stores, this works generically over any component shape.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>world.getAllEntities();           // EntityId[]      — live entities
+world.getRegisteredComponents();  // ComponentType[]
+world.getRegisteredTags();        // TagType[]
+world.getRegisteredResources();   // ResourceType[]
+world.getComponentsOf(entity);    // ComponentType[] — currently attached
+world.getTagsOf(entity);          // TagType[]       — currently attached</code></pre></figure>
+    <p>
+      All are O(k) in the number of registered types — no hidden scan of entity storage.
+      Combine with <code>onEntityCreated</code> / <code>onEntityDestroyed</code> /
+      <code>onComponentChanged</code> to build a live inspector, or walk
+      <code>getAllEntities()</code> + <code>getComponent()</code> to write a serializer in
+      a few dozen lines.
+    </p>
+  </section>
+
+  <!-- ================================ RESTORE ================================ -->
+  <section id="restore">
+    <h2>Saving &amp; restoring<a class="anchor" href="#restore">#</a></h2>
+    <p>
+      Serialization stays in your code — walk the world with the
+      <a href="#introspection">introspection API</a> and keep your own format (which state
+      is "document" versus "transient" is an application opinion). Restoring is the part
+      that needed library support: <code>createEntityWithId</code> recreates entities under
+      their <em>original</em> ids, so saved entity references — including relation edges —
+      are valid as-is. Nothing needs remapping.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>// restore — your own loop, no library serializer needed
+for (const id of [...snapshot.entities].sort((a, b) =&gt; a - b)) {
+  world.createEntityWithId(id);          // ascending order required
+}
+world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
+// then replay components / tags / relations through the normal public API —
+// every stored EntityId still points at the right entity, untouched.</code></pre></figure>
+    <ul>
+      <li><strong>Ascending order.</strong> <code>createEntityWithId</code> throws on ids below the counter, so restore sorts ids first — that one <code>sort()</code> is what keeps the never-reuse invariant unconditional.</li>
+      <li><strong>Restore the counter too.</strong> Saved worlds may hold stale references to entities destroyed before the save; <code>setNextEntityId</code> keeps those ids dead forever instead of letting new entities silently inherit them.</li>
+    </ul>
+    <div class="callout warn">
+      <span class="callout-tag">Restore, not resurrection</span>
+      <p>
+        These methods restore into a fresh world; they cannot re-create a destroyed id in a
+        live one — that would break <code>entityExists(staleId) === false</code> forever.
+        For undoable deletion in an editor, prefer a tombstone tag over
+        <code>destroyEntity</code>, and reserve destruction for entities past the undo
+        horizon.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================================ API ================================ -->
+  <section id="api">
+    <h2>API reference<a class="anchor" href="#api">#</a></h2>
+
+    <h3 id="api-define">Definition factories<a class="anchor" href="#api-define">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Function</th><th>Returns</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>defineComponent(name, defaults)</code></td><td><code>ComponentType&lt;T&gt;</code></td><td>Typed data component. <code>defaults</code> sets both shape and initial values.</td></tr>
+        <tr><td><code>defineTag(name)</code></td><td><code>TagType</code></td><td>Zero-data boolean marker.</td></tr>
+        <tr><td><code>defineRelation(name, opts?)</code></td><td><code>RelationType</code></td><td>Managed entity-to-entity edge. <code>{ sourceExclusive?, targetExclusive?, onTargetDestroy? }</code>.</td></tr>
+        <tr><td><code>Not(type)</code></td><td><code>NotTerm</code></td><td>Negated query term — see <a href="#not">Not()</a>.</td></tr>
+        <tr><td><code>defineResource(name, defaults)</code></td><td><code>ResourceType&lt;T&gt;</code></td><td>World-level singleton.</td></tr>
+        <tr><td><code>defineSystem(def)</code></td><td><code>SystemDef</code></td><td><code>{ name, execute, phase?, after?, before? }</code>.</td></tr>
+        <tr><td><code>createWorld()</code></td><td><code>World</code></td><td>New independent world.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="api-world">World<a class="anchor" href="#api-world">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Member</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>currentTick</code></td><td>Current tick number (read-only).</td></tr>
+        <tr><td><code>entityCount</code></td><td>Number of live entities (read-only).</td></tr>
+        <tr><td><code>createEntity()</code></td><td>Create an entity; returns its id.</td></tr>
+        <tr><td><code>destroyEntity(id)</code></td><td>Observable teardown — see <a href="#destroy-semantics">destroy semantics</a>.</td></tr>
+        <tr><td><code>entityExists(id)</code></td><td><code>true</code> while alive; <code>false</code> forever after destroy.</td></tr>
+        <tr><td><code>createEntityWithId(id)</code></td><td>Create under a caller-chosen id — for restore; ascending order, throws on consumed ids.</td></tr>
+        <tr><td><code>setNextEntityId(n)</code></td><td>Restore the id counter exactly (forward only).</td></tr>
+        <tr><td><code>addComponent(e, C, data)</code></td><td>Attach <code>C</code>; data merged over defaults, deep-cloned.</td></tr>
+        <tr><td><code>removeComponent(e, C)</code></td><td>Detach <code>C</code>; fires <code>onComponentRemoved</code> first.</td></tr>
+        <tr><td><code>getComponent(e, C)</code></td><td>Current value or <code>undefined</code>.</td></tr>
+        <tr><td><code>hasComponent(e, C)</code></td><td>Presence check.</td></tr>
+        <tr><td><code>setComponent(e, C, partial)</code></td><td>Shallow-merge update; emits change event.</td></tr>
+        <tr><td><code>addTag(e, T)</code> / <code>removeTag(e, T)</code> / <code>hasTag(e, T)</code></td><td>Tag operations.</td></tr>
+        <tr><td><code>getResource(R)</code></td><td>Read singleton (created lazily from defaults).</td></tr>
+        <tr><td><code>setResource(R, partial)</code></td><td>Shallow-merge update.</td></tr>
+        <tr><td><code>relate(s, R, t)</code> / <code>unrelate(s, R, t?)</code></td><td>Add / remove relation edges; omitted target removes all outgoing. See <a href="#relations">Relations</a>.</td></tr>
+        <tr><td><code>getTargets(s, R)</code> / <code>getTarget(s, R)</code> / <code>getSources(R, t)</code></td><td>Forward and inverse edge reads — the inverse is always coherent.</td></tr>
+        <tr><td><code>withOrigin(origin, fn)</code></td><td>Tag all mutations inside <code>fn</code> — see <a href="#origin-tagging">Origin tagging</a>.</td></tr>
+        <tr><td><code>mutationOrigin</code></td><td>Origin of the currently-executing mutation, or <code>undefined</code> (read-only).</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="api-queries">Queries<a class="anchor" href="#api-queries">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Member</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>query(...types)</code></td><td>Entities with all positive components/tags and none of the <code>Not()</code> terms. Cached, incrementally maintained.</td></tr>
+        <tr><td><code>queryRelation(R)</code> / <code>queryRelationAdded(R)</code> / <code>queryRelationRemoved(R)</code></td><td>Live / per-tick edge lists as <code>[source, target]</code> pairs; removed includes destroys, net-cancelling.</td></tr>
+        <tr><td><code>queryTagged(T)</code></td><td>Entities with tag <code>T</code>.</td></tr>
+        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code></td><td>Per-tick component buffers. Net-cancelling; removal includes <code>destroyEntity</code>.</td></tr>
+        <tr><td><code>queryAddedTag(T)</code> / <code>queryRemovedTag(T)</code></td><td>Per-tick tag buffers, same semantics.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="api-events">Events<a class="anchor" href="#api-events">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Member</th><th>Handler signature</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>onComponentChanged(C, h, e?)</code></td><td><code>(id, prev, next)</code></td><td>Fires on add (<code>prev === undefined</code>) and set. Optional per-entity filter.</td></tr>
+        <tr><td><code>onComponentRemoved(C, h, e?)</code></td><td><code>(id, prev)</code></td><td>Fires before deletion; also during <code>destroyEntity</code>.</td></tr>
+        <tr><td><code>onTagAdded(T, h, e?)</code></td><td><code>(id)</code></td><td>Optional per-entity filter.</td></tr>
+        <tr><td><code>onTagRemoved(T, h, e?)</code></td><td><code>(id)</code></td><td>Also fires during <code>destroyEntity</code>.</td></tr>
+        <tr><td><code>onRelationAdded(R, h, s?)</code></td><td><code>(source, target)</code></td><td>Optional per-source filter.</td></tr>
+        <tr><td><code>onRelationRemoved(R, h, s?)</code></td><td><code>(source, target)</code></td><td>Also fires during destroys, before teardown.</td></tr>
+        <tr><td><code>onEntityCreated(cb)</code></td><td><code>(id)</code></td><td></td></tr>
+        <tr><td><code>onEntityDestroyed(cb)</code></td><td><code>(id)</code></td><td>Fires while the entity's data is still readable.</td></tr>
+        <tr><td><code>onFrame(h)</code></td><td><code>()</code></td><td>Fired by <code>emitFrame()</code>.</td></tr>
+      </tbody>
+    </table></div>
+    <p>All subscription methods return an <code>Unsubscribe</code> function.</p>
+
+    <h3 id="api-introspection">Introspection &amp; frame lifecycle<a class="anchor" href="#api-introspection">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Member</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>getAllEntities()</code></td><td>All live entity ids.</td></tr>
+        <tr><td><code>getRegisteredComponents()</code> / <code>getRegisteredTags()</code> / <code>getRegisteredResources()</code></td><td>Every type that has had a store created in this world.</td></tr>
+        <tr><td><code>getComponentsOf(e)</code> / <code>getTagsOf(e)</code></td><td>Types currently attached to an entity.</td></tr>
+        <tr><td><code>emitFrame()</code></td><td>Notify <code>onFrame</code> subscribers.</td></tr>
+        <tr><td><code>clearDirty()</code></td><td>Reset per-tick change buffers.</td></tr>
+        <tr><td><code>incrementTick()</code></td><td>Advance <code>currentTick</code>.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 id="api-schedulers">Schedulers<a class="anchor" href="#api-schedulers">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Member</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>new SystemScheduler()</code></td><td>Constraint-ordered scheduler.</td></tr>
+        <tr><td><code>register(system)</code></td><td>Add or replace (by name). Invalidates the sort.</td></tr>
+        <tr><td><code>remove(name)</code></td><td>Remove by name.</td></tr>
+        <tr><td><code>execute(world)</code></td><td>Run all systems in dependency order.</td></tr>
+        <tr><td><code>getSystemNames()</code></td><td>Resolved execution order.</td></tr>
+        <tr><td><code>size</code></td><td>Registered system count.</td></tr>
+        <tr><td><code>profiler</code></td><td><code>SystemProfiler | null</code>.</td></tr>
+        <tr><td><code>new PhasedScheduler(options)</code></td><td>Phase-bucketed scheduler — see <a href="#phased-options">options</a>.</td></tr>
+        <tr><td><code>getPhase(name)</code></td><td>Phase a system is registered in, or <code>undefined</code>.</td></tr>
+        <tr><td><code>getPhases()</code></td><td>Configured phase order (read-only).</td></tr>
+      </tbody>
+    </table></div>
+    <p>
+      <code>PhasedScheduler</code> also has <code>register</code> / <code>remove</code> /
+      <code>execute</code> / <code>getSystemNames</code> / <code>profiler</code> with the
+      same shapes as <code>SystemScheduler</code>.
+    </p>
+
+    <h3 id="api-types">Exported types<a class="anchor" href="#api-types">#</a></h3>
+    <p>
+      <code>World</code>, <code>EntityId</code>, <code>ComponentType&lt;T&gt;</code>,
+      <code>TagType</code>, <code>ResourceType&lt;T&gt;</code>, <code>RelationType</code>,
+      <code>RelationOptions</code>, <code>RelationEdge</code>, <code>RelationHandler</code>,
+      <code>NotTerm</code>, <code>SystemDef</code>,
+      <code>QueryResult</code>, <code>ComponentInit</code>,
+      <code>ComponentChangedHandler&lt;T&gt;</code>, <code>ComponentRemovedHandler&lt;T&gt;</code>,
+      <code>TagChangedHandler</code>, <code>FrameHandler</code>, <code>Unsubscribe</code>,
+      <code>SystemProfiler</code>, <code>PhasedSchedulerOptions&lt;P&gt;</code>.
+    </p>
+  </section>
+
+  <!-- ================================ NON-GOALS ================================ -->
+  <section id="non-goals">
+    <h2>Non-goals<a class="anchor" href="#non-goals">#</a></h2>
+    <p>Knowing what a library refuses to do tells you as much as its feature list.</p>
+    <ul>
+      <li>
+        <strong>Archetype storage / SoA TypedArray packing.</strong> Component data lives in
+        plain <code>Map&lt;EntityId, T&gt;</code> stores. Fine for thousands of entities with
+        rich data; not built for millions of game entities scanned every frame.
+      </li>
+      <li>
+        <strong>Parallel / worker execution.</strong> Single-threaded by design — synchronous
+        events and worker parallelism don't mix.
+      </li>
+      <li>
+        <strong>A serialization format.</strong> Walk the world with
+        <code>getAllEntities()</code> / <code>getComponentsOf()</code> /
+        <code>getComponent()</code> — which state is "document" versus "transient" is an
+        application opinion, so the codec stays in your code.
+      </li>
+    </ul>
+    <div class="callout warn">
+      <span class="callout-tag">Reaching for raw speed?</span>
+      <p>
+        If your bottleneck is iterating huge homogeneous entity sets per frame,
+        you've outgrown this library's trade-offs — use
+        <a href="https://github.com/NateTheGreatt/bitECS">bitECS</a> or
+        <a href="https://lastolivegames.github.io/becsy/">becsy</a> and hand-roll the
+        reactivity you need. The two designs are genuinely different tools.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <span>MIT © James Yong</span>
+    <span>
+      <a href="https://github.com/jamesyong-42/reactive-ecs">GitHub</a> ·
+      <a href="https://www.npmjs.com/package/@jamesyong42/reactive-ecs">npm</a>
+    </span>
+  </footer>
+
+</div>
+</main>
+
+<script>
+  // ---------- Tiny TS syntax highlighter ----------
+          (() => {
+            const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const re = new RegExp(
+              [
+                '(\\/\\/[^\\n]*)',                                                  // 1 comment
+                "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string
+                '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this)\\b', // 3 keyword
+                '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',                                    // 4 number
+                '([A-Za-z_$][\\w$]*)(?=\\s*\\()',                                    // 5 call
+                '\\b([A-Z][\\w$]*)\\b',                                              // 6 type
+              ].join('|'),
+              'g'
+            );
+            document.querySelectorAll('figure.code code').forEach((el) => {
+              if (el.closest('figure').dataset.lang === 'sh') {
+                el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
+                return;
+              }
+              const src = el.textContent;
+              let out = '';
+              let last = 0;
+              let m = re.exec(src);
+              while (m) {
+                out += esc(src.slice(last, m.index));
+                const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
+                out += `<span class="${cls}">${esc(m[0])}</span>`;
+                last = m.index + m[0].length;
+                m = re.exec(src);
+              }
+              el.innerHTML = out + esc(src.slice(last));
+            });
+          })();
+
+          // ---------- Copy buttons ----------
+          document.querySelectorAll('figure.code').forEach((fig) => {
+            const btn = document.createElement('button');
+            btn.className = 'copy';
+            btn.textContent = 'copy';
+            btn.addEventListener('click', async () => {
+              try {
+                await navigator.clipboard.writeText(fig.querySelector('code').textContent);
+                btn.textContent = 'copied';
+                btn.classList.add('done');
+                setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
+              } catch { /* clipboard unavailable (e.g. file://) — ignore */ }
+            });
+            fig.appendChild(btn);
+          });
+
+          // ---------- Scrollspy ----------
+          (() => {
+            const sections = Array.from(document.querySelectorAll('main section[id]'));
+            const links = new Map(
+              sections.map((s) => [s.id, document.querySelector(`.sidebar a[href="#${s.id}"]`)])
+            );
+            let active = null;
+            function onScroll() {
+              let current = sections[0];
+              for (const s of sections) {
+                if (s.getBoundingClientRect().top < 140) current = s;
+              }
+              if (current === active) return;
+              active = current;
+              links.forEach((l) => {
+                l?.classList.remove('active');
+              });
+              const link = links.get(current.id);
+              if (link) link.classList.add('active');
+            }
+            document.addEventListener('scroll', onScroll, { passive: true });
+            onScroll();
+          })();
+
+          // ---------- Mobile nav ----------
+          (() => {
+            const toggle = document.getElementById('navToggle');
+            toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+            document.querySelectorAll('.sidebar a').forEach((a) => {
+              a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+            });
+          })();
+</script>
+
+</body>
+</html>
