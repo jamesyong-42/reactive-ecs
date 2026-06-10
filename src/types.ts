@@ -220,6 +220,16 @@ export interface World {
 	hasComponent(entity: EntityId, type: ComponentType): boolean;
 	/** Partially updates a component on an entity (shallow merge). */
 	setComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>): void;
+	/**
+	 * Full-value upsert: the component's next value is a recursive clone of
+	 * `data` merged over the type's defaults. Unlike `setComponent` (shallow
+	 * merge into the existing value, no-op if absent) and `addComponent`
+	 * (defaults-merge attach-or-replace with optional partial data), the
+	 * caller supplies the complete value. Observers receive the true prev
+	 * (`undefined` if the component was absent); buffers record absent →
+	 * added + dirty, present → dirty only. Throws if the entity is not alive.
+	 */
+	replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T): void;
 
 	// Tag access
 

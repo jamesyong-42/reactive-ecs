@@ -143,6 +143,69 @@ describe('World', () => {
 		});
 	});
 
+	describe('replaceComponent', () => {
+		it('attaches when absent — emits prev undefined, lands in added + dirty', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+
+			world.replaceComponent(e, Position, { x: 3, y: 4 });
+			expect(world.getComponent(e, Position)).toEqual({ x: 3, y: 4 });
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 3, y: 4 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([e]);
+		});
+
+		it('replaces when present — emits the true prev, lands in dirty only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+			world.replaceComponent(e, Position, { x: 9, y: 9 });
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 9 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+		});
+
+		it('replaces the WHOLE value — no merge with the existing one', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 7, y: 7 });
+			world.replaceComponent(e, Position, { x: 1, y: 0 });
+			// y comes from the supplied value (full shape), not the prior 7.
+			expect(world.getComponent(e, Position)).toEqual({ x: 1, y: 0 });
+		});
+
+		it('net-cancels with removeComponent in the same tick', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			world.removeComponent(e, Position);
+			expect(world.queryRemoved(Position)).toEqual([e]);
+			world.replaceComponent(e, Position, { x: 5, y: 5 });
+			expect(world.queryRemoved(Position)).toEqual([]);
+			expect(world.queryAdded(Position)).toEqual([e]);
+		});
+
+		it('throws on a dead entity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.destroyEntity(e);
+			expect(() => world.replaceComponent(e, Position, { x: 0, y: 0 })).toThrow(
+				/does not exist or has been destroyed/,
+			);
+		});
+	});
+
 	describe('tags', () => {
 		it('adds and checks tags', () => {
 			const world = createWorld();

@@ -673,6 +673,28 @@ export function createWorld(): World {
 			}
 		},
 
+		replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T) {
+			if (!alive.has(entity)) {
+				throw new Error(
+					`replaceComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
+				);
+			}
+			const store = getComponentStore(type);
+			const prev = store.data.get(entity);
+			const next = instantiateDefaults(type.defaults, data);
+			store.data.set(entity, next);
+			store.dirty.add(entity);
+			if (prev === undefined) {
+				store.added.add(entity);
+				// Net-cancellation with queryRemoved: re-adding within the same tick
+				// undoes a prior remove from the buffer.
+				store.removed.delete(entity);
+			}
+			// Update cached queries that include this component
+			updateCachesForEntity(type.name, entity);
+			emitComponentChanged(store, entity, prev, next);
+		},
+
 		// === Tag access ===
 
 		addTag(entity: EntityId, type: TagType) {
