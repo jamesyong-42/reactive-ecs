@@ -38,6 +38,26 @@
 				"types": "./dist/index.d.cts",
 				"default": "./dist/index.cjs"
 			}
+		},
+		"./devtools": {
+			"import": {
+				"types": "./dist/devtools/index.d.ts",
+				"default": "./dist/devtools/index.js"
+			},
+			"require": {
+				"types": "./dist/devtools/index.d.cts",
+				"default": "./dist/devtools/index.cjs"
+			}
+		},
+		"./devtools/react": {
+			"import": {
+				"types": "./dist/devtools/react/index.d.ts",
+				"default": "./dist/devtools/react/index.js"
+			},
+			"require": {
+				"types": "./dist/devtools/react/index.d.cts",
+				"default": "./dist/devtools/react/index.cjs"
+			}
 		}
 	},
 	"main": "./dist/index.cjs",
@@ -54,8 +74,18 @@
 		"verify": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
 		"prepublishOnly": "pnpm run verify"
 	},
+	"peerDependencies": {
+		"react": ">=18"
+	},
+	"peerDependenciesMeta": {
+		"react": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.11",
+		"@types/react": "^19.0.0",
+		"react": "^19.0.0",
 		"tsup": "^8.0.0",
 		"typescript": "^6.0.2",
 		"vitest": "^4.1.4"

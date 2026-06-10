@@ -368,6 +368,25 @@ When a skip happens, the profiler's optional `skipSystem(name)` hook is called i
 
 One ordering caveat: per-tick buffers are cleared at end of tick, so order systems that lazily READ a type after the systems that WRITE it (phases make this natural) — a write that happens after the guard ran this tick is invisible to next tick's guard.
 
+## Devtools
+
+The library ships its own devtools — a headless lifecycle recorder (`./devtools`) plus two React components (`./devtools/react`): `EntityTimeline`, a canvas-rendered waterfall of entity lifecycles (pan, zoom, live-tail, ms ⇄ ticks), and `EcsInspector`, a draggable floating window with a live entity/component view and the timeline as a tab. Styles self-inject; nothing to configure:
+
+```tsx
+import { createLifecycleRecorder } from '@jamesyong42/reactive-ecs/devtools';
+import { EcsInspector } from '@jamesyong42/reactive-ecs/devtools/react';
+
+const recorder = createLifecycleRecorder(world); // before entities spawn
+
+<EcsInspector world={world} recorder={recorder} />
+```
+
+Identity is read off composition through one seam: an `EntityDescriber` is a function `(world, entity) => { label, color?, detail?, outcome? }`. The default describer needs zero config — it labels an entity by its first component name (else first tag, else `entity`) and lists remaining tags as detail. Pass your own describer to brand entities with domain labels, bar colours, a live detail string (e.g. a state-machine phase), and a `'win' | 'lose'` outcome that draws the timeline's green/red end-cap. Both the inspector's entity list and the timeline render from the same describer, so labels stay single-sourced.
+
+The recorder captures lifecycle from the world's event hooks (`onEntityCreated` / `onEntityDestroyed`) rather than polling, so entities born and destroyed within a single tick are still recorded — a UI poll would miss them entirely. Because destroy listeners fire before component teardown, the recorder freezes a dying entity's full descriptor at the moment of death; live entities are described on the fly.
+
+`react` is an optional peer dependency used only by `./devtools/react` — the core `@jamesyong42/reactive-ecs` import path is unaffected.
+
 ## Non-goals
 
 - **Archetype storage / SoA TypedArray packing.** Component data uses plain `Map<entity, T>`. Fine for thousands of entities with rich data; not built for millions of game entities.
