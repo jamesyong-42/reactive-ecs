@@ -352,6 +352,22 @@ scheduler.profiler = profiler;
 
 The scheduler knows nothing about performance measurement — it just calls the hooks if present. `beginPhase` / `endPhase` are optional, so existing profilers work with either scheduler unchanged.
 
+## Run conditions
+
+A system can declare a `runIf` predicate (the same shape as Bevy's `run_if`). It's evaluated immediately before the system would run, inside the same tick — so it sees writes from systems that ran earlier this tick. Return `false` to skip this tick. The library attaches no change-detection policy; the predicate is yours. The classic shape is a `queryChanged` guard:
+
+```ts
+const recompute = defineSystem({
+  name: 'recompute',
+  runIf: (w) => w.queryChanged(Position).length > 0,
+  execute: (w) => { /* expensive derived-state pass */ },
+});
+```
+
+When a skip happens, the profiler's optional `skipSystem(name)` hook is called instead of `beginSystem` / `endSystem`, so skips stay observable in traces. Works identically inside `PhasedScheduler` phases (a phase still gets its `beginPhase` / `endPhase` bracket even if every system in it skips).
+
+One ordering caveat: per-tick buffers are cleared at end of tick, so order systems that lazily READ a type after the systems that WRITE it (phases make this natural) — a write that happens after the guard ran this tick is invisible to next tick's guard.
+
 ## Non-goals
 
 - **Archetype storage / SoA TypedArray packing.** Component data uses plain `Map<entity, T>`. Fine for thousands of entities with rich data; not built for millions of game entities.
