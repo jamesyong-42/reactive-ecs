@@ -366,6 +366,49 @@ describe('PhasedScheduler', () => {
 		});
 	});
 
+	describe('runIf', () => {
+		it('skips systems inside phases when runIf returns false', () => {
+			const order: string[] = [];
+			const scheduler = new PhasedScheduler({ phases: TEST_PHASES });
+			const world = createWorld();
+
+			scheduler.register(
+				defineSystem({
+					name: 'skipped',
+					phase: 'react',
+					runIf: () => false,
+					execute: () => order.push('skipped'),
+				}),
+			);
+			scheduler.register(
+				defineSystem({ name: 'runs', phase: 'derive', execute: () => order.push('runs') }),
+			);
+
+			scheduler.execute(world);
+			expect(order).toEqual(['runs']);
+		});
+
+		it('still brackets a phase whose only system skipped — skipSystem between', () => {
+			const calls: string[] = [];
+			const scheduler = new PhasedScheduler({ phases: TEST_PHASES });
+			const world = createWorld();
+			scheduler.profiler = {
+				beginSystem: (n) => calls.push(`begin:${n}`),
+				endSystem: (n) => calls.push(`end:${n}`),
+				beginPhase: (p) => calls.push(`beginPhase:${p}`),
+				endPhase: (p) => calls.push(`endPhase:${p}`),
+				skipSystem: (n) => calls.push(`skip:${n}`),
+			};
+
+			scheduler.register(
+				defineSystem({ name: 'a', phase: 'react', runIf: () => false, execute: () => {} }),
+			);
+
+			scheduler.execute(world);
+			expect(calls).toEqual(['beginPhase:react', 'skip:a', 'endPhase:react']);
+		});
+	});
+
 	describe('custom phase vocabularies', () => {
 		it('runs a Phaser-style pipeline (ingest, react, control, applyPhysics, cleanup)', () => {
 			const order: string[] = [];
