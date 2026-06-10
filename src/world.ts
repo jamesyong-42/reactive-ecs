@@ -7,6 +7,7 @@ import type {
 	NotTerm,
 	QueryResult,
 	RelationEdge,
+	RelationFilter,
 	RelationHandler,
 	RelationType,
 	ResourceChangedHandler,
@@ -54,6 +55,9 @@ interface RelationStore {
 	removed: Set<string>;
 	addedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
+	/** Per-target handler maps — the wildcard stays in the source-keyed maps. */
+	addedTargetHandlers: Map<EntityId, Set<RelationHandler>>;
+	removedTargetHandlers: Map<EntityId, Set<RelationHandler>>;
 }
 
 /** Internal storage for a single resource type */
@@ -79,20 +83,80 @@ function decodeEdgeKeys(keys: Set<string>): [EntityId, EntityId][] {
 	return result;
 }
 
+/** Add `handler` to the set keyed by `key`, creating the set on demand. */
+function addToHandlerMap<K>(
+	map: Map<K, Set<RelationHandler>>,
+	key: K,
+	handler: RelationHandler,
+): Unsubscribe {
+	let handlers = map.get(key);
+	if (!handlers) {
+		handlers = new Set();
+		map.set(key, handlers);
+	}
+	handlers.add(handler);
+	return () => {
+		handlers.delete(handler);
+	};
+}
+
+/**
+ * Register a relation handler under the key its filter selects: a bare id or
+ * `{ source }` keys by source, `{ target }` keys by target, `{ source, target }`
+ * lives in the source bucket (so it fires in per-source position) with the
+ * target check wrapped around the handler, and no filter means wildcard.
+ */
+function subscribeRelationHandler(
+	sourceHandlers: Map<EntityId | '*', Set<RelationHandler>>,
+	targetHandlers: Map<EntityId, Set<RelationHandler>>,
+	handler: RelationHandler,
+	filter?: RelationFilter,
+): Unsubscribe {
+	const normalized = typeof filter === 'number' ? { source: filter } : filter;
+	const source = normalized?.source;
+	const target = normalized?.target;
+	if (source !== undefined && target !== undefined) {
+		const wrapped: RelationHandler = (s, t) => {
+			if (t === target) handler(s, t);
+		};
+		return addToHandlerMap(sourceHandlers, source, wrapped);
+	}
+	if (target !== undefined) {
+		return addToHandlerMap(targetHandlers, target, handler);
+	}
+	return addToHandlerMap(sourceHandlers, source ?? '*', handler);
+}
+
+/**
+ * Recursively clone plain data: arrays and objects whose constructor is
+ * `Object` are copied; class instances (and anything else) are kept by
+ * reference. No cycle detection — inputs must be acyclic plain data.
+ */
+function clonePlainData(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(clonePlainData);
+	}
+	if (value !== null && typeof value === 'object' && (value as object).constructor === Object) {
+		const out: Record<string, unknown> = {};
+		for (const key in value as Record<string, unknown>) {
+			out[key] = clonePlainData((value as Record<string, unknown>)[key]);
+		}
+		return out;
+	}
+	return value;
+}
+
 /**
  * Instantiate a value from `defaults`, applying optional `overrides`, and
- * deep-clone nested arrays / plain objects so callers can't accidentally share
- * state with the type's defaults or with each other.
+ * recursively clone nested arrays / plain objects so callers can't
+ * accidentally share state with the type's defaults or with each other.
+ * Class instances are kept by reference. Defaults and init data must be
+ * acyclic plain data — there is no cycle detection.
  */
 function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
 	const merged = (overrides ? { ...defaults, ...overrides } : { ...defaults }) as T;
 	for (const key in merged) {
-		const val = merged[key];
-		if (Array.isArray(val)) {
-			(merged as Record<string, unknown>)[key] = [...val];
-		} else if (val !== null && typeof val === 'object' && (val as object).constructor === Object) {
-			(merged as Record<string, unknown>)[key] = { ...val };
-		}
+		(merged as Record<string, unknown>)[key] = clonePlainData(merged[key]);
 	}
 	return merged;
 }
@@ -126,8 +190,10 @@ export function createWorld(): World {
 	const destroyListeners = new Set<(entity: EntityId) => void>();
 
 	// === Query cache ===
-	// Key: sorted type names joined by '\0' — negated names are prefixed with '!'
-	// so query(A, Not(B)) and query(A, B) can never collide
+	// Key: sorted kind-prefixed type names joined by '\0' — `c:Name` for
+	// components, `t:Name` for tags, with `!` prepended for Not() terms — so
+	// query(A, Not(B)) and query(A, B) can never collide, and a component and
+	// a tag sharing a name can never alias each other's cache entry
 	// Value: live Set<EntityId> of entities matching all types in the key
 	const queryCache = new Map<string, Set<EntityId>>();
 	// Reverse index: typeName → Set<queryKey> — which cached queries use this type.
@@ -142,7 +208,12 @@ export function createWorld(): World {
 
 	function getQueryKey(types: (ComponentType | TagType | NotTerm)[]): string {
 		return types
-			.map((t) => (t.__kind === 'not' ? `!${t.type.name}` : t.name))
+			.map((t) => {
+				if (t.__kind === 'not') {
+					return `!${t.type.__kind === 'component' ? 'c' : 't'}:${t.type.name}`;
+				}
+				return `${t.__kind === 'component' ? 'c' : 't'}:${t.name}`;
+			})
 			.sort()
 			.join('\0');
 	}
@@ -300,6 +371,8 @@ export function createWorld(): World {
 			removed: new Set(),
 			addedHandlers: new Map(),
 			removedHandlers: new Map(),
+			addedTargetHandlers: new Map(),
+			removedTargetHandlers: new Map(),
 		};
 		relations.set(type.name, store);
 		return store;
@@ -388,6 +461,10 @@ export function createWorld(): World {
 		if (sourceHandlers) {
 			for (const h of sourceHandlers) h(source, target);
 		}
+		const targetHandlers = store.addedTargetHandlers.get(target);
+		if (targetHandlers) {
+			for (const h of targetHandlers) h(source, target);
+		}
 		const wildcardHandlers = store.addedHandlers.get('*');
 		if (wildcardHandlers) {
 			for (const h of wildcardHandlers) h(source, target);
@@ -402,6 +479,10 @@ export function createWorld(): World {
 		const sourceHandlers = store.removedHandlers.get(source);
 		if (sourceHandlers) {
 			for (const h of sourceHandlers) h(source, target);
+		}
+		const targetHandlers = store.removedTargetHandlers.get(target);
+		if (targetHandlers) {
+			for (const h of targetHandlers) h(source, target);
 		}
 		const wildcardHandlers = store.removedHandlers.get('*');
 		if (wildcardHandlers) {
@@ -537,6 +618,8 @@ export function createWorld(): World {
 				}
 				store.addedHandlers.delete(id);
 				store.removedHandlers.delete(id);
+				store.addedTargetHandlers.delete(id);
+				store.removedTargetHandlers.delete(id);
 			}
 			// Remove all components — fire onComponentRemoved per owned component
 			// and populate the per-tick `removed` buffer so queryRemoved sees the id.
@@ -584,23 +667,28 @@ export function createWorld(): World {
 
 		// === Component access ===
 
-		addComponent<T>(entity: EntityId, type: ComponentType<T>, data: T) {
+		addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>) {
 			if (!alive.has(entity)) {
 				throw new Error(
 					`addComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
 				);
 			}
 			const store = getComponentStore(type);
-			const merged = instantiateDefaults(type.defaults, data as Partial<T>);
+			// Attach-or-replace: prev distinguishes the two for observers, and the
+			// membership buffers only record a true first attach.
+			const prev = store.data.get(entity);
+			const merged = instantiateDefaults(type.defaults, data);
 			store.data.set(entity, merged);
 			store.dirty.add(entity);
-			store.added.add(entity);
-			// Net-cancellation with queryRemoved: re-adding within the same tick
-			// undoes a prior remove from the buffer.
-			store.removed.delete(entity);
+			if (prev === undefined) {
+				store.added.add(entity);
+				// Net-cancellation with queryRemoved: re-adding within the same tick
+				// undoes a prior remove from the buffer.
+				store.removed.delete(entity);
+			}
 			// Update cached queries that include this component
 			updateCachesForEntity(type.name, entity);
-			emitComponentChanged(store, entity, undefined, merged);
+			emitComponentChanged(store, entity, prev, merged);
 		},
 
 		removeComponent<T>(entity: EntityId, type: ComponentType<T>) {
@@ -619,7 +707,7 @@ export function createWorld(): World {
 			updateCachesForEntity(type.name, entity);
 		},
 
-		getComponent<T>(entity: EntityId, type: ComponentType<T>): T | undefined {
+		getComponent<T>(entity: EntityId, type: ComponentType<T>): Readonly<T> | undefined {
 			const store = getComponentStore(type);
 			return store.data.get(entity);
 		},
@@ -643,6 +731,28 @@ export function createWorld(): World {
 				Object.assign(existing, data);
 				store.dirty.add(entity);
 			}
+		},
+
+		replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T) {
+			if (!alive.has(entity)) {
+				throw new Error(
+					`replaceComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
+				);
+			}
+			const store = getComponentStore(type);
+			const prev = store.data.get(entity);
+			const next = instantiateDefaults(type.defaults, data);
+			store.data.set(entity, next);
+			store.dirty.add(entity);
+			if (prev === undefined) {
+				store.added.add(entity);
+				// Net-cancellation with queryRemoved: re-adding within the same tick
+				// undoes a prior remove from the buffer.
+				store.removed.delete(entity);
+			}
+			// Update cached queries that include this component
+			updateCachesForEntity(type.name, entity);
+			emitComponentChanged(store, entity, prev, next);
 		},
 
 		// === Tag access ===
@@ -874,7 +984,7 @@ export function createWorld(): World {
 
 		// === Resources ===
 
-		getResource<T>(type: ResourceType<T>): T {
+		getResource<T>(type: ResourceType<T>): Readonly<T> {
 			return getResourceStore(type).value;
 		},
 
@@ -961,37 +1071,29 @@ export function createWorld(): World {
 		onRelationAdded(
 			type: RelationType,
 			handler: RelationHandler,
-			sourceId?: EntityId,
+			filter?: RelationFilter,
 		): Unsubscribe {
 			const store = getRelationStore(type);
-			const key: EntityId | '*' = sourceId ?? '*';
-			let handlers = store.addedHandlers.get(key);
-			if (!handlers) {
-				handlers = new Set();
-				store.addedHandlers.set(key, handlers);
-			}
-			handlers.add(handler);
-			return () => {
-				handlers.delete(handler);
-			};
+			return subscribeRelationHandler(
+				store.addedHandlers,
+				store.addedTargetHandlers,
+				handler,
+				filter,
+			);
 		},
 
 		onRelationRemoved(
 			type: RelationType,
 			handler: RelationHandler,
-			sourceId?: EntityId,
+			filter?: RelationFilter,
 		): Unsubscribe {
 			const store = getRelationStore(type);
-			const key: EntityId | '*' = sourceId ?? '*';
-			let handlers = store.removedHandlers.get(key);
-			if (!handlers) {
-				handlers = new Set();
-				store.removedHandlers.set(key, handlers);
-			}
-			handlers.add(handler);
-			return () => {
-				handlers.delete(handler);
-			};
+			return subscribeRelationHandler(
+				store.removedHandlers,
+				store.removedTargetHandlers,
+				handler,
+				filter,
+			);
 		},
 
 		onResourceChanged<T>(type: ResourceType<T>, handler: ResourceChangedHandler<T>): Unsubscribe {

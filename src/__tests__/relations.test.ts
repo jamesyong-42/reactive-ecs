@@ -296,6 +296,120 @@ describe('Relations', () => {
 			expect(order).toEqual(['source', 'wildcard']);
 		});
 
+		it('bare-number filter keeps meaning source — back-compat, removals too', () => {
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+			const c = world.createEntity();
+
+			const handler = vi.fn();
+			world.onRelationRemoved(Likes, handler, a);
+			world.relate(a, Likes, b);
+			world.relate(c, Likes, b);
+			world.unrelate(c, Likes, b);
+			expect(handler).not.toHaveBeenCalled();
+			world.unrelate(a, Likes, b);
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(a, b);
+		});
+
+		it('{ target } filter fires only for edges pointing at that target', () => {
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+			const c = world.createEntity();
+
+			const handler = vi.fn();
+			world.onRelationAdded(Likes, handler, { target: c });
+			world.relate(a, Likes, b);
+			expect(handler).not.toHaveBeenCalled();
+			world.relate(a, Likes, c);
+			world.relate(b, Likes, c);
+			expect(handler).toHaveBeenCalledTimes(2);
+			expect(handler).toHaveBeenNthCalledWith(1, a, c);
+			expect(handler).toHaveBeenNthCalledWith(2, b, c);
+		});
+
+		it('{ target } filter fires on destroy-driven removals — a parent watcher sees a dying child', () => {
+			const world = createWorld();
+			const parent = world.createEntity();
+			const child = world.createEntity();
+			const other = world.createEntity();
+			world.relate(child, ChildOf, parent);
+			world.relate(other, ChildOf, child); // different target — must not fire
+
+			const removed = vi.fn();
+			world.onRelationRemoved(ChildOf, removed, { target: parent });
+			world.destroyEntity(child);
+			expect(removed).toHaveBeenCalledTimes(1);
+			expect(removed).toHaveBeenCalledWith(child, parent);
+		});
+
+		it('{ source, target } filter matches only the exact edge', () => {
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+			const c = world.createEntity();
+
+			const handler = vi.fn();
+			world.onRelationAdded(Likes, handler, { source: a, target: b });
+			world.relate(a, Likes, c); // source matches, target does not
+			world.relate(c, Likes, b); // target matches, source does not
+			expect(handler).not.toHaveBeenCalled();
+			world.relate(a, Likes, b);
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(a, b);
+		});
+
+		it('fires per-source handlers, then per-target, then wildcard', () => {
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+
+			const order: string[] = [];
+			world.onRelationAdded(Likes, () => order.push('wildcard'));
+			world.onRelationAdded(Likes, () => order.push('target'), { target: b });
+			world.onRelationAdded(Likes, () => order.push('source'), a);
+			world.relate(a, Likes, b);
+			expect(order).toEqual(['source', 'target', 'wildcard']);
+		});
+
+		it('unsubscribes target-filtered handlers', () => {
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+
+			const handler = vi.fn();
+			const unsub = world.onRelationAdded(Likes, handler, { target: b });
+			unsub();
+			world.relate(a, Likes, b);
+			expect(handler).not.toHaveBeenCalled();
+		});
+
+		it('cleans up handlers keyed to a destroyed entity — unsubscribe stays safe', () => {
+			const world = createWorld();
+			const parent = world.createEntity();
+			const child = world.createEntity();
+			world.relate(child, ChildOf, parent);
+
+			const added = vi.fn();
+			const removed = vi.fn();
+			const unsubAdded = world.onRelationAdded(ChildOf, added, { target: parent });
+			const unsubRemoved = world.onRelationRemoved(ChildOf, removed, { target: parent });
+
+			// The destroy-driven removal still fires for the watcher...
+			world.destroyEntity(parent);
+			expect(removed).toHaveBeenCalledTimes(1);
+			expect(removed).toHaveBeenCalledWith(child, parent);
+			// ...then the dead id's target-keyed entries are dropped, and
+			// unsubscribing the now-orphaned handlers is a safe no-op.
+			expect(() => {
+				unsubAdded();
+				unsubRemoved();
+			}).not.toThrow();
+			expect(added).not.toHaveBeenCalled();
+		});
+
 		it('unsubscribes handlers', () => {
 			const world = createWorld();
 			const a = world.createEntity();

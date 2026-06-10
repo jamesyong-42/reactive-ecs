@@ -128,6 +128,14 @@ export type ResourceChangedHandler<T = unknown> = (prev: T, next: T) => void;
  */
 export type RelationHandler = (source: EntityId, target: EntityId) => void;
 
+/**
+ * Filter for relation observers. A bare `EntityId` means source — the
+ * original third-parameter shape, kept for back-compat. `{ target }` fires
+ * only for edges pointing at that target (the parent-watches-children case);
+ * `{ source, target }` requires both endpoints to match — the exact edge.
+ */
+export type RelationFilter = EntityId | { source?: EntityId; target?: EntityId };
+
 /** A single relation edge — `[source, target]`. */
 export type RelationEdge = readonly [EntityId, EntityId];
 
@@ -203,16 +211,37 @@ export interface World {
 
 	// Component access
 
-	/** Attaches a component with data to an entity. */
-	addComponent<T>(entity: EntityId, type: ComponentType<T>, data: T): void;
+	/**
+	 * Attaches a component to an entity — attach-or-replace. The value is
+	 * `data` merged over the type's defaults; partial initialization is safe,
+	 * and omitted data attaches pure defaults. When the entity already has the
+	 * component, the existing value is replaced: observers receive the existing
+	 * value as `prev` and the entity lands in the `queryChanged` buffer only —
+	 * `prev === undefined` in observers reliably means first attach.
+	 */
+	addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>): void;
 	/** Removes a component from an entity. */
 	removeComponent<T>(entity: EntityId, type: ComponentType<T>): void;
-	/** Reads a component from an entity. Returns undefined if not present. */
-	getComponent<T>(entity: EntityId, type: ComponentType<T>): T | undefined;
+	/**
+	 * Reads a component from an entity. Returns undefined if not present.
+	 * The returned object is the live store value typed read-only; write
+	 * through `setComponent` / `replaceComponent`.
+	 */
+	getComponent<T>(entity: EntityId, type: ComponentType<T>): Readonly<T> | undefined;
 	/** Checks if an entity has a component. */
 	hasComponent(entity: EntityId, type: ComponentType): boolean;
 	/** Partially updates a component on an entity (shallow merge). */
 	setComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>): void;
+	/**
+	 * Full-value upsert: the component's next value is a recursive clone of
+	 * `data` merged over the type's defaults. Unlike `setComponent` (shallow
+	 * merge into the existing value, no-op if absent) and `addComponent`
+	 * (defaults-merge attach-or-replace with optional partial data), the
+	 * caller supplies the complete value. Observers receive the true prev
+	 * (`undefined` if the component was absent); buffers record absent →
+	 * added + dirty, present → dirty only. Throws if the entity is not alive.
+	 */
+	replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T): void;
 
 	// Tag access
 
@@ -293,8 +322,11 @@ export interface World {
 
 	// Resources
 
-	/** Reads a singleton resource. */
-	getResource<T>(type: ResourceType<T>): T;
+	/**
+	 * Reads a singleton resource. The returned object is the live store value
+	 * typed read-only; write through `setResource`.
+	 */
+	getResource<T>(type: ResourceType<T>): Readonly<T>;
 	/** Partially updates a singleton resource (shallow merge). */
 	setResource<T>(type: ResourceType<T>, data: Partial<T>): void;
 
@@ -321,15 +353,30 @@ export interface World {
 	onTagAdded(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
 	/** Subscribes to tag removals, optionally filtered to a single entity. */
 	onTagRemoved(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
-	/** Subscribes to relation edge additions, optionally filtered to a single source entity. */
-	onRelationAdded(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
 	/**
-	 * Subscribes to relation edge removals, optionally filtered to a single
-	 * source entity. Also fires for each edge torn down by `destroyEntity` of
-	 * either endpoint — the dying entity's components and tags are still
-	 * readable at fire-time, but handlers must not mutate mid-destroy.
+	 * Subscribes to relation edge additions, optionally filtered: a bare
+	 * `EntityId` means source (back-compat), `{ target }` fires only for edges
+	 * pointing at that target, and `{ source, target }` matches only the exact
+	 * edge. Handlers fire per-source, then per-target, then wildcard.
 	 */
-	onRelationRemoved(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
+	onRelationAdded(
+		type: RelationType,
+		handler: RelationHandler,
+		filter?: RelationFilter,
+	): Unsubscribe;
+	/**
+	 * Subscribes to relation edge removals, optionally filtered like
+	 * `onRelationAdded`: bare `EntityId` = source, `{ target }` = edges into
+	 * that target, `{ source, target }` = the exact edge. Also fires for each
+	 * edge torn down by `destroyEntity` of either endpoint — the dying entity's
+	 * components and tags are still readable at fire-time, but handlers must
+	 * not mutate mid-destroy.
+	 */
+	onRelationRemoved(
+		type: RelationType,
+		handler: RelationHandler,
+		filter?: RelationFilter,
+	): Unsubscribe;
 	/**
 	 * Subscribes to resource changes — fires synchronously inside `setResource`
 	 * after the merge is applied, with a pre-merge snapshot as `prev` and the

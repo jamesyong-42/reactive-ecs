@@ -36,14 +36,54 @@ describe('World', () => {
 		it('adds and gets components with defaults merged', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			// Use a Partial cast: runtime merges with defaults, but the type
-			// signature requires the full shape. See note in addComponent.
-			world.addComponent(e, Position, { x: 42 } as { x: number; y: number });
+			world.addComponent(e, Position, { x: 42 });
 			const pos = world.getComponent(e, Position);
 			expect(pos).toBeDefined();
 			if (!pos) throw new Error('Position component missing');
 			expect(pos.x).toBe(42);
 			expect(pos.y).toBe(0); // default
+		});
+
+		it('addComponent with no data attaches pure defaults', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position);
+			expect(world.getComponent(e, Position)).toEqual({ x: 0, y: 0 });
+		});
+
+		it('re-add on an entity that already has the component is an honest replace', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+			world.addComponent(e, Position, { x: 9 });
+
+			// Observers see the existing value as prev — never a fake first attach.
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 0 });
+			// The replace lands in queryChanged but NOT in queryAdded.
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+		});
+
+		it('remove-then-re-add in the same tick still lands in queryAdded', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+			world.removeComponent(e, Position);
+			world.addComponent(e, Position, { x: 5 });
+
+			// The component was absent at add time — unchanged first-attach path.
+			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 5, y: 0 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryRemoved(Position)).toEqual([]);
 		});
 
 		it('sets partial component data', () => {
@@ -73,6 +113,96 @@ describe('World', () => {
 			const e = world.createEntity();
 			world.addComponent(e, Label, { text: 'Hello World' });
 			expect(world.getComponent(e, Label)?.text).toBe('Hello World');
+		});
+
+		it('defaults containing an array of objects are not shared between entities', () => {
+			const Path = defineComponent('Path', { points: [{ x: 0 }] });
+			const world = createWorld();
+			const e1 = world.createEntity();
+			const e2 = world.createEntity();
+			world.addComponent(e1, Path);
+			world.addComponent(e2, Path);
+
+			const p1 = world.getComponent(e1, Path);
+			const p2 = world.getComponent(e2, Path);
+			if (!p1 || !p2) throw new Error('Path component missing');
+			// Objects inside arrays are cloned per entity — distinct identities.
+			expect(p1.points[0]).not.toBe(p2.points[0]);
+			expect(p1.points[0]).not.toBe(Path.defaults.points[0]);
+			expect(p1.points[0]).toEqual({ x: 0 });
+		});
+
+		it('class instances in init data are kept by reference', () => {
+			class SpatialIndex {}
+			const Indexed = defineComponent('Indexed', { index: null as SpatialIndex | null });
+			const world = createWorld();
+			const e = world.createEntity();
+			const instance = new SpatialIndex();
+			world.addComponent(e, Indexed, { index: instance });
+			expect(world.getComponent(e, Indexed)?.index).toBe(instance);
+		});
+	});
+
+	describe('replaceComponent', () => {
+		it('attaches when absent — emits prev undefined, lands in added + dirty', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+
+			world.replaceComponent(e, Position, { x: 3, y: 4 });
+			expect(world.getComponent(e, Position)).toEqual({ x: 3, y: 4 });
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 3, y: 4 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([e]);
+		});
+
+		it('replaces when present — emits the true prev, lands in dirty only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+			world.replaceComponent(e, Position, { x: 9, y: 9 });
+
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 9 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+		});
+
+		it('replaces the WHOLE value — no merge with the existing one', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 7, y: 7 });
+			world.replaceComponent(e, Position, { x: 1, y: 0 });
+			// y comes from the supplied value (full shape), not the prior 7.
+			expect(world.getComponent(e, Position)).toEqual({ x: 1, y: 0 });
+		});
+
+		it('net-cancels with removeComponent in the same tick', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			world.removeComponent(e, Position);
+			expect(world.queryRemoved(Position)).toEqual([e]);
+			world.replaceComponent(e, Position, { x: 5, y: 5 });
+			expect(world.queryRemoved(Position)).toEqual([]);
+			expect(world.queryAdded(Position)).toEqual([e]);
+		});
+
+		it('throws on a dead entity', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.destroyEntity(e);
+			expect(() => world.replaceComponent(e, Position, { x: 0, y: 0 })).toThrow(
+				/does not exist or has been destroyed/,
+			);
 		});
 	});
 
@@ -398,6 +528,54 @@ describe('World', () => {
 			world.addComponent(e, Velocity, { dx: 1, dy: 0 });
 			expect(world.query(Not(Velocity), Position)).toEqual([]);
 			expect(world.query(Position, Not(Velocity))).toEqual([]);
+		});
+
+		it('component and tag sharing a name never share a cache key — component queried first', () => {
+			// Repro for the aliasing bug: bare type names in the cache key let
+			// query(Position, SelectedComponent) and query(Position, SelectedTag)
+			// collide and return each other's results.
+			const SelectedComponent = defineComponent('Selected', { weight: 0 });
+			const world = createWorld();
+			const viaComponent = world.createEntity();
+			const viaTag = world.createEntity();
+			world.addComponent(viaComponent, Position, { x: 0, y: 0 });
+			world.addComponent(viaComponent, SelectedComponent, { weight: 1 });
+			world.addComponent(viaTag, Position, { x: 1, y: 1 });
+			world.addTag(viaTag, Selected);
+
+			expect(world.query(Position, SelectedComponent)).toEqual([viaComponent]);
+			expect(world.query(Position, Selected)).toEqual([viaTag]);
+		});
+
+		it('component and tag sharing a name never share a cache key — tag queried first', () => {
+			const SelectedComponent = defineComponent('Selected', { weight: 0 });
+			const world = createWorld();
+			const viaComponent = world.createEntity();
+			const viaTag = world.createEntity();
+			world.addComponent(viaComponent, Position, { x: 0, y: 0 });
+			world.addComponent(viaComponent, SelectedComponent, { weight: 1 });
+			world.addComponent(viaTag, Position, { x: 1, y: 1 });
+			world.addTag(viaTag, Selected);
+
+			expect(world.query(Position, Selected)).toEqual([viaTag]);
+			expect(world.query(Position, SelectedComponent)).toEqual([viaComponent]);
+		});
+
+		it('Not(component) and Not(tag) sharing a name never share a cache key, in either order', () => {
+			const SelectedComponent = defineComponent('Selected', { weight: 0 });
+			const world = createWorld();
+			const viaComponent = world.createEntity();
+			const viaTag = world.createEntity();
+			world.addComponent(viaComponent, Position, { x: 0, y: 0 });
+			world.addComponent(viaComponent, SelectedComponent, { weight: 1 });
+			world.addComponent(viaTag, Position, { x: 1, y: 1 });
+			world.addTag(viaTag, Selected);
+
+			expect(world.query(Position, Not(SelectedComponent))).toEqual([viaTag]);
+			expect(world.query(Position, Not(Selected))).toEqual([viaComponent]);
+			// Re-read in the opposite order — both cached sets stay correct.
+			expect(world.query(Position, Not(Selected))).toEqual([viaComponent]);
+			expect(world.query(Position, Not(SelectedComponent))).toEqual([viaTag]);
 		});
 
 		it('query(A, Not(B)) and query(A, B) never share a cache key', () => {
@@ -969,7 +1147,10 @@ describe('World', () => {
 				entity,
 				components: source.getComponentsOf(entity).map((type) => ({
 					type,
-					data: JSON.parse(JSON.stringify(source.getComponent(entity, type))) as unknown,
+					data: JSON.parse(JSON.stringify(source.getComponent(entity, type))) as Record<
+						string,
+						unknown
+					>,
 				})),
 				tags: source.getTagsOf(entity),
 			}));

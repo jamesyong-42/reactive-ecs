@@ -67,6 +67,8 @@ function tick() {
   world.clearDirty();
   world.incrementTick();
 }
+// Or the one-call equivalent (import { tickWorld }):
+// tickWorld(world, () => scheduler.execute(world));
 ```
 
 ## Reactivity — subscribing to world state
@@ -99,6 +101,8 @@ unsub(); // all subscriptions return an Unsubscribe function
 Resources are no exception: `onResourceChanged` fires synchronously inside `setResource` after the shallow merge, with a pre-merge snapshot as `prev` and the live value as `next`.
 
 This is what makes it practical to drive React / Vue / Svelte components from the world — wire the event callbacks to `useState`/`signal`/store updates.
+
+Reads are typed read-only: `getComponent` returns `Readonly<T> | undefined` and `getResource` returns `Readonly<T>`. The returned object is the live store value, so write through `setComponent` / `replaceComponent` / `setResource` instead of mutating it — that's what keeps the events above firing.
 
 ## Origin tagging — coexisting observers
 
@@ -172,7 +176,13 @@ world.onRelationAdded(ChildOf, (source, target) => { /* ... */ });
 world.onRelationRemoved(ChildOf, (source, target) => {
   // Fires synchronously — during a destroy, the dying entity's components
   // and tags are still readable here. Read freely; don't mutate mid-destroy.
-}, sourceId); // optional per-source filter, like the entityId filter elsewhere
+}, sourceId); // bare id = per-source filter, like the entityId filter elsewhere
+
+// { target } watches edges INTO an entity — e.g. re-render a parent's child
+// list as children come and go (destroy-driven removals included):
+world.onRelationAdded(ChildOf, handler, { target: parent });
+world.onRelationRemoved(ChildOf, handler, { target: parent });
+// { source, target } pins the exact edge.
 ```
 
 Relations are a side index, never a query key — `world.query()` ignores them, so per-frame edge churn can't thrash the query cache. The litmus for reaching for one: **make it a relation only if you query the inverse.** A reference you only ever read forward is fine as an `EntityId` component field.
@@ -223,8 +233,8 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
 
 ## What it gives you
 
-- **Entities** — opaque integer IDs, O(1) create/destroy.
-- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). Shallow defaults merge, deep-clone on add to prevent shared mutation.
+- **Entities** — opaque integer IDs; creation is O(1), destruction is proportional to the entity's components/tags/edges plus the number of registered stores and query caches.
+- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). `addComponent` takes optional partial data merged over the defaults — omitted data attaches pure defaults — and is attach-or-replace: re-adding replaces the value, observers get the existing value as `prev`, so `prev === undefined` reliably means first attach. `replaceComponent` is the full-value upsert. Initial data and defaults are defensively cloned all the way down (plain objects/arrays at any depth — class instances are kept by reference) to prevent accidental shared mutation; reads come back as `Readonly<T>`.
 - **Tags** — zero-data boolean markers (`defineTag('Selected')`).
 - **Relations** — managed entity-to-entity edges (`defineRelation('ChildOf', { ... })`) with an always-coherent inverse index and lifecycle cleanup: `relate`, `unrelate`, `getTargets`, `getTarget`, `getSources`, `queryRelation`, `queryRelationAdded`, `queryRelationRemoved`, `onRelationAdded`, `onRelationRemoved`. Exclusivity bounds and `onTargetDestroy` policies (`'clear'` / `'cascade'` / `{ tag }`) per relation type.
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
@@ -243,7 +253,7 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
 - **Events** — `onComponentChanged`, `onComponentRemoved`, `onTagAdded`, `onTagRemoved`, `onResourceChanged`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`. `onComponentRemoved` fires synchronously before the data is deleted (so `prev` is readable) and also fires during `destroyEntity` for every component the entity owned.
 - **Introspection** — enumerate entities, registered types, and per-entity component/tag composition for editors and debugging tools.
 - **Scheduler** — `SystemScheduler` orders systems via `after` / `before` with Kahn's topological sort (stable on registration order).
-- **Phased scheduler** — `PhasedScheduler` runs systems in a caller-defined phase order. You declare the phases at construction time (`new PhasedScheduler({ phases: [...] })`); the library ships zero phase opinions. Within a phase, the same `after` / `before` constraints continue to topo-sort; cross-phase ordering is implicit in phase order, and cross-phase constraints are rejected.
+- **Phased scheduler** — `PhasedScheduler` runs systems in a caller-defined phase order. You declare the phases at construction time (`new PhasedScheduler({ phases: [...] })`); the library ships zero phase opinions. Within a phase, the same `after` / `before` constraints continue to topo-sort; cross-phase ordering is implicit in phase order, and cross-phase constraints that contradict it are rejected.
 - **Optional profiler hook** — attach any `{ beginSystem, endSystem }` object (with optional `beginPhase` / `endPhase`) to `scheduler.profiler` for tracing.
 
 ## Phased scheduling
@@ -286,7 +296,7 @@ function tick() {
 }
 ```
 
-Within a phase, `after` / `before` continue to topo-sort. Across phases, ordering is implicit in phase order — a system in an earlier phase always runs before a system in a later one, and cross-phase `after` / `before` references (e.g., a `react`-phase system declaring `after: 'someDeriveSystem'`) are rejected at first execute.
+Within a phase, `after` / `before` continue to topo-sort. Across phases, ordering is implicit in phase order — a system in an earlier phase always runs before a system in a later one. Cross-phase `after` / `before` references that CONTRADICT phase order (e.g., a `react`-phase system declaring `after` a `derive`-phase system, or `before` an earlier-phase one) are rejected at first execute; redundant ones — `after` a system in an earlier phase, `before` one in a later phase — are allowed, because phase order already satisfies them.
 
 ### `PhasedSchedulerOptions`
 

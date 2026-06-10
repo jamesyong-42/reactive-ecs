@@ -10,447 +10,447 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <style>
   :root {
-                --paper: #f7f4ed;
-                --paper-deep: #efeadf;
-                --ink: #1d1a13;
-                --ink-soft: #4f4a3d;
-                --ink-faint: #8a8371;
-                --line: #ded7c6;
-                --accent: #0d7a68;
-                --accent-deep: #0a5d50;
-                --accent-wash: #e2efeb;
-                --amber: #b4690e;
-                --amber-wash: #f6ecdb;
-                --code-bg: #142420;
-                --code-ink: #d8e6e0;
-                --code-cmt: #6f8d83;
-                --code-str: #c9b97a;
-                --code-kw: #7fc8b4;
-                --code-fn: #e3c98f;
-                --code-typ: #a9c9e8;
-                --code-num: #d8a0a0;
-                --sidebar-w: 272px;
-                --content-w: 736px;
-                --radius: 6px;
-              }
+                  --paper: #f7f4ed;
+                  --paper-deep: #efeadf;
+                  --ink: #1d1a13;
+                  --ink-soft: #4f4a3d;
+                  --ink-faint: #8a8371;
+                  --line: #ded7c6;
+                  --accent: #0d7a68;
+                  --accent-deep: #0a5d50;
+                  --accent-wash: #e2efeb;
+                  --amber: #b4690e;
+                  --amber-wash: #f6ecdb;
+                  --code-bg: #142420;
+                  --code-ink: #d8e6e0;
+                  --code-cmt: #6f8d83;
+                  --code-str: #c9b97a;
+                  --code-kw: #7fc8b4;
+                  --code-fn: #e3c98f;
+                  --code-typ: #a9c9e8;
+                  --code-num: #d8a0a0;
+                  --sidebar-w: 272px;
+                  --content-w: 736px;
+                  --radius: 6px;
+                }
 
-              * { box-sizing: border-box; }
+                * { box-sizing: border-box; }
 
-              html { scroll-behavior: smooth; }
+                html { scroll-behavior: smooth; }
 
-              body {
-                margin: 0;
-                background: var(--paper);
-                color: var(--ink);
-                font-family: 'Schibsted Grotesk', sans-serif;
-                font-size: 16.5px;
-                line-height: 1.65;
-                -webkit-font-smoothing: antialiased;
-                background-image:
-                  radial-gradient(circle at 1px 1px, rgba(29,26,19,0.05) 1px, transparent 0);
-                background-size: 26px 26px;
-              }
+                body {
+                  margin: 0;
+                  background: var(--paper);
+                  color: var(--ink);
+                  font-family: 'Schibsted Grotesk', sans-serif;
+                  font-size: 16.5px;
+                  line-height: 1.65;
+                  -webkit-font-smoothing: antialiased;
+                  background-image:
+                    radial-gradient(circle at 1px 1px, rgba(29,26,19,0.05) 1px, transparent 0);
+                  background-size: 26px 26px;
+                }
 
-              ::selection { background: var(--accent); color: #fff; }
+                ::selection { background: var(--accent); color: #fff; }
 
-              /* ---------- Sidebar ---------- */
+                /* ---------- Sidebar ---------- */
 
-              .sidebar {
-                position: fixed;
-                top: 0; left: 0; bottom: 0;
-                width: var(--sidebar-w);
-                padding: 32px 28px 48px;
-                overflow-y: auto;
-                border-right: 1px solid var(--line);
-                background: var(--paper);
-                z-index: 40;
-                scrollbar-width: thin;
-              }
+                .sidebar {
+                  position: fixed;
+                  top: 0; left: 0; bottom: 0;
+                  width: var(--sidebar-w);
+                  padding: 32px 28px 48px;
+                  overflow-y: auto;
+                  border-right: 1px solid var(--line);
+                  background: var(--paper);
+                  z-index: 40;
+                  scrollbar-width: thin;
+                }
 
-              .brand {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                text-decoration: none;
-                color: var(--ink);
-                margin-bottom: 6px;
-              }
-              .brand .pulse-mini {
-                position: relative;
-                width: 10px; height: 10px;
-                border-radius: 50%;
-                background: var(--accent);
-                flex: none;
-              }
-              .brand .pulse-mini::after {
-                content: '';
-                position: absolute; inset: 0;
-                border-radius: 50%;
-                border: 1.5px solid var(--accent);
-                animation: ripple 2.6s cubic-bezier(.2,.6,.3,1) infinite;
-              }
-              .brand b {
-                font-family: 'Fraunces', serif;
-                font-weight: 600;
-                font-size: 19px;
-                letter-spacing: -0.01em;
-              }
-              .brand-version {
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 11px;
-                color: var(--ink-faint);
-                margin: 0 0 22px 22px;
-              }
+                .brand {
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  text-decoration: none;
+                  color: var(--ink);
+                  margin-bottom: 6px;
+                }
+                .brand .pulse-mini {
+                  position: relative;
+                  width: 10px; height: 10px;
+                  border-radius: 50%;
+                  background: var(--accent);
+                  flex: none;
+                }
+                .brand .pulse-mini::after {
+                  content: '';
+                  position: absolute; inset: 0;
+                  border-radius: 50%;
+                  border: 1.5px solid var(--accent);
+                  animation: ripple 2.6s cubic-bezier(.2,.6,.3,1) infinite;
+                }
+                .brand b {
+                  font-family: 'Fraunces', serif;
+                  font-weight: 600;
+                  font-size: 19px;
+                  letter-spacing: -0.01em;
+                }
+                .brand-version {
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 11px;
+                  color: var(--ink-faint);
+                  margin: 0 0 22px 22px;
+                }
 
-              .nav-group { margin-bottom: 22px; }
-              .nav-group > span {
-                display: block;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 10.5px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.14em;
-                color: var(--ink-faint);
-                margin-bottom: 8px;
-              }
-              .nav-group a {
-                display: block;
-                padding: 4px 10px;
-                margin-left: -10px;
-                font-size: 14.5px;
-                color: var(--ink-soft);
-                text-decoration: none;
-                border-left: 2px solid transparent;
-                border-radius: 0 var(--radius) var(--radius) 0;
-                transition: color .12s, background .12s;
-              }
-              .nav-group a.sub { padding-left: 24px; font-size: 13.5px; }
-              .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
-              .nav-group a.active {
-                color: var(--accent-deep);
-                border-left-color: var(--accent);
-                background: var(--accent-wash);
-                font-weight: 600;
-              }
+                .nav-group { margin-bottom: 22px; }
+                .nav-group > span {
+                  display: block;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 10.5px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  letter-spacing: 0.14em;
+                  color: var(--ink-faint);
+                  margin-bottom: 8px;
+                }
+                .nav-group a {
+                  display: block;
+                  padding: 4px 10px;
+                  margin-left: -10px;
+                  font-size: 14.5px;
+                  color: var(--ink-soft);
+                  text-decoration: none;
+                  border-left: 2px solid transparent;
+                  border-radius: 0 var(--radius) var(--radius) 0;
+                  transition: color .12s, background .12s;
+                }
+                .nav-group a.sub { padding-left: 24px; font-size: 13.5px; }
+                .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
+                .nav-group a.active {
+                  color: var(--accent-deep);
+                  border-left-color: var(--accent);
+                  background: var(--accent-wash);
+                  font-weight: 600;
+                }
 
-              .sidebar-foot {
-                margin-top: 30px;
-                padding-top: 18px;
-                border-top: 1px solid var(--line);
-                font-size: 13px;
-              }
-              .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
-              .sidebar-foot a:hover { color: var(--accent-deep); }
+                .sidebar-foot {
+                  margin-top: 30px;
+                  padding-top: 18px;
+                  border-top: 1px solid var(--line);
+                  font-size: 13px;
+                }
+                .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
+                .sidebar-foot a:hover { color: var(--accent-deep); }
 
-              .nav-toggle {
-                display: none;
-                position: fixed;
-                top: 14px; left: 14px;
-                z-index: 60;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 12px;
-                padding: 7px 12px;
-                background: var(--ink);
-                color: var(--paper);
-                border: none;
-                border-radius: var(--radius);
-                cursor: pointer;
-              }
+                .nav-toggle {
+                  display: none;
+                  position: fixed;
+                  top: 14px; left: 14px;
+                  z-index: 60;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 12px;
+                  padding: 7px 12px;
+                  background: var(--ink);
+                  color: var(--paper);
+                  border: none;
+                  border-radius: var(--radius);
+                  cursor: pointer;
+                }
 
-              /* ---------- Main column ---------- */
+                /* ---------- Main column ---------- */
 
-              main {
-                margin-left: var(--sidebar-w);
-                padding: 0 48px 120px;
-              }
-              .measure { max-width: var(--content-w); margin: 0 auto; }
+                main {
+                  margin-left: var(--sidebar-w);
+                  padding: 0 48px 120px;
+                }
+                .measure { max-width: var(--content-w); margin: 0 auto; }
 
-              /* ---------- Hero ---------- */
+                /* ---------- Hero ---------- */
 
-              .hero {
-                padding: 96px 0 64px;
-                border-bottom: 1px solid var(--line);
-                margin-bottom: 56px;
-                position: relative;
-              }
-              .hero-kicker {
-                display: inline-flex;
-                align-items: center;
-                gap: 14px;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 12px;
-                letter-spacing: 0.12em;
-                text-transform: uppercase;
-                color: var(--accent-deep);
-                margin-bottom: 26px;
-                animation: rise .7s cubic-bezier(.2,.7,.3,1) both;
-              }
-              .pulse {
-                position: relative;
-                width: 12px; height: 12px;
-                border-radius: 50%;
-                background: var(--accent);
-                flex: none;
-              }
-              .pulse::before, .pulse::after {
-                content: '';
-                position: absolute; inset: 0;
-                border-radius: 50%;
-                border: 1.5px solid var(--accent);
-                animation: ripple 2.8s cubic-bezier(.2,.6,.3,1) infinite;
-              }
-              .pulse::after { animation-delay: 1.4s; }
-              @keyframes ripple {
-                from { transform: scale(1); opacity: .8; }
-                to   { transform: scale(6.5); opacity: 0; }
-              }
+                .hero {
+                  padding: 96px 0 64px;
+                  border-bottom: 1px solid var(--line);
+                  margin-bottom: 56px;
+                  position: relative;
+                }
+                .hero-kicker {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 14px;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 12px;
+                  letter-spacing: 0.12em;
+                  text-transform: uppercase;
+                  color: var(--accent-deep);
+                  margin-bottom: 26px;
+                  animation: rise .7s cubic-bezier(.2,.7,.3,1) both;
+                }
+                .pulse {
+                  position: relative;
+                  width: 12px; height: 12px;
+                  border-radius: 50%;
+                  background: var(--accent);
+                  flex: none;
+                }
+                .pulse::before, .pulse::after {
+                  content: '';
+                  position: absolute; inset: 0;
+                  border-radius: 50%;
+                  border: 1.5px solid var(--accent);
+                  animation: ripple 2.8s cubic-bezier(.2,.6,.3,1) infinite;
+                }
+                .pulse::after { animation-delay: 1.4s; }
+                @keyframes ripple {
+                  from { transform: scale(1); opacity: .8; }
+                  to   { transform: scale(6.5); opacity: 0; }
+                }
 
-              .hero h1 {
-                font-family: 'Fraunces', serif;
-                font-size: clamp(44px, 6vw, 64px);
-                font-weight: 600;
-                letter-spacing: -0.025em;
-                line-height: 1.04;
-                margin: 0 0 24px;
-                animation: rise .7s .08s cubic-bezier(.2,.7,.3,1) both;
-              }
-              .hero h1 em {
-                font-style: italic;
-                font-weight: 500;
-                color: var(--accent-deep);
-              }
-              .hero p.lede {
-                font-size: 19px;
-                line-height: 1.6;
-                color: var(--ink-soft);
-                max-width: 620px;
-                margin: 0 0 34px;
-                animation: rise .7s .16s cubic-bezier(.2,.7,.3,1) both;
-              }
-              .hero-meta {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 10px;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 12px;
-                color: var(--ink-soft);
-                animation: rise .7s .24s cubic-bezier(.2,.7,.3,1) both;
-              }
-              .hero-meta span {
-                border: 1px solid var(--line);
-                background: var(--paper-deep);
-                border-radius: 100px;
-                padding: 4px 12px;
-              }
-              @keyframes rise {
-                from { opacity: 0; transform: translateY(14px); }
-                to   { opacity: 1; transform: none; }
-              }
+                .hero h1 {
+                  font-family: 'Fraunces', serif;
+                  font-size: clamp(44px, 6vw, 64px);
+                  font-weight: 600;
+                  letter-spacing: -0.025em;
+                  line-height: 1.04;
+                  margin: 0 0 24px;
+                  animation: rise .7s .08s cubic-bezier(.2,.7,.3,1) both;
+                }
+                .hero h1 em {
+                  font-style: italic;
+                  font-weight: 500;
+                  color: var(--accent-deep);
+                }
+                .hero p.lede {
+                  font-size: 19px;
+                  line-height: 1.6;
+                  color: var(--ink-soft);
+                  max-width: 620px;
+                  margin: 0 0 34px;
+                  animation: rise .7s .16s cubic-bezier(.2,.7,.3,1) both;
+                }
+                .hero-meta {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 10px;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 12px;
+                  color: var(--ink-soft);
+                  animation: rise .7s .24s cubic-bezier(.2,.7,.3,1) both;
+                }
+                .hero-meta span {
+                  border: 1px solid var(--line);
+                  background: var(--paper-deep);
+                  border-radius: 100px;
+                  padding: 4px 12px;
+                }
+                @keyframes rise {
+                  from { opacity: 0; transform: translateY(14px); }
+                  to   { opacity: 1; transform: none; }
+                }
 
-              /* ---------- Typography ---------- */
+                /* ---------- Typography ---------- */
 
-              section { margin-bottom: 72px; }
+                section { margin-bottom: 72px; }
 
-              h2 {
-                font-family: 'Fraunces', serif;
-                font-size: 32px;
-                font-weight: 600;
-                letter-spacing: -0.015em;
-                line-height: 1.15;
-                margin: 0 0 8px;
-                padding-top: 18px;
-                scroll-margin-top: 28px;
-              }
-              h2::before {
-                content: '';
-                display: block;
-                width: 34px; height: 3px;
-                background: var(--accent);
-                margin-bottom: 22px;
-              }
-              h3 {
-                font-family: 'Fraunces', serif;
-                font-size: 21.5px;
-                font-weight: 600;
-                margin: 40px 0 10px;
-                scroll-margin-top: 28px;
-              }
-              h4 {
-                font-size: 16px;
-                font-weight: 700;
-                margin: 28px 0 8px;
-              }
+                h2 {
+                  font-family: 'Fraunces', serif;
+                  font-size: 32px;
+                  font-weight: 600;
+                  letter-spacing: -0.015em;
+                  line-height: 1.15;
+                  margin: 0 0 8px;
+                  padding-top: 18px;
+                  scroll-margin-top: 28px;
+                }
+                h2::before {
+                  content: '';
+                  display: block;
+                  width: 34px; height: 3px;
+                  background: var(--accent);
+                  margin-bottom: 22px;
+                }
+                h3 {
+                  font-family: 'Fraunces', serif;
+                  font-size: 21.5px;
+                  font-weight: 600;
+                  margin: 40px 0 10px;
+                  scroll-margin-top: 28px;
+                }
+                h4 {
+                  font-size: 16px;
+                  font-weight: 700;
+                  margin: 28px 0 8px;
+                }
 
-              p { margin: 0 0 16px; }
-              p, li { color: var(--ink); }
-              strong { font-weight: 650; }
-              a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13,122,104,.35); text-underline-offset: 2px; }
-              a:hover { text-decoration-color: var(--accent); }
+                p { margin: 0 0 16px; }
+                p, li { color: var(--ink); }
+                strong { font-weight: 650; }
+                a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13,122,104,.35); text-underline-offset: 2px; }
+                a:hover { text-decoration-color: var(--accent); }
 
-              ul, ol { padding-left: 22px; margin: 0 0 16px; }
-              li { margin-bottom: 6px; }
+                ul, ol { padding-left: 22px; margin: 0 0 16px; }
+                li { margin-bottom: 6px; }
 
-              code {
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 0.86em;
-                background: var(--paper-deep);
-                border: 1px solid var(--line);
-                border-radius: 4px;
-                padding: 1px 5px;
-                white-space: nowrap;
-              }
+                code {
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 0.86em;
+                  background: var(--paper-deep);
+                  border: 1px solid var(--line);
+                  border-radius: 4px;
+                  padding: 1px 5px;
+                  white-space: nowrap;
+                }
 
-              .anchor {
-                margin-left: 8px;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 0.65em;
-                color: var(--ink-faint);
-                text-decoration: none;
-                opacity: 0;
-                transition: opacity .12s;
-              }
-              h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+                .anchor {
+                  margin-left: 8px;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 0.65em;
+                  color: var(--ink-faint);
+                  text-decoration: none;
+                  opacity: 0;
+                  transition: opacity .12s;
+                }
+                h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 
-              /* ---------- Code blocks ---------- */
+                /* ---------- Code blocks ---------- */
 
-              figure.code {
-                position: relative;
-                margin: 20px 0 24px;
-                border-radius: 8px;
-                background: var(--code-bg);
-                box-shadow: 0 1px 0 rgba(29,26,19,.18), 0 12px 28px -18px rgba(20,36,32,.55);
-                overflow: hidden;
-              }
-              figure.code::before {
-                content: attr(data-lang);
-                position: absolute;
-                top: 9px; right: 64px;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 10.5px;
-                letter-spacing: .1em;
-                text-transform: uppercase;
-                color: var(--code-cmt);
-              }
-              figure.code pre {
-                margin: 0;
-                padding: 20px 24px;
-                overflow-x: auto;
-              }
-              figure.code code {
-                background: none;
-                border: none;
-                padding: 0;
-                white-space: pre;
-                font-size: 13.5px;
-                line-height: 1.62;
-                color: var(--code-ink);
-              }
-              .tok-cmt { color: var(--code-cmt); font-style: italic; }
-              .tok-str { color: var(--code-str); }
-              .tok-kw  { color: var(--code-kw); }
-              .tok-fn  { color: var(--code-fn); }
-              .tok-typ { color: var(--code-typ); }
-              .tok-num { color: var(--code-num); }
+                figure.code {
+                  position: relative;
+                  margin: 20px 0 24px;
+                  border-radius: 8px;
+                  background: var(--code-bg);
+                  box-shadow: 0 1px 0 rgba(29,26,19,.18), 0 12px 28px -18px rgba(20,36,32,.55);
+                  overflow: hidden;
+                }
+                figure.code::before {
+                  content: attr(data-lang);
+                  position: absolute;
+                  top: 9px; right: 64px;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 10.5px;
+                  letter-spacing: .1em;
+                  text-transform: uppercase;
+                  color: var(--code-cmt);
+                }
+                figure.code pre {
+                  margin: 0;
+                  padding: 20px 24px;
+                  overflow-x: auto;
+                }
+                figure.code code {
+                  background: none;
+                  border: none;
+                  padding: 0;
+                  white-space: pre;
+                  font-size: 13.5px;
+                  line-height: 1.62;
+                  color: var(--code-ink);
+                }
+                .tok-cmt { color: var(--code-cmt); font-style: italic; }
+                .tok-str { color: var(--code-str); }
+                .tok-kw  { color: var(--code-kw); }
+                .tok-fn  { color: var(--code-fn); }
+                .tok-typ { color: var(--code-typ); }
+                .tok-num { color: var(--code-num); }
 
-              button.copy {
-                position: absolute;
-                top: 8px; right: 8px;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 10.5px;
-                letter-spacing: .06em;
-                text-transform: uppercase;
-                color: var(--code-cmt);
-                background: rgba(255,255,255,.04);
-                border: 1px solid rgba(216,230,224,.18);
-                border-radius: 4px;
-                padding: 4px 9px;
-                cursor: pointer;
-                transition: color .12s, border-color .12s;
-              }
-              button.copy:hover { color: var(--code-ink); border-color: rgba(216,230,224,.4); }
-              button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
+                button.copy {
+                  position: absolute;
+                  top: 8px; right: 8px;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 10.5px;
+                  letter-spacing: .06em;
+                  text-transform: uppercase;
+                  color: var(--code-cmt);
+                  background: rgba(255,255,255,.04);
+                  border: 1px solid rgba(216,230,224,.18);
+                  border-radius: 4px;
+                  padding: 4px 9px;
+                  cursor: pointer;
+                  transition: color .12s, border-color .12s;
+                }
+                button.copy:hover { color: var(--code-ink); border-color: rgba(216,230,224,.4); }
+                button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
 
-              /* ---------- Callouts ---------- */
+                /* ---------- Callouts ---------- */
 
-              .callout {
-                margin: 20px 0 24px;
-                padding: 14px 18px 14px 16px;
-                border-left: 3px solid var(--accent);
-                background: var(--accent-wash);
-                border-radius: 0 var(--radius) var(--radius) 0;
-                font-size: 15px;
-              }
-              .callout > p:last-child { margin-bottom: 0; }
-              .callout .callout-tag {
-                display: inline-block;
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 10.5px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: .12em;
-                color: var(--accent-deep);
-                margin-bottom: 4px;
-              }
-              .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
-              .callout.warn .callout-tag { color: var(--amber); }
+                .callout {
+                  margin: 20px 0 24px;
+                  padding: 14px 18px 14px 16px;
+                  border-left: 3px solid var(--accent);
+                  background: var(--accent-wash);
+                  border-radius: 0 var(--radius) var(--radius) 0;
+                  font-size: 15px;
+                }
+                .callout > p:last-child { margin-bottom: 0; }
+                .callout .callout-tag {
+                  display: inline-block;
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 10.5px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  letter-spacing: .12em;
+                  color: var(--accent-deep);
+                  margin-bottom: 4px;
+                }
+                .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
+                .callout.warn .callout-tag { color: var(--amber); }
 
-              /* ---------- Tables ---------- */
+                /* ---------- Tables ---------- */
 
-              .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
-              table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 14px;
-                background: #fbf9f4;
-                border: 1px solid var(--line);
-                border-radius: 8px;
-                overflow: hidden;
-              }
-              th {
-                font-family: 'IBM Plex Mono', monospace;
-                font-size: 11px;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: .1em;
-                text-align: left;
-                color: var(--ink-faint);
-                background: var(--paper-deep);
-                padding: 10px 14px;
-                border-bottom: 1px solid var(--line);
-              }
-              td {
-                padding: 10px 14px;
-                border-bottom: 1px solid var(--line);
-                vertical-align: top;
-              }
-              tr:last-child td { border-bottom: none; }
-              td code { white-space: nowrap; }
-              td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
+                .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+                table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  font-size: 14px;
+                  background: #fbf9f4;
+                  border: 1px solid var(--line);
+                  border-radius: 8px;
+                  overflow: hidden;
+                }
+                th {
+                  font-family: 'IBM Plex Mono', monospace;
+                  font-size: 11px;
+                  font-weight: 600;
+                  text-transform: uppercase;
+                  letter-spacing: .1em;
+                  text-align: left;
+                  color: var(--ink-faint);
+                  background: var(--paper-deep);
+                  padding: 10px 14px;
+                  border-bottom: 1px solid var(--line);
+                }
+                td {
+                  padding: 10px 14px;
+                  border-bottom: 1px solid var(--line);
+                  vertical-align: top;
+                }
+                tr:last-child td { border-bottom: none; }
+                td code { white-space: nowrap; }
+                td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
 
-              /* ---------- Hr / footer ---------- */
+                /* ---------- Hr / footer ---------- */
 
-              footer {
-                border-top: 1px solid var(--line);
-                margin-top: 80px;
-                padding-top: 28px;
-                font-size: 14px;
-                color: var(--ink-faint);
-                display: flex;
-                justify-content: space-between;
-                flex-wrap: wrap;
-                gap: 12px;
-              }
-              footer a { color: var(--ink-soft); }
+                footer {
+                  border-top: 1px solid var(--line);
+                  margin-top: 80px;
+                  padding-top: 28px;
+                  font-size: 14px;
+                  color: var(--ink-faint);
+                  display: flex;
+                  justify-content: space-between;
+                  flex-wrap: wrap;
+                  gap: 12px;
+                }
+                footer a { color: var(--ink-soft); }
 
-              /* ---------- Responsive ---------- */
+                /* ---------- Responsive ---------- */
 
-              @media (max-width: 980px) {
-                .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29,26,19,.4); }
-                body.nav-open .sidebar { transform: none; }
-                .nav-toggle { display: block; }
-                main { margin-left: 0; padding: 0 22px 90px; }
-                .hero { padding-top: 84px; }
-              }
+                @media (max-width: 980px) {
+                  .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29,26,19,.4); }
+                  body.nav-open .sidebar { transform: none; }
+                  .nav-toggle { display: block; }
+                  main { margin-left: 0; padding: 0 22px 90px; }
+                  .hero { padding-top: 84px; }
+                }
 </style>
 </head>
 <body>
@@ -555,7 +555,7 @@
     </p>
     <p>reactive-ecs makes the opposite trade. The library owns component storage, and because it owns the store, it can make guarantees a bring-your-own-storage toolkit cannot:</p>
     <ul>
-      <li><strong>Every mutation emits.</strong> There is no way to write component data that bypasses observers — no <code>set()</code> ceremony to forget.</li>
+      <li><strong>Every write through the world API emits.</strong> <code>addComponent</code> / <code>setComponent</code> / <code>removeComponent</code> all notify observers — no <code>set()</code> ceremony to forget. The flip side of the contract: reads hand you the stored object, so treat it as read-only and write through the API.</li>
       <li><strong>Subscriptions can target a single entity.</strong> <code>onComponentChanged(Position, handler, entityId)</code> is exactly the shape a <code>useComponent()</code> hook needs.</li>
       <li><strong>Removal is observable with the data still readable.</strong> <code>onComponentRemoved</code> fires <em>before</em> deletion, so handlers can release GPU buffers, DOM nodes, or subscriptions keyed by the dying value.</li>
       <li><strong>Entity ids never lie.</strong> Ids are monotonic and never reused — <code>entityExists(staleId)</code> is <code>false</code> forever.</li>
@@ -732,9 +732,39 @@ world.getComponent(e, Position);                   // { x: 15, y: 20 }
 world.removeComponent(e, Position);                // detach (fires onComponentRemoved)</code></pre></figure>
     <ul>
       <li><strong>Defaults merge on add.</strong> <code>addComponent</code> shallow-merges your data over the defined defaults, so partial initialization is safe.</li>
-      <li><strong>Deep clone on add.</strong> Initial data is deep-cloned, so two entities never share nested state by accident.</li>
-      <li><strong>Shallow merge on set.</strong> <code>setComponent</code> takes a <code>Partial&lt;T&gt;</code> and merges it over the current value — and emits a change event.</li>
+      <li><strong>Defensive clone on add.</strong> Initial data is cloned two levels deep (the top level, plus nested plain objects and arrays), so two entities never share nested state by accident. Class instances — and anything nested deeper — are kept by reference, deliberately: the library never clones what it can't reconstruct.</li>
+      <li><strong>Shallow merge on set.</strong> <code>setComponent</code> takes a <code>Partial&lt;T&gt;</code> and merges it over the current value — <em>one level deep</em> — and emits a change event.</li>
     </ul>
+    <p>One level deep means nested objects are replaced wholesale, not merged into:</p>
+<figure class="code" data-lang="ts"><pre><code>const Transform = defineComponent('Transform', {
+  position: { x: 0, y: 0 },
+  rotation: 0,
+});
+
+world.setComponent(e, Transform, { position: { x: 10 } });
+world.getComponent(e, Transform);
+// { position: { x: 10 }, rotation: 0 } — position.y is GONE.
+// To update one nested field, spread the current value:
+const t = world.getComponent(e, Transform)!;
+world.setComponent(e, Transform, { position: { ...t.position, x: 10 } });</code></pre></figure>
+
+    <h3 id="op-semantics">Operation semantics<a class="anchor" href="#op-semantics">#</a></h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Operation</th><th>If present</th><th>If missing</th><th>If entity dead</th></tr></thead>
+      <tbody>
+        <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev = undefined</code>, id lands in <code>queryAdded</code></td><td>attaches</td><td>throws</td></tr>
+        <tr><td><code>setComponent</code></td><td>shallow-merges + emits</td><td><strong>silent no-op</strong></td><td>silent no-op</td></tr>
+        <tr><td><code>removeComponent</code></td><td>removes (event fires first)</td><td>no-op</td><td>no-op</td></tr>
+        <tr><td><code>addTag</code></td><td>no-op</td><td>adds</td><td>throws</td></tr>
+        <tr><td><code>removeTag</code></td><td>removes</td><td>no-op</td><td>no-op</td></tr>
+        <tr><td><code>relate</code></td><td>no-op (exclusivity violations replace)</td><td>adds edge</td><td>throws (either endpoint)</td></tr>
+      </tbody>
+    </table></div>
+    <p>
+      Two rows worth memorizing: <code>setComponent</code> on an entity that doesn't have the
+      component does nothing — use <code>addComponent</code> to attach — and re-adding an
+      existing component overwrites it while reporting <code>prev = undefined</code>.
+    </p>
     <div class="callout">
       <span class="callout-tag">The contract</span>
       <p>
@@ -835,8 +865,9 @@ world.onRelationRemoved(ChildOf, (source, target) =&gt; {
   // fires during destroy too — the dying entity's components are still readable here
 }, sourceId);</code></pre></figure>
     <p>
-      Net-cancellation applies as everywhere else: unrelate-then-relate of the same edge in
-      one tick nets to nothing in the buffers.
+      <a href="#net-cancellation">Net-cancellation</a> applies as everywhere else: opposing
+      mutations of the same edge in one tick cancel the opposite buffer, and the last
+      transition's buffer keeps the edge.
     </p>
   </section>
 
@@ -858,6 +889,11 @@ world.setResource(Camera, { zoom: 2 }); // shallow-merge partial update</code></
       <code>onResourceChanged(R, (prev, next))</code> synchronously and the type lands in the
       per-tick <code>queryChangedResources()</code> buffer.
     </p>
+    <ul>
+      <li><strong>Reads are silent.</strong> <code>getResource</code> creates the store on first use but emits nothing and never appears in <code>queryChangedResources()</code>.</li>
+      <li><strong>Registration follows store creation.</strong> <code>getRegisteredResources()</code> lists a type after its first <code>getResource</code> / <code>setResource</code> / <code>onResourceChanged</code> — defining alone doesn't register.</li>
+      <li><strong>No removal, no built-in reset.</strong> Resources live for the world's lifetime; "reset" is just <code>setResource(R, R.defaults)</code> (remember it's a shallow merge — spread nested objects if you have them).</li>
+    </ul>
   </section>
 
   <!-- ================================ QUERIES ================================ -->
@@ -892,9 +928,13 @@ for (const id of world.query(Position, Not(Velocity), Not(Hidden))) {
     <div class="callout">
       <span class="callout-tag">Note</span>
       <p>
-        A query needs at least one positive term — a query of only <code>Not()</code> terms
-        would have to scan every entity, so it throws instead. There is deliberately no
-        <code>Or</code> operator: union two queries in user code if you need one.
+        A query needs at least one positive term (a component or a tag — relations and
+        resources are not query terms) — a query of only <code>Not()</code> terms would have
+        to scan every entity, so it throws instead. There is deliberately no <code>Or</code>
+        operator: union two queries in user code if you need one. One cache exists per exact
+        term signature (<code>query(A, Not(B))</code> and <code>query(A, B)</code> are
+        separate caches) and is retained for the world's lifetime — fine for the stable
+        query sets real apps have, but don't generate query signatures dynamically.
       </p>
     </div>
   </section>
@@ -918,22 +958,60 @@ for (const id of world.query(Position, Not(Velocity), Not(Hidden))) {
         <tr><td><code>queryChangedResources()</code></td><td>resource types written via <code>setResource</code> this tick (first-changed order).</td></tr>
       </tbody>
     </table></div>
+    <div class="callout">
+      <span class="callout-tag">queryChanged includes adds</span>
+      <p>
+        A newly added component counts as "written this tick", so it appears in
+        <strong>both</strong> <code>queryAdded</code> and <code>queryChanged</code>.
+        Consumers handling both must dedupe, as the example below does.
+      </p>
+    </div>
     <p>The canonical consumer is a system that maintains derived state — for example, keeping a spatial index in sync:</p>
 <figure class="code" data-lang="ts"><pre><code>const spatialIndexSync = defineSystem({
   name: 'spatialIndexSync',
   execute: (w) =&gt; {
-    for (const id of w.queryAdded(Position))   index.insert(id, w.getComponent(id, Position)!);
-    for (const id of w.queryChanged(Position)) index.update(id, w.getComponent(id, Position)!);
+    const added = new Set(w.queryAdded(Position));
+    for (const id of added) index.insert(id, w.getComponent(id, Position)!);
+    for (const id of w.queryChanged(Position)) {
+      if (!added.has(id)) index.update(id, w.getComponent(id, Position)!);
+    }
     for (const id of w.queryRemoved(Position)) index.remove(id);
   },
 });</code></pre></figure>
     <h3 id="net-cancellation">Net-cancellation<a class="anchor" href="#net-cancellation">#</a></h3>
     <p>
-      The buffers report <em>net</em> state for the tick. If a component is added and removed
-      within the same tick, it appears in neither <code>queryAdded</code> nor
-      <code>queryRemoved</code> — consumers never see a phantom transition.
-      The same holds for tags.
+      Opposing mutations in the same tick cancel <em>the opposite buffer</em>: a remove
+      clears the entity from <code>queryAdded</code> (and <code>queryChanged</code>); an add
+      clears it from <code>queryRemoved</code>. The last transition wins, and its own buffer
+      keeps the entry. The invariant the buffers guarantee is therefore about <em>current</em>
+      state: an id in <code>queryAdded</code> has the component <em>now</em>; an id in
+      <code>queryRemoved</code> does not. The same rule holds for tags and relation edges.
     </p>
+<figure class="code" data-lang="ts"><pre><code>// within one tick, component absent at the last clearDirty():
+world.addComponent(e, Position, { x: 1 });  // event fires (prev = undefined)
+world.setComponent(e, Position, { x: 2 });  // event fires (prev = {x:1})
+world.removeComponent(e, Position);         // event fires (prev = {x:2})
+
+world.queryAdded(Position);   // [] — the remove cancelled it
+world.queryChanged(Position); // [] — the remove cleared the dirty entry too
+world.queryRemoved(Position); // [e] — the LAST transition survives</code></pre></figure>
+    <p>
+      Note the consequence: relative to the start of the tick, that <code>[e]</code> is a
+      removal of something the consumer never saw added. Make removal handling idempotent
+      (removing an id that was never inserted is a no-op) and this is a non-issue — which
+      the spatial-index example above already is.
+    </p>
+    <div class="callout">
+      <span class="callout-tag">Events vs buffers</span>
+      <p>
+        This is the conceptual split to internalize: <strong>events are lossless and
+        synchronous</strong> — every mutation fires, in order, as it happens.
+        <strong>Per-tick buffers are coalesced</strong> — opposing mutations cancel, and
+        what remains is consistent with where the world is now. Use events for journals,
+        sync, and per-entity UI; use buffers for derived-state systems that only care
+        where things ended up.
+      </p>
+    </div>
     <div class="callout">
       <span class="callout-tag">Removal includes destruction</span>
       <p>
@@ -1051,6 +1129,19 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
         Destruction is just removal, observed through the same channels. If your cleanup
         logic handles <code>onComponentRemoved</code> / <code>queryRemoved</code>, it already
         handles destruction — there is no second code path to forget.
+      </p>
+    </div>
+    <div class="callout warn">
+      <span class="callout-tag">Don't mutate mid-destroy</span>
+      <p>
+        Handlers fired <em>during</em> a destroy (<code>onEntityDestroyed</code>,
+        <code>onComponentRemoved</code>, <code>onTagRemoved</code>,
+        <code>onRelationRemoved</code> in steps 1–5) run while the world is mid-teardown:
+        <strong>read freely, but do not mutate the world from them</strong> — create, destroy,
+        relate, or add/remove anything. Mutate from a system reacting to the removed buffers
+        on the next pass instead, or use a relation's <code>onTargetDestroy</code> policy,
+        which the world applies for you at the safe point (step 6). The same handlers are
+        safe to mutate from when fired by ordinary removals outside a destroy.
       </p>
     </div>
   </section>
@@ -1541,87 +1632,87 @@ const recorder = createLifecycleRecorder(world);
 
 <script>
   // ---------- Tiny TS syntax highlighter ----------
-              (() => {
-                const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const re = new RegExp(
-                  [
-                    '(\\/\\/[^\\n]*)',                                                  // 1 comment
-                    "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string
-                    '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this)\\b', // 3 keyword
-                    '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',                                    // 4 number
-                    '([A-Za-z_$][\\w$]*)(?=\\s*\\()',                                    // 5 call
-                    '\\b([A-Z][\\w$]*)\\b',                                              // 6 type
-                  ].join('|'),
-                  'g'
-                );
-                document.querySelectorAll('figure.code code').forEach((el) => {
-                  if (el.closest('figure').dataset.lang === 'sh') {
-                    el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
-                    return;
-                  }
-                  const src = el.textContent;
-                  let out = '';
-                  let last = 0;
-                  let m = re.exec(src);
-                  while (m) {
-                    out += esc(src.slice(last, m.index));
-                    const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
-                    out += `<span class="${cls}">${esc(m[0])}</span>`;
-                    last = m.index + m[0].length;
-                    m = re.exec(src);
-                  }
-                  el.innerHTML = out + esc(src.slice(last));
-                });
-              })();
-
-              // ---------- Copy buttons ----------
-              document.querySelectorAll('figure.code').forEach((fig) => {
-                const btn = document.createElement('button');
-                btn.className = 'copy';
-                btn.textContent = 'copy';
-                btn.addEventListener('click', async () => {
-                  try {
-                    await navigator.clipboard.writeText(fig.querySelector('code').textContent);
-                    btn.textContent = 'copied';
-                    btn.classList.add('done');
-                    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
-                  } catch { /* clipboard unavailable (e.g. file://) — ignore */ }
-                });
-                fig.appendChild(btn);
-              });
-
-              // ---------- Scrollspy ----------
-              (() => {
-                const sections = Array.from(document.querySelectorAll('main section[id]'));
-                const links = new Map(
-                  sections.map((s) => [s.id, document.querySelector(`.sidebar a[href="#${s.id}"]`)])
-                );
-                let active = null;
-                function onScroll() {
-                  let current = sections[0];
-                  for (const s of sections) {
-                    if (s.getBoundingClientRect().top < 140) current = s;
-                  }
-                  if (current === active) return;
-                  active = current;
-                  links.forEach((l) => {
-                    l?.classList.remove('active');
+                (() => {
+                  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                  const re = new RegExp(
+                    [
+                      '(\\/\\/[^\\n]*)',                                                  // 1 comment
+                      "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string
+                      '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this)\\b', // 3 keyword
+                      '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',                                    // 4 number
+                      '([A-Za-z_$][\\w$]*)(?=\\s*\\()',                                    // 5 call
+                      '\\b([A-Z][\\w$]*)\\b',                                              // 6 type
+                    ].join('|'),
+                    'g'
+                  );
+                  document.querySelectorAll('figure.code code').forEach((el) => {
+                    if (el.closest('figure').dataset.lang === 'sh') {
+                      el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
+                      return;
+                    }
+                    const src = el.textContent;
+                    let out = '';
+                    let last = 0;
+                    let m = re.exec(src);
+                    while (m) {
+                      out += esc(src.slice(last, m.index));
+                      const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
+                      out += `<span class="${cls}">${esc(m[0])}</span>`;
+                      last = m.index + m[0].length;
+                      m = re.exec(src);
+                    }
+                    el.innerHTML = out + esc(src.slice(last));
                   });
-                  const link = links.get(current.id);
-                  if (link) link.classList.add('active');
-                }
-                document.addEventListener('scroll', onScroll, { passive: true });
-                onScroll();
-              })();
+                })();
 
-              // ---------- Mobile nav ----------
-              (() => {
-                const toggle = document.getElementById('navToggle');
-                toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
-                document.querySelectorAll('.sidebar a').forEach((a) => {
-                  a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+                // ---------- Copy buttons ----------
+                document.querySelectorAll('figure.code').forEach((fig) => {
+                  const btn = document.createElement('button');
+                  btn.className = 'copy';
+                  btn.textContent = 'copy';
+                  btn.addEventListener('click', async () => {
+                    try {
+                      await navigator.clipboard.writeText(fig.querySelector('code').textContent);
+                      btn.textContent = 'copied';
+                      btn.classList.add('done');
+                      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
+                    } catch { /* clipboard unavailable (e.g. file://) — ignore */ }
+                  });
+                  fig.appendChild(btn);
                 });
-              })();
+
+                // ---------- Scrollspy ----------
+                (() => {
+                  const sections = Array.from(document.querySelectorAll('main section[id]'));
+                  const links = new Map(
+                    sections.map((s) => [s.id, document.querySelector(`.sidebar a[href="#${s.id}"]`)])
+                  );
+                  let active = null;
+                  function onScroll() {
+                    let current = sections[0];
+                    for (const s of sections) {
+                      if (s.getBoundingClientRect().top < 140) current = s;
+                    }
+                    if (current === active) return;
+                    active = current;
+                    links.forEach((l) => {
+                      l?.classList.remove('active');
+                    });
+                    const link = links.get(current.id);
+                    if (link) link.classList.add('active');
+                  }
+                  document.addEventListener('scroll', onScroll, { passive: true });
+                  onScroll();
+                })();
+
+                // ---------- Mobile nav ----------
+                (() => {
+                  const toggle = document.getElementById('navToggle');
+                  toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+                  document.querySelectorAll('.sidebar a').forEach((a) => {
+                    a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+                  });
+                })();
 </script>
 
 </body>

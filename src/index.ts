@@ -12,6 +12,7 @@ export {
 	type SystemProfiler,
 	SystemScheduler,
 } from './scheduler.js';
+export { tickWorld } from './tick.js';
 export type {
 	ComponentChangedHandler,
 	ComponentInit,
@@ -22,6 +23,7 @@ export type {
 	NotTerm,
 	QueryResult,
 	RelationEdge,
+	RelationFilter,
 	RelationHandler,
 	RelationOptions,
 	RelationType,
