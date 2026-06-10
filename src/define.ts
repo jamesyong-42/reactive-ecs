@@ -1,4 +1,12 @@
-import type { ComponentType, NotTerm, ResourceType, SystemDef, TagType } from './types.js';
+import type {
+	ComponentType,
+	NotTerm,
+	RelationOptions,
+	RelationType,
+	ResourceType,
+	SystemDef,
+	TagType,
+} from './types.js';
 
 /**
  * Defines a new ECS component type with a name and default values.
@@ -25,6 +33,23 @@ export function defineTag(name: string): TagType {
  */
 export function Not(type: ComponentType | TagType): NotTerm {
 	return Object.freeze({ type, __kind: 'not' as const });
+}
+
+/**
+ * Defines a new ECS relation type — a managed, inverse-indexed edge between
+ * two entities. The world maintains the target→sources inverse automatically
+ * and guarantees no edge survives the destruction of either endpoint.
+ */
+export function defineRelation(name: string, opts?: RelationOptions): RelationType {
+	return Object.freeze({
+		name,
+		options: Object.freeze({
+			sourceExclusive: opts?.sourceExclusive ?? false,
+			targetExclusive: opts?.targetExclusive ?? false,
+			onTargetDestroy: opts?.onTargetDestroy ?? ('clear' as const),
+		}),
+		__kind: 'relation' as const,
+	});
 }
 
 /**

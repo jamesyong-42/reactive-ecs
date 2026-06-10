@@ -21,6 +21,38 @@ export interface NotTerm {
 	readonly __kind: 'not';
 }
 
+/**
+ * Options for defineRelation() — exclusivity bounds and the target-destroy policy.
+ * The two exclusivity bounds are independent: a `ChildOf` relation is
+ * `sourceExclusive` only (one parent, many children); a true 1:1 ownership
+ * edge sets both.
+ */
+export interface RelationOptions {
+	/** At most one target per source — relating to a second target replaces the first. Default: false. */
+	readonly sourceExclusive?: boolean;
+	/** At most one source per target — relating from a second source replaces the first. Default: false. */
+	readonly targetExclusive?: boolean;
+	/**
+	 * What happens to each source when its target is destroyed, applied after
+	 * the destroy sweep completes: `'clear'` drops the edge and leaves the
+	 * source alone, `'cascade'` destroys the source too, `{ tag }` adds the tag
+	 * to the source. Default: `'clear'`.
+	 */
+	readonly onTargetDestroy?: 'cascade' | 'clear' | { readonly tag: TagType };
+}
+
+/**
+ * Relation type definition created by defineRelation() — a managed,
+ * inverse-indexed, lifecycle-cleaned edge between two entities.
+ */
+export interface RelationType {
+	readonly name: string;
+	/** Normalized options — defaults applied by defineRelation(). */
+	readonly options: Readonly<Required<RelationOptions>>;
+	/** Internal brand to distinguish relations from components/tags */
+	readonly __kind: 'relation';
+}
+
 /** Resource type definition created by defineResource() */
 export interface ResourceType<T = unknown> {
 	readonly name: string;
@@ -66,6 +98,17 @@ export type ComponentChangedHandler<T = unknown> = (
 export type ComponentRemovedHandler<T = unknown> = (entityId: EntityId, prev: T) => void;
 
 export type TagChangedHandler = (entityId: EntityId) => void;
+
+/**
+ * Fired synchronously when a relation edge is added or removed. Removal
+ * handlers also fire for each edge torn down by `destroyEntity` of either
+ * endpoint — during the destroy sweep the dying entity's components and tags
+ * are still readable, but handlers must not mutate the world mid-destroy.
+ */
+export type RelationHandler = (source: EntityId, target: EntityId) => void;
+
+/** A single relation edge — `[source, target]`. */
+export type RelationEdge = readonly [EntityId, EntityId];
 
 export type FrameHandler = () => void;
 
