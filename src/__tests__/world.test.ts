@@ -641,6 +641,173 @@ describe('World', () => {
 		});
 	});
 
+	describe('id-preserving restore', () => {
+		it('creates an entity with a chosen id and resumes allocation after it', () => {
+			const world = createWorld();
+			expect(world.createEntityWithId(5)).toBe(5);
+			expect(world.entityExists(5)).toBe(true);
+			expect(world.entityCount).toBe(1);
+			expect(world.createEntity()).toBe(6);
+		});
+
+		it('throws on an already-alive id', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			expect(() => world.createEntityWithId(e)).toThrow(/already alive/);
+		});
+
+		it('throws on an id below the counter — ids are never reused', () => {
+			const world = createWorld();
+			world.createEntityWithId(5);
+			expect(() => world.createEntityWithId(3)).toThrow(/below the counter/);
+		});
+
+		it('throws on zero, negative, and non-integer ids', () => {
+			const world = createWorld();
+			expect(() => world.createEntityWithId(0)).toThrow(/positive integer/);
+			expect(() => world.createEntityWithId(-1)).toThrow(/positive integer/);
+			expect(() => world.createEntityWithId(1.5)).toThrow(/positive integer/);
+		});
+
+		it('fires onEntityCreated with the chosen id', () => {
+			const world = createWorld();
+			const handler = vi.fn();
+			world.onEntityCreated(handler);
+			world.createEntityWithId(7);
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(7);
+		});
+
+		it('setNextEntityId moves the counter forward', () => {
+			const world = createWorld();
+			world.setNextEntityId(100);
+			expect(world.createEntity()).toBe(100);
+		});
+
+		it('setNextEntityId throws on backward and non-integer values', () => {
+			const world = createWorld();
+			world.createEntityWithId(10); // counter is now 11
+			expect(() => world.setNextEntityId(5)).toThrow(/only moves forward/);
+			expect(() => world.setNextEntityId(11.5)).toThrow(/only moves forward/);
+		});
+
+		it('a restored counter prevents destroyed ids from being reused', () => {
+			// Original session: create 1-3, destroy 2, save the counter (4).
+			const original = createWorld();
+			original.createEntity();
+			const doomed = original.createEntity();
+			original.createEntity();
+			original.destroyEntity(doomed);
+			const savedNextId = 4;
+
+			// Fresh world: restore the survivors ascending, then the counter.
+			const restored = createWorld();
+			restored.createEntityWithId(1);
+			restored.createEntityWithId(3);
+			restored.setNextEntityId(savedNextId);
+
+			// Id 2 stays stale forever — the next allocation is 4, never 2.
+			expect(restored.createEntity()).toBe(4);
+			expect(restored.entityExists(2)).toBe(false);
+		});
+
+		it('round-trips a randomly mutated world with zero remapping', () => {
+			// Deterministic PRNG (mulberry32) — no Math.random, reproducible runs.
+			let seed = 0xdecafbad;
+			const rand = () => {
+				seed = (seed + 0x6d2b79f5) | 0;
+				let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+				t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+				return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+			};
+
+			// Build a world with a pseudo-random sequence of mutations.
+			const source = createWorld();
+			let creates = 0;
+			for (let i = 0; i < 200; i++) {
+				const roll = rand();
+				const live = source.getAllEntities();
+				if (roll < 0.35 || live.length === 0) {
+					source.createEntity();
+					creates++;
+				} else if (roll < 0.45) {
+					source.destroyEntity(live[Math.floor(rand() * live.length)]);
+				} else if (roll < 0.8) {
+					const e = live[Math.floor(rand() * live.length)];
+					const which = rand();
+					if (which < 0.34) {
+						source.addComponent(e, Position, { x: Math.floor(rand() * 1000), y: i });
+					} else if (which < 0.67) {
+						source.addComponent(e, Velocity, { dx: rand(), dy: rand() });
+					} else {
+						source.addComponent(e, Label, { text: `entity-${e}-step-${i}` });
+					}
+				} else {
+					const e = live[Math.floor(rand() * live.length)];
+					source.addTag(e, rand() < 0.5 ? Selected : Visible);
+				}
+			}
+			const savedNextId = creates + 1; // every create came from createEntity()
+
+			// Serialize via the introspection API only.
+			const snapshot = source.getAllEntities().map((entity) => ({
+				entity,
+				components: source.getComponentsOf(entity).map((type) => ({
+					type,
+					data: JSON.parse(JSON.stringify(source.getComponent(entity, type))) as unknown,
+				})),
+				tags: source.getTagsOf(entity),
+			}));
+
+			// Restore into a fresh world: ascending ids, then replay, then counter.
+			const restored = createWorld();
+			for (const entry of [...snapshot].sort((a, b) => a.entity - b.entity)) {
+				restored.createEntityWithId(entry.entity);
+				for (const { type, data } of entry.components) {
+					restored.addComponent(entry.entity, type, data);
+				}
+				for (const tag of entry.tags) {
+					restored.addTag(entry.entity, tag);
+				}
+			}
+			restored.setNextEntityId(savedNextId);
+
+			// Every entity id, component value, and tag identical — no remapping.
+			expect([...restored.getAllEntities()].sort((a, b) => a - b)).toEqual(
+				[...source.getAllEntities()].sort((a, b) => a - b),
+			);
+			for (const entity of source.getAllEntities()) {
+				expect(
+					restored
+						.getComponentsOf(entity)
+						.map((t) => t.name)
+						.sort(),
+				).toEqual(
+					source
+						.getComponentsOf(entity)
+						.map((t) => t.name)
+						.sort(),
+				);
+				for (const type of source.getComponentsOf(entity)) {
+					expect(restored.getComponent(entity, type)).toEqual(source.getComponent(entity, type));
+				}
+				expect(
+					restored
+						.getTagsOf(entity)
+						.map((t) => t.name)
+						.sort(),
+				).toEqual(
+					source
+						.getTagsOf(entity)
+						.map((t) => t.name)
+						.sort(),
+				);
+			}
+			// The counter survives the round-trip too.
+			expect(restored.createEntity()).toBe(source.createEntity());
+		});
+	});
+
 	describe('resource defaults', () => {
 		it('deep-clones nested objects so worlds do not share state via defaults', () => {
 			const Config = defineResource('Config', { nested: { count: 0 } });
