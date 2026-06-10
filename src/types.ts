@@ -219,6 +219,19 @@ export interface World {
 	 * `destroyEntity`. Net-cancels with `addTag` in the same tick.
 	 */
 	queryRemovedTag(type: TagType): QueryResult;
+	/** Returns all live edges of a relation as `[source, target]` pairs. */
+	queryRelation(type: RelationType): RelationEdge[];
+	/**
+	 * Returns edges added this tick. Mirror of `queryAdded` for relations.
+	 * Net-cancels with `unrelate` of the same edge in the same tick.
+	 */
+	queryRelationAdded(type: RelationType): RelationEdge[];
+	/**
+	 * Returns edges removed this tick — via `unrelate`, exclusivity
+	 * replacement, or `destroyEntity` of either endpoint. Net-cancels with
+	 * `relate` of the same edge in the same tick.
+	 */
+	queryRelationRemoved(type: RelationType): RelationEdge[];
 
 	// Resources
 
@@ -250,6 +263,15 @@ export interface World {
 	onTagAdded(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
 	/** Subscribes to tag removals, optionally filtered to a single entity. */
 	onTagRemoved(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
+	/** Subscribes to relation edge additions, optionally filtered to a single source entity. */
+	onRelationAdded(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
+	/**
+	 * Subscribes to relation edge removals, optionally filtered to a single
+	 * source entity. Also fires for each edge torn down by `destroyEntity` of
+	 * either endpoint — the dying entity's components and tags are still
+	 * readable at fire-time, but handlers must not mutate mid-destroy.
+	 */
+	onRelationRemoved(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
 	/** Subscribes to entity creation events. */
 	onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe;
 	/** Subscribes to entity destruction events. */

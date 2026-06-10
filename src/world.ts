@@ -6,6 +6,7 @@ import type {
 	FrameHandler,
 	NotTerm,
 	QueryResult,
+	RelationEdge,
 	RelationHandler,
 	RelationType,
 	ResourceType,
@@ -57,6 +58,16 @@ interface RelationStore {
 /** Buffer key for a single relation edge — `\0` cannot appear in a numeric id. */
 function edgeKey(source: EntityId, target: EntityId): string {
 	return `${source}\0${target}`;
+}
+
+/** Decode buffered edge keys back into numeric `[source, target]` pairs. */
+function decodeEdgeKeys(keys: Set<string>): [EntityId, EntityId][] {
+	const result: [EntityId, EntityId][] = [];
+	for (const key of keys) {
+		const sep = key.indexOf('\0');
+		result.push([Number(key.slice(0, sep)), Number(key.slice(sep + 1))]);
+	}
+	return result;
 }
 
 /**
@@ -730,6 +741,25 @@ export function createWorld(): World {
 			return [...store.removed];
 		},
 
+		queryRelation(type: RelationType): RelationEdge[] {
+			const store = getRelationStore(type);
+			const result: [EntityId, EntityId][] = [];
+			for (const [source, targets] of store.forward) {
+				for (const target of targets) result.push([source, target]);
+			}
+			return result;
+		},
+
+		queryRelationAdded(type: RelationType): RelationEdge[] {
+			const store = getRelationStore(type);
+			return decodeEdgeKeys(store.added);
+		},
+
+		queryRelationRemoved(type: RelationType): RelationEdge[] {
+			const store = getRelationStore(type);
+			return decodeEdgeKeys(store.removed);
+		},
+
 		// === Resources ===
 
 		getResource<T>(type: ResourceType<T>): T {
@@ -821,6 +851,42 @@ export function createWorld(): World {
 			};
 		},
 
+		onRelationAdded(
+			type: RelationType,
+			handler: RelationHandler,
+			sourceId?: EntityId,
+		): Unsubscribe {
+			const store = getRelationStore(type);
+			const key: EntityId | '*' = sourceId ?? '*';
+			let handlers = store.addedHandlers.get(key);
+			if (!handlers) {
+				handlers = new Set();
+				store.addedHandlers.set(key, handlers);
+			}
+			handlers.add(handler);
+			return () => {
+				handlers.delete(handler);
+			};
+		},
+
+		onRelationRemoved(
+			type: RelationType,
+			handler: RelationHandler,
+			sourceId?: EntityId,
+		): Unsubscribe {
+			const store = getRelationStore(type);
+			const key: EntityId | '*' = sourceId ?? '*';
+			let handlers = store.removedHandlers.get(key);
+			if (!handlers) {
+				handlers = new Set();
+				store.removedHandlers.set(key, handlers);
+			}
+			handlers.add(handler);
+			return () => {
+				handlers.delete(handler);
+			};
+		},
+
 		onEntityCreated(callback: (entity: EntityId) => void): Unsubscribe {
 			createListeners.add(callback);
 			return () => {
@@ -886,6 +952,10 @@ export function createWorld(): World {
 				store.removed.clear();
 			}
 			for (const store of tags.values()) {
+				store.added.clear();
+				store.removed.clear();
+			}
+			for (const store of relations.values()) {
 				store.added.clear();
 				store.removed.clear();
 			}
