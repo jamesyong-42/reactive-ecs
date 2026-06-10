@@ -171,6 +171,28 @@ export interface World {
 	/** Checks if an entity has a tag. */
 	hasTag(entity: EntityId, type: TagType): boolean;
 
+	// Relation access
+
+	/**
+	 * Adds a relation edge from `source` to `target`. Throws if source or
+	 * target is not alive — a born-dangling edge is impossible. No-op if the
+	 * exact edge already exists. If an exclusivity bound would be violated,
+	 * the existing edge is replaced: removed-then-added events fire, mirroring
+	 * setComponent overwrite semantics.
+	 */
+	relate(source: EntityId, type: RelationType, target: EntityId): void;
+	/**
+	 * Removes the edge from `source` to `target` — or, with `target` omitted,
+	 * ALL of source's outgoing edges for this relation. No-op if absent.
+	 */
+	unrelate(source: EntityId, type: RelationType, target?: EntityId): void;
+	/** Returns the targets `source` points at via this relation. `[]` if none. */
+	getTargets(source: EntityId, type: RelationType): EntityId[];
+	/** Returns source's single target — convenience for sourceExclusive relations. */
+	getTarget(source: EntityId, type: RelationType): EntityId | undefined;
+	/** Returns the sources pointing at `target` — the always-coherent inverse. `[]` if none. */
+	getSources(type: RelationType, target: EntityId): EntityId[];
+
 	// Queries
 
 	/** Returns entity IDs matching all positive types and none of the Not() types. */
