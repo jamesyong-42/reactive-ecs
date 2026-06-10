@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.8.0...reactive-ecs-v0.9.0) (2026-06-10)
+
+
+### Features
+
+* resource change observability ([c900cac](https://github.com/jamesyong-42/reactive-ecs/commit/c900cacb62ec1b197d9a5110019f6348a7a5f36d))
+* **world:** onResourceChanged and per-tick changed-resource tracking ([5ab3596](https://github.com/jamesyong-42/reactive-ecs/commit/5ab35964dcdec9928e06fc736e0bfc5ac5e1c2ef))
+
 ## [0.8.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.7.0...reactive-ecs-v0.8.0) (2026-06-10)
 
 
