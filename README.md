@@ -97,6 +97,53 @@ unsub(); // all subscriptions return an Unsubscribe function
 
 This is what makes it practical to drive React / Vue / Svelte components from the world — wire the event callbacks to `useState`/`signal`/store updates.
 
+## Relations
+
+Entity-to-entity references stored as a plain `EntityId` field rot: the inverse ("who points at me?") needs a hand-maintained mirror, and nothing cleans the edge when either endpoint dies. A **relation** is a managed, inverse-indexed edge the world owns:
+
+```ts
+import { defineRelation, defineTag } from '@jamesyong42/reactive-ecs';
+
+const Destroyed = defineTag('Destroyed');
+const ChildOf = defineRelation('ChildOf', {
+  sourceExclusive: true,      // ≤ 1 target per source (one parent) — default false
+  targetExclusive: false,     // ≤ 1 source per target — default false
+  onTargetDestroy: 'cascade', // children die with their parent — default 'clear'
+});
+
+world.relate(child, ChildOf, parent);   // throws if either endpoint is dead
+world.getTargets(child, ChildOf);       // → [parent]
+world.getTarget(child, ChildOf);        // → parent — convenience for sourceExclusive
+world.getSources(ChildOf, parent);      // → all children — the always-coherent inverse
+world.unrelate(child, ChildOf, parent); // or omit target to drop ALL of child's edges
+```
+
+Relating past an exclusivity bound **replaces**: a `sourceExclusive` source relating to a second target unrelates the first (removed-then-added events, like `setComponent` overwrite). Re-relating an existing edge is a no-op.
+
+**The destroy guarantee: no relation edge ever survives the destruction of either endpoint.** When an entity dies as a *source*, its outgoing edges simply vanish. When it dies as a *target*, each incoming edge is removed and the relation's `onTargetDestroy` policy is applied to each source — after the destroy sweep completes, never mid-teardown:
+
+| Policy | Effect on each source |
+| ------ | --------------------- |
+| `'clear'` *(default)* | none — edge dropped, source lives on |
+| `'cascade'` | source is destroyed too (chains and cycles terminate) |
+| `{ tag: T }` | tag `T` added to the source |
+
+Edge changes flow through the same two channels as every other primitive — per-tick batches and synchronous observers:
+
+```ts
+world.queryRelation(ChildOf);        // all live edges as [source, target] pairs
+world.queryRelationAdded(ChildOf);   // edges added this tick — cleared by clearDirty()
+world.queryRelationRemoved(ChildOf); // edges removed this tick, INCLUDING destroy-driven ones
+
+world.onRelationAdded(ChildOf, (source, target) => { /* ... */ });
+world.onRelationRemoved(ChildOf, (source, target) => {
+  // Fires synchronously — during a destroy, the dying entity's components
+  // and tags are still readable here. Read freely; don't mutate mid-destroy.
+}, sourceId); // optional per-source filter, like the entityId filter elsewhere
+```
+
+Relations are a side index, never a query key — `world.query()` ignores them, so per-frame edge churn can't thrash the query cache. The litmus for reaching for one: **make it a relation only if you query the inverse.** A reference you only ever read forward is fine as an `EntityId` component field.
+
 ## Introspection
 
 For devtools, editors, and serialization, the world can enumerate everything it holds:
@@ -146,6 +193,7 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
 - **Entities** — opaque integer IDs, O(1) create/destroy.
 - **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). Shallow defaults merge, deep-clone on add to prevent shared mutation.
 - **Tags** — zero-data boolean markers (`defineTag('Selected')`).
+- **Relations** — managed entity-to-entity edges (`defineRelation('ChildOf', { ... })`) with an always-coherent inverse index and lifecycle cleanup: `relate`, `unrelate`, `getTargets`, `getTarget`, `getSources`, `queryRelation`, `queryRelationAdded`, `queryRelationRemoved`, `onRelationAdded`, `onRelationRemoved`. Exclusivity bounds and `onTargetDestroy` policies (`'clear'` / `'cascade'` / `{ tag }`) per relation type.
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
 - **Cached queries** — `world.query(Position, Velocity, Selected)` returns entity IDs; results are cached and updated incrementally as components/tags are added or removed. Terms are AND-composed; wrap a component or tag in `Not()` to require its absence (`Or` is deliberately absent — run two queries instead):
 
