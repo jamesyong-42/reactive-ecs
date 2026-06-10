@@ -120,6 +120,14 @@ export interface World {
 	readonly currentTick: number;
 	/** Number of live entities. */
 	readonly entityCount: number;
+	/**
+	 * Origin tag of the current mutation window — `undefined` outside any
+	 * `withOrigin` window, i.e. the implicit "local" origin. Because every
+	 * observer in this library fires synchronously inside the mutating call, a
+	 * handler reading this always sees the origin of exactly the mutation that
+	 * fired it. Readable anywhere, not just in handlers.
+	 */
+	readonly mutationOrigin: string | symbol | undefined;
 
 	// Entity lifecycle
 
@@ -152,6 +160,25 @@ export interface World {
 	destroyEntity(id: EntityId): void;
 	/** Checks if an entity ID is still alive. */
 	entityExists(id: EntityId): boolean;
+
+	// Mutation origin
+
+	/**
+	 * Tags every mutation made synchronously inside `fn` with `origin`, readable
+	 * by handlers via `mutationOrigin` — the echo-suppression primitive for
+	 * observe-and-mutate modules (sync adapters, undo journals). The library
+	 * attaches no semantics to any origin; the vocabulary is yours (symbols
+	 * recommended). Throws unless `origin` is a string or symbol, keeping
+	 * `undefined` unforgeable as "no origin". Re-entrant: nested calls stack,
+	 * the innermost origin wins, and exiting restores the enclosing one — also
+	 * on throw. Returns `fn`'s return value. Synchronous only: if `fn` is
+	 * async, mutations after the first `await` are NOT tagged — async
+	 * continuations must re-enter `withOrigin`. `destroyEntity` cascades
+	 * (teardown events and relation policy effects) inherit the origin active
+	 * at the `destroyEntity` call site. Per-tick buffers (`queryChanged` etc.)
+	 * stay origin-blind.
+	 */
+	withOrigin<T>(origin: string | symbol, fn: () => T): T;
 
 	// Component access
 

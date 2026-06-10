@@ -97,6 +97,36 @@ unsub(); // all subscriptions return an Unsubscribe function
 
 This is what makes it practical to drive React / Vue / Svelte components from the world — wire the event callbacks to `useState`/`signal`/store updates.
 
+## Origin tagging — coexisting observers
+
+Modules that both observe the world *and* mutate it (a sync adapter, an undo journal) collide: each one re-observes its own writes and everyone else's, and suppressing that with private flags means every module consulting every other module's flag — N² coupling. `withOrigin` carries the one fact they need from the mutation call site to the observers:
+
+```ts
+const REMOTE = Symbol('remote');
+const UNDO = Symbol('undo-replay');
+
+// The sync adapter applies a remote batch without re-broadcasting it:
+world.withOrigin(REMOTE, () => {
+  world.setComponent(id, Position, { x: 10 });
+});
+
+// The broadcaster skips remote echoes and undo replays:
+world.onComponentChanged(Position, (id, prev, next) => {
+  if (world.mutationOrigin === REMOTE || world.mutationOrigin === UNDO) return;
+  broadcast(id, next);
+});
+
+// The undo journal records only what the user did:
+world.onComponentChanged(Position, (id, prev, next) => {
+  if (world.mutationOrigin !== undefined) return; // not user-originated
+  journal.record({ id, type: Position, prev, next });
+});
+```
+
+Every mutation made synchronously inside `fn` carries the origin; because events fire synchronously, a handler reading `world.mutationOrigin` always sees the origin of exactly the mutation that fired it. Outside any window it's `undefined` — the implicit "local user" origin, which `withOrigin` refuses to set explicitly (origins must be strings or symbols). Nested windows stack (innermost wins, restored on exit, even on throw), `withOrigin` returns `fn`'s return value, and `destroyEntity` cascades — including relation policy effects — inherit the call-site origin. The library defines no origin values and attaches no semantics; the vocabulary is yours.
+
+What it deliberately does **not** do: no batching or deferred delivery — events stay synchronous per-mutation (the name `transact` is reserved for a future RFC that earns it) — and per-tick buffers (`queryChanged` et al.) stay origin-blind, because their consumers converge on *what the world is now*, not on who changed it. One caveat: the window is synchronous — in an async `fn`, mutations after the first `await` are untagged; re-enter `withOrigin` in the continuation.
+
 ## Relations
 
 Entity-to-entity references stored as a plain `EntityId` field rot: the inverse ("who points at me?") needs a hand-maintained mirror, and nothing cleans the edge when either endpoint dies. A **relation** is a managed, inverse-indexed edge the world owns:
