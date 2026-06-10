@@ -112,6 +112,35 @@ world.getTagsOf(entity);             // TagType[]       — currently attached
 
 All are O(k) where k is the number of registered types — no hidden scan of entity storage. Combine with `onEntityCreated` / `onEntityDestroyed` / `onComponentChanged` to build a live inspector.
 
+### Restoring a saved world
+
+Serialization stays in user-land (walk the introspection API, keep what your app considers "document"), but the world ships the one primitive user-land can't build: creating an entity under a caller-chosen id. That makes restore id-preserving — every entity reference stored in component data is still valid after load, with zero remapping.
+
+```ts
+// save — your own walk, your own format
+const snapshot = {
+	entities: world.getAllEntities().map((entity) => ({
+		entity,
+		components: world.getComponentsOf(entity).map((type) => ({
+			name: type.name,
+			data: world.getComponent(entity, type),
+		})),
+		tags: world.getTagsOf(entity).map((type) => type.name),
+	})),
+	nextEntityId, // persist your counter alongside the entities
+};
+
+// load — into a fresh world, in ascending id order
+for (const e of [...snapshot.entities].sort((a, b) => a.entity - b.entity)) {
+	world.createEntityWithId(e.entity);
+	for (const c of e.components) world.addComponent(e.entity, typesByName[c.name], c.data);
+	for (const t of e.tags) world.addTag(e.entity, tagsByName[t]);
+}
+world.setNextEntityId(snapshot.nextEntityId);
+```
+
+Ascending order matters: ids are never reused, so `createEntityWithId` refuses any id below the internal counter — one `sort()` in your loop keeps that invariant unconditional. Restore the saved counter at the end too, because it can exceed the highest live id (entities destroyed before the save consumed ids), and re-issuing those ids would let stale references captured in saved data point at the wrong thing.
+
 ## What it gives you
 
 - **Entities** — opaque integer IDs, O(1) create/destroy.
