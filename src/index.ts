@@ -25,6 +25,7 @@ export type {
 	RelationHandler,
 	RelationOptions,
 	RelationType,
+	ResourceChangedHandler,
 	ResourceType,
 	SystemDef,
 	TagChangedHandler,
