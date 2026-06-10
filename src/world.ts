@@ -161,6 +161,20 @@ function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
 	return merged;
 }
 
+/**
+ * Defensive clone of incoming partial write data — same plain-data rules as
+ * `instantiateDefaults` (arrays / plain objects cloned recursively, class
+ * instances by reference). Used by `setComponent` / `setResource` so a
+ * caller-held alias to nested data can never mutate world state silently.
+ */
+function clonePartial<T>(data: Partial<T>): Partial<T> {
+	const out = { ...data };
+	for (const key in out) {
+		(out as Record<string, unknown>)[key] = clonePlainData(out[key]);
+	}
+	return out;
+}
+
 export function createWorld(): World {
 	let nextEntityId = 1;
 	let currentTick = 0;
@@ -722,13 +736,20 @@ export function createWorld(): World {
 			const store = getComponentStore(type);
 			const existing = store.data.get(entity);
 			if (!existing) return;
+			// Clone incoming plain data so a caller-held alias can't mutate
+			// world state behind the API later.
+			const incoming = clonePartial(data);
 			if (hasListeners(store)) {
+				// Top-level snapshot — `prev` itself never aliases the live
+				// object. Nested values the merge didn't replace are shared with
+				// `next`, which is safe: write paths clone incoming data and
+				// stored nested values are only ever replaced, never mutated.
 				const prev = { ...existing };
-				Object.assign(existing, data);
+				Object.assign(existing, incoming);
 				store.dirty.add(entity);
 				emitComponentChanged(store, entity, prev, existing);
 			} else {
-				Object.assign(existing, data);
+				Object.assign(existing, incoming);
 				store.dirty.add(entity);
 			}
 		},
@@ -992,13 +1013,17 @@ export function createWorld(): World {
 		setResource<T>(type: ResourceType<T>, data: Partial<T>) {
 			const store = getResourceStore(type);
 			changedResources.add(type.name);
+			// Clone incoming plain data — same aliasing guarantee as setComponent.
+			const incoming = clonePartial(data);
 			if (store.handlers.size > 0) {
-				// Snapshot BEFORE the merge — prev must never alias the live value.
+				// Top-level snapshot BEFORE the merge — `prev` itself never
+				// aliases the live value; untouched nested values are shared
+				// with `next` (safe — see setComponent).
 				const prev = { ...store.value };
-				Object.assign(store.value as Record<string, unknown>, data);
+				Object.assign(store.value as Record<string, unknown>, incoming);
 				emitResourceChanged(store, prev, store.value);
 			} else {
-				Object.assign(store.value as Record<string, unknown>, data);
+				Object.assign(store.value as Record<string, unknown>, incoming);
 			}
 		},
 

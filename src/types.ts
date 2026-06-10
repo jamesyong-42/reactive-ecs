@@ -94,11 +94,16 @@ export type QueryResult = EntityId[];
 /** Component initializer for entity creation */
 export type ComponentInit = [ComponentType<unknown>, unknown] | [TagType];
 
-/** Event handler types */
+/**
+ * Event handler types. Payloads are typed `Readonly` for the same reason
+ * reads are: the objects are live (or shared-with-live) store values, and
+ * writes must go through the world API. This is top-level, compile-time
+ * friction — not runtime immutability.
+ */
 export type ComponentChangedHandler<T = unknown> = (
 	entityId: EntityId,
-	prev: T | undefined,
-	next: T,
+	prev: Readonly<T> | undefined,
+	next: Readonly<T>,
 ) => void;
 
 /**
@@ -107,18 +112,20 @@ export type ComponentChangedHandler<T = unknown> = (
  * Receives the value about to be discarded as `prev`. Fires BEFORE the
  * component data is deleted, so the value is still readable in the store.
  */
-export type ComponentRemovedHandler<T = unknown> = (entityId: EntityId, prev: T) => void;
+export type ComponentRemovedHandler<T = unknown> = (entityId: EntityId, prev: Readonly<T>) => void;
 
 export type TagChangedHandler = (entityId: EntityId) => void;
 
 /**
  * Fired synchronously inside `setResource`, AFTER the shallow merge is
- * applied. `prev` is a shallow snapshot of the value before the merge — it
- * never aliases the live object — and `next` is the live post-merge value.
- * Handlers can read `world.mutationOrigin` to see the origin of the mutating
- * call.
+ * applied. `prev` is a top-level snapshot of the value before the merge —
+ * the object itself never aliases `next`, though nested values the merge
+ * didn't replace are shared with it. That sharing is safe: every write path
+ * clones incoming plain data, and stored nested values are only ever
+ * replaced, never mutated in place. Handlers can read `world.mutationOrigin`
+ * to see the origin of the mutating call.
  */
-export type ResourceChangedHandler<T = unknown> = (prev: T, next: T) => void;
+export type ResourceChangedHandler<T = unknown> = (prev: Readonly<T>, next: Readonly<T>) => void;
 
 /**
  * Fired synchronously when a relation edge is added or removed. Removal
