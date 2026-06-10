@@ -11,6 +11,11 @@ export interface SystemProfiler {
 	endSystem(name: string): void;
 	beginPhase?(phase: string): void;
 	endPhase?(phase: string): void;
+	/**
+	 * Called when a system's `runIf` returned false this tick. On a skip,
+	 * `beginSystem` / `endSystem` are not called — only this hook.
+	 */
+	skipSystem?(name: string): void;
 }
 
 /**
@@ -48,6 +53,10 @@ export class SystemScheduler {
 		}
 		const p = this.profiler;
 		for (const system of this.sorted) {
+			if (system.runIf && !system.runIf(world)) {
+				if (p) p.skipSystem?.(system.name);
+				continue;
+			}
 			if (p) p.beginSystem(system.name);
 			system.execute(world);
 			if (p) p.endSystem(system.name);

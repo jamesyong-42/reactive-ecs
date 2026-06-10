@@ -73,6 +73,18 @@ export interface SystemDef {
 	readonly phase?: string;
 	readonly after?: string | string[];
 	readonly before?: string | string[];
+	/**
+	 * Run condition — evaluated immediately before the system would run, inside
+	 * the same tick (so it sees writes from systems that ran earlier this tick
+	 * via the per-tick buffers); return false to skip this tick. The library
+	 * attaches no change-detection policy — the predicate is yours. The classic
+	 * shape: `runIf: (w) => w.queryChanged(Position).length > 0`. Caveat:
+	 * per-tick buffers are cleared at end of tick, so order systems that lazily
+	 * READ a type after the systems that WRITE it (phases make this natural) —
+	 * a write that happens after the guard ran this tick is invisible to next
+	 * tick's guard.
+	 */
+	readonly runIf?: (world: World) => boolean;
 	execute: (world: World) => void;
 }
 
