@@ -1,0 +1,1287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>API reference — reactive-ecs</title>
+<meta name="description" content="Complete API reference for @jamesyong42/reactive-ecs — every exported function, World method, scheduler, and type." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+      --paper: #f7f4ed;
+      --paper-deep: #efeadf;
+      --ink: #1d1a13;
+      --ink-soft: #4f4a3d;
+      --ink-faint: #8a8371;
+      --line: #ded7c6;
+      --accent: #0d7a68;
+      --accent-deep: #0a5d50;
+      --accent-wash: #e2efeb;
+      --amber: #b4690e;
+      --amber-wash: #f6ecdb;
+      --code-bg: #142420;
+      --code-ink: #d8e6e0;
+      --code-cmt: #6f8d83;
+      --code-str: #c9b97a;
+      --code-kw: #7fc8b4;
+      --code-fn: #e3c98f;
+      --code-typ: #a9c9e8;
+      --code-num: #d8a0a0;
+      --sidebar-w: 272px;
+      --content-w: 736px;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: 'Schibsted Grotesk', sans-serif;
+      font-size: 16.5px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      background-image: radial-gradient(circle at 1px 1px, rgba(29, 26, 19, 0.05) 1px, transparent 0);
+      background-size: 26px 26px;
+    }
+
+    ::selection { background: var(--accent); color: #fff; }
+
+    /* ---------- Sidebar ---------- */
+
+    .sidebar {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      padding: 32px 28px 48px;
+      overflow-y: auto;
+      border-right: 1px solid var(--line);
+      background: var(--paper);
+      z-index: 40;
+      scrollbar-width: thin;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+    .brand .pulse-mini {
+      position: relative;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex: none;
+    }
+    .brand .pulse-mini::after {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid var(--accent);
+      animation: ripple 2.6s cubic-bezier(.2, .6, .3, 1) infinite;
+    }
+    @keyframes ripple {
+      from { transform: scale(1); opacity: .8; }
+      to { transform: scale(6.5); opacity: 0; }
+    }
+    .brand b {
+      font-family: 'Fraunces', serif;
+      font-weight: 600;
+      font-size: 19px;
+      letter-spacing: -0.01em;
+    }
+    .brand-version {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--ink-faint);
+      margin: 0 0 18px 22px;
+    }
+
+    .nav-group { margin-bottom: 18px; }
+    .nav-group > span {
+      display: block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--ink-faint);
+      margin-bottom: 6px;
+    }
+    .nav-group a {
+      display: block;
+      padding: 2px 10px;
+      margin-left: -10px;
+      font-size: 13px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--ink-soft);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      transition: color .12s, background .12s;
+    }
+    .nav-group a.guide-link {
+      font-family: 'Schibsted Grotesk', sans-serif;
+      font-size: 14px;
+    }
+    .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
+    .nav-group a.active {
+      color: var(--accent-deep);
+      border-left-color: var(--accent);
+      background: var(--accent-wash);
+      font-weight: 600;
+    }
+
+    .sidebar-foot {
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
+    .sidebar-foot a:hover { color: var(--accent-deep); }
+
+    .nav-toggle {
+      display: none;
+      position: fixed;
+      top: 14px; left: 14px;
+      z-index: 60;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      padding: 7px 12px;
+      background: var(--ink);
+      color: var(--paper);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+
+    /* ---------- Main column ---------- */
+
+    main {
+      margin-left: var(--sidebar-w);
+      padding: 0 48px 120px;
+    }
+    .measure { max-width: var(--content-w); margin: 0 auto; }
+
+    /* ---------- Page header ---------- */
+
+    .page-head {
+      padding: 72px 0 36px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 48px;
+    }
+    .page-head .kicker {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-deep);
+      margin-bottom: 14px;
+    }
+    .page-head h1 {
+      font-family: 'Fraunces', serif;
+      font-size: clamp(34px, 5vw, 46px);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.08;
+      margin: 0 0 14px;
+    }
+    .page-head p {
+      color: var(--ink-soft);
+      max-width: 620px;
+      margin: 0;
+    }
+
+    /* ---------- Typography ---------- */
+
+    section { margin-bottom: 64px; }
+
+    h2 {
+      font-family: 'Fraunces', serif;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      line-height: 1.15;
+      margin: 0 0 8px;
+      padding-top: 14px;
+      scroll-margin-top: 28px;
+    }
+    h2::before {
+      content: '';
+      display: block;
+      width: 34px; height: 3px;
+      background: var(--accent);
+      margin-bottom: 20px;
+    }
+    h3 {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 17px;
+      font-weight: 600;
+      margin: 40px 0 8px;
+      scroll-margin-top: 28px;
+      color: var(--accent-deep);
+    }
+
+    p { margin: 0 0 14px; }
+    p, li { color: var(--ink); }
+    strong { font-weight: 650; }
+    a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13, 122, 104, .35); text-underline-offset: 2px; }
+    a:hover { text-decoration-color: var(--accent); }
+
+    ul, ol { padding-left: 22px; margin: 0 0 14px; }
+    li { margin-bottom: 5px; }
+
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.86em;
+      background: var(--paper-deep);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 1px 5px;
+      white-space: nowrap;
+    }
+
+    .anchor {
+      margin-left: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.65em;
+      color: var(--ink-faint);
+      text-decoration: none;
+      opacity: 0;
+      transition: opacity .12s;
+    }
+    h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+
+    /* ---------- Code blocks ---------- */
+
+    figure.code {
+      position: relative;
+      margin: 14px 0 18px;
+      border-radius: 8px;
+      background: var(--code-bg);
+      box-shadow: 0 1px 0 rgba(29, 26, 19, .18), 0 12px 28px -18px rgba(20, 36, 32, .55);
+      overflow: hidden;
+    }
+    figure.code::before {
+      content: attr(data-lang);
+      position: absolute;
+      top: 9px; right: 64px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--code-cmt);
+    }
+    figure.code pre {
+      margin: 0;
+      padding: 20px 24px;
+      overflow-x: auto;
+    }
+    figure.code.sig pre { padding: 13px 24px; }
+    figure.code code {
+      background: none;
+      border: none;
+      padding: 0;
+      white-space: pre;
+      font-size: 13.5px;
+      line-height: 1.62;
+      color: var(--code-ink);
+    }
+    .tok-cmt { color: var(--code-cmt); font-style: italic; }
+    .tok-str { color: var(--code-str); }
+    .tok-kw { color: var(--code-kw); }
+    .tok-fn { color: var(--code-fn); }
+    .tok-typ { color: var(--code-typ); }
+    .tok-num { color: var(--code-num); }
+
+    button.copy {
+      position: absolute;
+      top: 8px; right: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--code-cmt);
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid rgba(216, 230, 224, .18);
+      border-radius: 4px;
+      padding: 4px 9px;
+      cursor: pointer;
+      transition: color .12s, border-color .12s;
+    }
+    button.copy:hover { color: var(--code-ink); border-color: rgba(216, 230, 224, .4); }
+    button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
+
+    /* ---------- Callouts & tables ---------- */
+
+    .callout {
+      margin: 16px 0 20px;
+      padding: 14px 18px 14px 16px;
+      border-left: 3px solid var(--accent);
+      background: var(--accent-wash);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 15px;
+    }
+    .callout > p:last-child { margin-bottom: 0; }
+    .callout .callout-tag {
+      display: inline-block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--accent-deep);
+      margin-bottom: 4px;
+    }
+    .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
+    .callout.warn .callout-tag { color: var(--amber); }
+
+    .table-wrap { overflow-x: auto; margin: 14px 0 20px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      background: #fbf9f4;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      text-align: left;
+      color: var(--ink-faint);
+      background: var(--paper-deep);
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
+
+    footer {
+      border-top: 1px solid var(--line);
+      margin-top: 80px;
+      padding-top: 28px;
+      font-size: 14px;
+      color: var(--ink-faint);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    footer a { color: var(--ink-soft); }
+
+    @media (max-width: 980px) {
+      .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29, 26, 19, .4); }
+      body.nav-open .sidebar { transform: none; }
+      .nav-toggle { display: block; }
+      main { margin-left: 0; padding: 0 22px 90px; }
+      .page-head { padding-top: 70px; }
+    }
+</style>
+</head>
+<body>
+
+<button type="button" class="nav-toggle" id="navToggle" aria-label="Toggle navigation">menu</button>
+
+<nav class="sidebar" id="sidebar">
+  <a class="brand" href="index.html">
+    <span class="pulse-mini"></span>
+    <b>reactive-ecs</b>
+  </a>
+  <div class="brand-version">v0.8.0 · API reference</div>
+
+  <div class="nav-group">
+    <a class="guide-link" href="index.html">← Guide</a>
+  </div>
+
+  <div class="nav-group">
+    <span>Definition</span>
+    <a href="#definecomponent">defineComponent</a>
+    <a href="#definetag">defineTag</a>
+    <a href="#defineresource">defineResource</a>
+    <a href="#definerelation">defineRelation</a>
+    <a href="#definesystem">defineSystem</a>
+    <a href="#not">Not</a>
+    <a href="#createworld">createWorld</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · properties</span>
+    <a href="#currenttick">currentTick</a>
+    <a href="#entitycount">entityCount</a>
+    <a href="#mutationorigin">mutationOrigin</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · entities</span>
+    <a href="#createentity">createEntity</a>
+    <a href="#createentitywithid">createEntityWithId</a>
+    <a href="#setnextentityid">setNextEntityId</a>
+    <a href="#destroyentity">destroyEntity</a>
+    <a href="#entityexists">entityExists</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · components</span>
+    <a href="#addcomponent">addComponent</a>
+    <a href="#removecomponent">removeComponent</a>
+    <a href="#getcomponent">getComponent</a>
+    <a href="#hascomponent">hasComponent</a>
+    <a href="#setcomponent">setComponent</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · tags</span>
+    <a href="#addtag">addTag</a>
+    <a href="#removetag">removeTag</a>
+    <a href="#hastag">hasTag</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · relations</span>
+    <a href="#relate">relate</a>
+    <a href="#unrelate">unrelate</a>
+    <a href="#gettargets">getTargets</a>
+    <a href="#gettarget">getTarget</a>
+    <a href="#getsources">getSources</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · resources</span>
+    <a href="#getresource">getResource</a>
+    <a href="#setresource">setResource</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · queries</span>
+    <a href="#query">query</a>
+    <a href="#querytagged">queryTagged</a>
+    <a href="#querychanged">queryChanged</a>
+    <a href="#queryadded">queryAdded</a>
+    <a href="#queryremoved">queryRemoved</a>
+    <a href="#queryaddedtag">queryAddedTag</a>
+    <a href="#queryremovedtag">queryRemovedTag</a>
+    <a href="#queryrelation">queryRelation</a>
+    <a href="#queryrelationadded">queryRelationAdded</a>
+    <a href="#queryrelationremoved">queryRelationRemoved</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · events</span>
+    <a href="#oncomponentchanged">onComponentChanged</a>
+    <a href="#oncomponentremoved">onComponentRemoved</a>
+    <a href="#ontagadded">onTagAdded</a>
+    <a href="#ontagremoved">onTagRemoved</a>
+    <a href="#onrelationadded">onRelationAdded</a>
+    <a href="#onrelationremoved">onRelationRemoved</a>
+    <a href="#onentitycreated">onEntityCreated</a>
+    <a href="#onentitydestroyed">onEntityDestroyed</a>
+    <a href="#onframe">onFrame</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · origin</span>
+    <a href="#withorigin">withOrigin</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · introspection</span>
+    <a href="#getallentities">getAllEntities</a>
+    <a href="#getregisteredcomponents">getRegisteredComponents</a>
+    <a href="#getregisteredtags">getRegisteredTags</a>
+    <a href="#getregisteredresources">getRegisteredResources</a>
+    <a href="#getcomponentsof">getComponentsOf</a>
+    <a href="#gettagsof">getTagsOf</a>
+  </div>
+
+  <div class="nav-group">
+    <span>World · frame</span>
+    <a href="#emitframe">emitFrame</a>
+    <a href="#cleardirty">clearDirty</a>
+    <a href="#incrementtick">incrementTick</a>
+  </div>
+
+  <div class="nav-group">
+    <span>SystemScheduler</span>
+    <a href="#systemscheduler">SystemScheduler</a>
+    <a href="#scheduler-register">register</a>
+    <a href="#scheduler-remove">remove</a>
+    <a href="#scheduler-execute">execute</a>
+    <a href="#scheduler-getsystemnames">getSystemNames</a>
+    <a href="#scheduler-size">size</a>
+    <a href="#scheduler-profiler">profiler</a>
+  </div>
+
+  <div class="nav-group">
+    <span>PhasedScheduler</span>
+    <a href="#phasedscheduler">PhasedScheduler</a>
+    <a href="#phased-register">register</a>
+    <a href="#phased-getphase">getPhase</a>
+    <a href="#phased-getphases">getPhases</a>
+    <a href="#phased-execute">execute</a>
+  </div>
+
+  <div class="nav-group">
+    <span>Types</span>
+    <a href="#entityid">EntityId</a>
+    <a href="#componenttype">ComponentType</a>
+    <a href="#tagtype">TagType</a>
+    <a href="#resourcetype">ResourceType</a>
+    <a href="#relationtype">RelationType</a>
+    <a href="#relationoptions">RelationOptions</a>
+    <a href="#notterm">NotTerm</a>
+    <a href="#systemdef">SystemDef</a>
+    <a href="#systemprofiler">SystemProfiler</a>
+    <a href="#phasedscheduleroptions">PhasedSchedulerOptions</a>
+    <a href="#handler-types">Handler types</a>
+  </div>
+
+  <div class="sidebar-foot">
+    <a href="index.html">Guide</a>
+    <a href="https://github.com/jamesyong-42/reactive-ecs">GitHub ↗</a>
+    <a href="https://www.npmjs.com/package/@jamesyong42/reactive-ecs">npm ↗</a>
+  </div>
+</nav>
+
+<main id="top">
+<div class="measure">
+
+  <header class="page-head">
+    <div class="kicker">@jamesyong42/reactive-ecs · v0.8.0</div>
+    <h1>API reference</h1>
+    <p>
+      Every exported function, <code>World</code> member, scheduler, and type.
+      For concepts and patterns, see the <a href="index.html">guide</a>.
+      All subscription methods return an <code>Unsubscribe</code> function; all
+      observers fire synchronously inside the mutating call.
+    </p>
+  </header>
+
+  <!-- ============================ DEFINITION ============================ -->
+  <section id="definition">
+    <h2>Definition<a class="anchor" href="#definition">#</a></h2>
+
+    <h3 id="definecomponent">defineComponent<a class="anchor" href="#definecomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>defineComponent&lt;T extends Record&lt;string, unknown&gt;&gt;(name: string, defaults: T): ComponentType&lt;T&gt;</code></pre></figure>
+    <p>
+      Defines a component type. <code>defaults</code> sets both the TypeScript shape and the
+      initial values merged under data passed to <a href="#addcomponent"><code>addComponent</code></a>.
+      Data can be any shape — numbers, strings, arrays, nested objects, class instances.
+      Names must be unique across all <code>defineComponent</code> calls in a world; a collision
+      throws on first store access. Returns a frozen identity object.
+    </p>
+
+    <h3 id="definetag">defineTag<a class="anchor" href="#definetag">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>defineTag(name: string): TagType</code></pre></figure>
+    <p>Defines a zero-data boolean marker — presence is the information (<code>Selected</code>, <code>Hovered</code>, <code>Dirty</code>).</p>
+
+    <h3 id="definerelation">defineRelation<a class="anchor" href="#definerelation">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>defineRelation(name: string, opts?: RelationOptions): RelationType</code></pre></figure>
+    <p>
+      Defines a relation — a managed, inverse-indexed, lifecycle-cleaned edge between two
+      entities. See <a href="#relationoptions"><code>RelationOptions</code></a> for exclusivity
+      bounds and the <code>onTargetDestroy</code> policy. The returned object carries the
+      normalized options (defaults applied).
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const ChildOf = defineRelation('ChildOf', {
+  sourceExclusive: true,     // one parent per child
+  onTargetDestroy: 'clear',  // parent dies → child returns to root
+});</code></pre></figure>
+
+    <h3 id="defineresource">defineResource<a class="anchor" href="#defineresource">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>defineResource&lt;T extends Record&lt;string, unknown&gt;&gt;(name: string, defaults: T): ResourceType&lt;T&gt;</code></pre></figure>
+    <p>Defines a world-level singleton (camera, config, a spatial-index instance). The store is created lazily from <code>defaults</code> on first access.</p>
+
+    <h3 id="definesystem">defineSystem<a class="anchor" href="#definesystem">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>defineSystem(def: SystemDef): SystemDef</code></pre></figure>
+    <p>
+      Defines a named system. <code>after</code> / <code>before</code> (string or string[])
+      constrain ordering within a scheduler; <code>phase</code> assigns the system to a
+      <a href="#phasedscheduler"><code>PhasedScheduler</code></a> phase and is ignored by
+      <code>SystemScheduler</code>. See <a href="#systemdef"><code>SystemDef</code></a>.
+    </p>
+
+    <h3 id="not">Not<a class="anchor" href="#not">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>Not(type: ComponentType | TagType): NotTerm</code></pre></figure>
+    <p>
+      Wraps a component or tag as a negated query term: <code>query(A, Not(B))</code> matches
+      entities that have <code>A</code> and do <em>not</em> have <code>B</code>. A type whose
+      store was never created counts as absent. Negated terms participate in incremental
+      cache maintenance like positive ones.
+    </p>
+
+    <h3 id="createworld">createWorld<a class="anchor" href="#createworld">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>createWorld(): World</code></pre></figure>
+    <p>Creates an independent world — entities, component/tag/relation stores, resources, query caches, and subscriptions are all per-world.</p>
+  </section>
+
+  <!-- ============================ PROPERTIES ============================ -->
+  <section id="world-properties">
+    <h2>World · properties<a class="anchor" href="#world-properties">#</a></h2>
+
+    <h3 id="currenttick">currentTick<a class="anchor" href="#currenttick">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>readonly currentTick: number</code></pre></figure>
+    <p>Current tick number; advanced by <a href="#incrementtick"><code>incrementTick</code></a>.</p>
+
+    <h3 id="entitycount">entityCount<a class="anchor" href="#entitycount">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>readonly entityCount: number</code></pre></figure>
+    <p>Number of live entities.</p>
+
+    <h3 id="mutationorigin">mutationOrigin<a class="anchor" href="#mutationorigin">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>readonly mutationOrigin: string | symbol | undefined</code></pre></figure>
+    <p>
+      Origin tag of the current mutation window — <code>undefined</code> outside any
+      <a href="#withorigin"><code>withOrigin</code></a> window (the implicit "local" origin).
+      Because every observer fires synchronously inside the mutating call, a handler reading
+      this always sees the origin of exactly the mutation that fired it. Readable anywhere,
+      not just in handlers.
+    </p>
+  </section>
+
+  <!-- ============================ ENTITIES ============================ -->
+  <section id="world-entities">
+    <h2>World · entities<a class="anchor" href="#world-entities">#</a></h2>
+
+    <h3 id="createentity">createEntity<a class="anchor" href="#createentity">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>createEntity(): EntityId</code></pre></figure>
+    <p>Creates an entity and returns its id. Ids are allocated from a monotonic counter and <strong>never reused</strong>. Fires <a href="#onentitycreated"><code>onEntityCreated</code></a>. O(1).</p>
+
+    <h3 id="createentitywithid">createEntityWithId<a class="anchor" href="#createentitywithid">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>createEntityWithId(id: EntityId): EntityId</code></pre></figure>
+    <p>
+      Creates an entity under a caller-chosen id — the restore primitive for id-preserving
+      deserialization. On success the counter advances to <code>id + 1</code> and
+      <code>onEntityCreated</code> fires; observably identical to a <code>createEntity()</code>
+      that landed on <code>id</code>.
+    </p>
+    <ul>
+      <li><strong>Throws</strong> if <code>id</code> is not a positive integer, is already alive, or is below the internal counter — ids are never reused, so restore must create entities in <strong>ascending id order</strong>.</li>
+      <li>Restores into a fresh world only; it cannot resurrect a destroyed id in a live one. For undoable deletion prefer a tombstone tag (see the <a href="index.html#restore">guide</a>).</li>
+    </ul>
+<figure class="code" data-lang="ts"><pre><code>for (const id of [...snapshot.entities].sort((a, b) =&gt; a - b)) {
+  world.createEntityWithId(id);
+}
+world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
+
+    <h3 id="setnextentityid">setNextEntityId<a class="anchor" href="#setnextentityid">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>setNextEntityId(n: number): void</code></pre></figure>
+    <p>
+      Restores the id counter exactly, so subsequent <code>createEntity()</code> calls allocate
+      from <code>n</code>. The counter only moves forward — throws if <code>n</code> is not an
+      integer or is below the current counter. Call after the restore loop: the saved counter
+      can exceed the highest restored id (entities destroyed before the save consumed ids),
+      and restoring it keeps stale references stale forever.
+    </p>
+
+    <h3 id="destroyentity">destroyEntity<a class="anchor" href="#destroyentity">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>destroyEntity(id: EntityId): void</code></pre></figure>
+    <p>
+      Destroys an entity, removing all its components, tags, and relation edges (as source or
+      target). No-op if already dead. The observable sequence: <code>onEntityDestroyed</code>
+      listeners (data still readable) → query caches drop the id → relation sweep
+      (<code>onRelationRemoved</code> per edge, policy effects collected) → per-component
+      <code>onComponentRemoved</code> + buffers → per-tag <code>onTagRemoved</code> + buffers →
+      deferred <code>onTargetDestroy</code> effects apply (cascades, tags). See the
+      <a href="index.html#destroy-semantics">guide</a> for the full contract.
+    </p>
+
+    <h3 id="entityexists">entityExists<a class="anchor" href="#entityexists">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>entityExists(id: EntityId): boolean</code></pre></figure>
+    <p><code>true</code> while alive — and <code>false</code> forever after destroy. A stale id can never alias a new entity; no generational indices needed.</p>
+  </section>
+
+  <!-- ============================ COMPONENTS ============================ -->
+  <section id="world-components">
+    <h2>World · components<a class="anchor" href="#world-components">#</a></h2>
+
+    <h3 id="addcomponent">addComponent<a class="anchor" href="#addcomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>addComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: T): void</code></pre></figure>
+    <p>
+      Attaches a component. <code>data</code> is shallow-merged over the type's defaults and
+      deep-cloned, so two entities never share nested state. Fires
+      <a href="#oncomponentchanged"><code>onComponentChanged</code></a> with
+      <code>prev === undefined</code> and lands in the <code>queryAdded</code> /
+      <code>queryChanged</code> buffers. Throws if the entity is not alive.
+    </p>
+
+    <h3 id="removecomponent">removeComponent<a class="anchor" href="#removecomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>removeComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;): void</code></pre></figure>
+    <p>
+      Detaches a component. Fires <a href="#oncomponentremoved"><code>onComponentRemoved</code></a>
+      <em>before</em> the data is deleted (so <code>prev</code> is readable) and lands in the
+      <code>queryRemoved</code> buffer. No-op if absent.
+    </p>
+
+    <h3 id="getcomponent">getComponent<a class="anchor" href="#getcomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;): T | undefined</code></pre></figure>
+    <p>Current value, or <code>undefined</code> if not present. Do not mutate the returned object in place — the world can't observe that; write through <a href="#setcomponent"><code>setComponent</code></a>.</p>
+
+    <h3 id="hascomponent">hasComponent<a class="anchor" href="#hascomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>hasComponent(entity: EntityId, type: ComponentType): boolean</code></pre></figure>
+    <p>Presence check.</p>
+
+    <h3 id="setcomponent">setComponent<a class="anchor" href="#setcomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>setComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
+    <p>Shallow-merges a partial update over the current value. Fires <code>onComponentChanged</code> with the previous value and lands in the <code>queryChanged</code> buffer.</p>
+  </section>
+
+  <!-- ============================ TAGS ============================ -->
+  <section id="world-tags">
+    <h2>World · tags<a class="anchor" href="#world-tags">#</a></h2>
+
+    <h3 id="addtag">addTag<a class="anchor" href="#addtag">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>addTag(entity: EntityId, type: TagType): void</code></pre></figure>
+    <p>Adds a tag. Fires <a href="#ontagadded"><code>onTagAdded</code></a>; lands in the <code>queryAddedTag</code> buffer. No-op if already present.</p>
+
+    <h3 id="removetag">removeTag<a class="anchor" href="#removetag">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>removeTag(entity: EntityId, type: TagType): void</code></pre></figure>
+    <p>Removes a tag. Fires <a href="#ontagremoved"><code>onTagRemoved</code></a>; lands in the <code>queryRemovedTag</code> buffer. No-op if absent.</p>
+
+    <h3 id="hastag">hasTag<a class="anchor" href="#hastag">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>hasTag(entity: EntityId, type: TagType): boolean</code></pre></figure>
+    <p>Presence check.</p>
+  </section>
+
+  <!-- ============================ RELATIONS ============================ -->
+  <section id="world-relations">
+    <h2>World · relations<a class="anchor" href="#world-relations">#</a></h2>
+
+    <h3 id="relate">relate<a class="anchor" href="#relate">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>relate(source: EntityId, type: RelationType, target: EntityId): void</code></pre></figure>
+    <p>Adds an edge from <code>source</code> to <code>target</code>.</p>
+    <ul>
+      <li><strong>Throws</strong> if source <em>or</em> target is not alive — a born-dangling edge is impossible.</li>
+      <li><strong>No-op</strong> if the exact edge already exists.</li>
+      <li><strong>Exclusivity replaces:</strong> if a bound would be violated, the existing edge is removed first — removed-then-added events fire, mirroring <code>setComponent</code> overwrite semantics.</li>
+      <li>Lands in the <code>queryRelationAdded</code> buffer (net-cancelling) and fires <a href="#onrelationadded"><code>onRelationAdded</code></a>.</li>
+    </ul>
+
+    <h3 id="unrelate">unrelate<a class="anchor" href="#unrelate">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>unrelate(source: EntityId, type: RelationType, target?: EntityId): void</code></pre></figure>
+    <p>
+      Removes the edge to <code>target</code> — or, with <code>target</code> omitted,
+      <strong>all</strong> of source's outgoing edges for this relation. No-op if absent.
+      Lands in <code>queryRelationRemoved</code> (net-cancelling) and fires
+      <a href="#onrelationremoved"><code>onRelationRemoved</code></a> per edge.
+    </p>
+
+    <h3 id="gettargets">getTargets<a class="anchor" href="#gettargets">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getTargets(source: EntityId, type: RelationType): EntityId[]</code></pre></figure>
+    <p>The targets <code>source</code> points at. <code>[]</code> if none.</p>
+
+    <h3 id="gettarget">getTarget<a class="anchor" href="#gettarget">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getTarget(source: EntityId, type: RelationType): EntityId | undefined</code></pre></figure>
+    <p>Source's single target — convenience for <code>sourceExclusive</code> relations.</p>
+
+    <h3 id="getsources">getSources<a class="anchor" href="#getsources">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getSources(type: RelationType, target: EntityId): EntityId[]</code></pre></figure>
+    <p>The sources pointing at <code>target</code> — the always-coherent inverse index, maintained by the store, never by you. <code>[]</code> if none.</p>
+  </section>
+
+  <!-- ============================ RESOURCES ============================ -->
+  <section id="world-resources">
+    <h2>World · resources<a class="anchor" href="#world-resources">#</a></h2>
+
+    <h3 id="getresource">getResource<a class="anchor" href="#getresource">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getResource&lt;T&gt;(type: ResourceType&lt;T&gt;): T</code></pre></figure>
+    <p>Reads a singleton. The store is created lazily from the type's defaults on first access.</p>
+
+    <h3 id="setresource">setResource<a class="anchor" href="#setresource">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>setResource&lt;T&gt;(type: ResourceType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
+    <p>Shallow-merges a partial update over the singleton.</p>
+  </section>
+
+  <!-- ============================ QUERIES ============================ -->
+  <section id="world-queries">
+    <h2>World · queries<a class="anchor" href="#world-queries">#</a></h2>
+    <p>
+      <code>query()</code> results are cached per type-combination and maintained incrementally
+      as components, tags, and entities change — repeat calls do no scanning. The per-tick
+      buffers (<code>queryChanged</code> / <code>queryAdded</code> / <code>queryRemoved</code>
+      and their tag/relation twins) accumulate until <a href="#cleardirty"><code>clearDirty</code></a>
+      and are <strong>net-cancelling</strong>: an add and remove of the same thing within one
+      tick appears in neither buffer.
+    </p>
+
+    <h3 id="query">query<a class="anchor" href="#query">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>query(...types: (ComponentType | TagType | NotTerm)[]): EntityId[]</code></pre></figure>
+    <p>
+      Entities matching <em>all</em> positive components/tags and <em>none</em> of the
+      <a href="#not"><code>Not()</code></a> terms. With no arguments, returns all live
+      entities. Throws if all terms are negated — a pure-negative query would scan every
+      entity; keep at least one positive term.
+    </p>
+
+    <h3 id="querytagged">queryTagged<a class="anchor" href="#querytagged">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryTagged(type: TagType): EntityId[]</code></pre></figure>
+    <p>All entities with the tag.</p>
+
+    <h3 id="querychanged">queryChanged<a class="anchor" href="#querychanged">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryChanged(type: ComponentType): EntityId[]</code></pre></figure>
+    <p>Entities whose component was written this tick (add or set).</p>
+
+    <h3 id="queryadded">queryAdded<a class="anchor" href="#queryadded">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryAdded(type: ComponentType): EntityId[]</code></pre></figure>
+    <p>Entities that received the component this tick. Net-cancels with <code>removeComponent</code> in the same tick.</p>
+
+    <h3 id="queryremoved">queryRemoved<a class="anchor" href="#queryremoved">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryRemoved(type: ComponentType): EntityId[]</code></pre></figure>
+    <p>
+      Entities that lost the component this tick — via <code>removeComponent</code>
+      <em>or</em> <code>destroyEntity</code>. The single channel for "this entity no longer
+      has C"; consumers managing external resources need no separate destroy bookkeeping.
+      The buffer holds ids only — to read the dying value, use
+      <a href="#oncomponentremoved"><code>onComponentRemoved</code></a>.
+    </p>
+
+    <h3 id="queryaddedtag">queryAddedTag<a class="anchor" href="#queryaddedtag">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryAddedTag(type: TagType): EntityId[]</code></pre></figure>
+    <p>Entities that gained the tag this tick. Net-cancels with <code>removeTag</code>.</p>
+
+    <h3 id="queryremovedtag">queryRemovedTag<a class="anchor" href="#queryremovedtag">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryRemovedTag(type: TagType): EntityId[]</code></pre></figure>
+    <p>Entities that lost the tag this tick — via <code>removeTag</code> or <code>destroyEntity</code>. Net-cancels with <code>addTag</code>.</p>
+
+    <h3 id="queryrelation">queryRelation<a class="anchor" href="#queryrelation">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryRelation(type: RelationType): RelationEdge[]</code></pre></figure>
+    <p>All live edges as <code>[source, target]</code> pairs.</p>
+
+    <h3 id="queryrelationadded">queryRelationAdded<a class="anchor" href="#queryrelationadded">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryRelationAdded(type: RelationType): RelationEdge[]</code></pre></figure>
+    <p>Edges added this tick. Net-cancels with <code>unrelate</code> of the same edge.</p>
+
+    <h3 id="queryrelationremoved">queryRelationRemoved<a class="anchor" href="#queryrelationremoved">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>queryRelationRemoved(type: RelationType): RelationEdge[]</code></pre></figure>
+    <p>Edges removed this tick — via <code>unrelate</code>, exclusivity replacement, or <code>destroyEntity</code> of either endpoint. Net-cancels with <code>relate</code> of the same edge.</p>
+  </section>
+
+  <!-- ============================ EVENTS ============================ -->
+  <section id="world-events">
+    <h2>World · events<a class="anchor" href="#world-events">#</a></h2>
+    <p>
+      All handlers fire <strong>synchronously inside the mutating call</strong>, in
+      subscription order; per-entity (or per-source) handlers fire before wildcard handlers.
+      Every method returns an <code>Unsubscribe</code> function.
+    </p>
+
+    <h3 id="oncomponentchanged">onComponentChanged<a class="anchor" href="#oncomponentchanged">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onComponentChanged&lt;T&gt;(type: ComponentType&lt;T&gt;, handler: (id, prev: T | undefined, next: T) =&gt; void, entityId?: EntityId): Unsubscribe</code></pre></figure>
+    <p>
+      Fires on every write — including the initial <code>addComponent</code>, where
+      <code>prev === undefined</code>, so one subscription covers "appeared" and "updated".
+      Pass <code>entityId</code> to observe a single entity — the shape a
+      <code>useComponent()</code> hook needs.
+    </p>
+
+    <h3 id="oncomponentremoved">onComponentRemoved<a class="anchor" href="#oncomponentremoved">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onComponentRemoved&lt;T&gt;(type: ComponentType&lt;T&gt;, handler: (id, prev: T) =&gt; void, entityId?: EntityId): Unsubscribe</code></pre></figure>
+    <p>
+      Fires <em>before</em> the data is deleted — <code>prev</code> is the value being torn
+      down, the right moment to release GPU buffers, DOM nodes, or subscriptions keyed by it.
+      Also fires for each component an entity owned at the moment <code>destroyEntity</code>
+      was called.
+    </p>
+
+    <h3 id="ontagadded">onTagAdded<a class="anchor" href="#ontagadded">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onTagAdded(type: TagType, handler: (id) =&gt; void, entityId?: EntityId): Unsubscribe</code></pre></figure>
+    <p>Fires when the tag is added; optional per-entity filter.</p>
+
+    <h3 id="ontagremoved">onTagRemoved<a class="anchor" href="#ontagremoved">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onTagRemoved(type: TagType, handler: (id) =&gt; void, entityId?: EntityId): Unsubscribe</code></pre></figure>
+    <p>Fires when the tag is removed — including during <code>destroyEntity</code>.</p>
+
+    <h3 id="onrelationadded">onRelationAdded<a class="anchor" href="#onrelationadded">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onRelationAdded(type: RelationType, handler: (source, target) =&gt; void, sourceId?: EntityId): Unsubscribe</code></pre></figure>
+    <p>Fires when an edge is added; optional per-source filter, matching the <code>entityId</code> filter on component events.</p>
+
+    <h3 id="onrelationremoved">onRelationRemoved<a class="anchor" href="#onrelationremoved">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onRelationRemoved(type: RelationType, handler: (source, target) =&gt; void, sourceId?: EntityId): Unsubscribe</code></pre></figure>
+    <p>
+      Fires when an edge is removed — via <code>unrelate</code>, exclusivity replacement, or
+      <code>destroyEntity</code> of either endpoint. During a destroy the dying entity's
+      components and tags are still readable from the handler, but handlers must not mutate
+      the world mid-destroy: read freely, react from a system over
+      <code>queryRelationRemoved</code> instead.
+    </p>
+
+    <h3 id="onentitycreated">onEntityCreated<a class="anchor" href="#onentitycreated">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onEntityCreated(callback: (entity: EntityId) =&gt; void): Unsubscribe</code></pre></figure>
+    <p>Fires on <code>createEntity</code> and <code>createEntityWithId</code>.</p>
+
+    <h3 id="onentitydestroyed">onEntityDestroyed<a class="anchor" href="#onentitydestroyed">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onEntityDestroyed(callback: (entity: EntityId) =&gt; void): Unsubscribe</code></pre></figure>
+    <p>Fires first in the destroy sequence — the entity's components, tags, and relations are still fully readable, so callbacks can snapshot whatever they need.</p>
+
+    <h3 id="onframe">onFrame<a class="anchor" href="#onframe">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onFrame(handler: () =&gt; void): Unsubscribe</code></pre></figure>
+    <p>Fires on every <a href="#emitframe"><code>emitFrame</code></a> — the end-of-tick hook for flushing batched UI updates.</p>
+  </section>
+
+  <!-- ============================ ORIGIN ============================ -->
+  <section id="world-origin">
+    <h2>World · origin<a class="anchor" href="#world-origin">#</a></h2>
+
+    <h3 id="withorigin">withOrigin<a class="anchor" href="#withorigin">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>withOrigin&lt;T&gt;(origin: string | symbol, fn: () =&gt; T): T</code></pre></figure>
+    <p>
+      Tags every mutation made synchronously inside <code>fn</code> with <code>origin</code>,
+      readable by handlers via <a href="#mutationorigin"><code>mutationOrigin</code></a> —
+      the echo-suppression primitive for modules that both observe and mutate (sync adapters,
+      undo journals). The library attaches no semantics to any origin; the vocabulary is
+      yours (symbols recommended).
+    </p>
+    <ul>
+      <li><strong>Throws</strong> unless <code>origin</code> is a string or symbol — <code>undefined</code> stays unforgeable as "no origin".</li>
+      <li><strong>Re-entrant:</strong> nested calls stack; innermost wins; exiting restores the enclosing origin — also on throw.</li>
+      <li><strong>Returns</strong> <code>fn</code>'s return value.</li>
+      <li><strong>Synchronous only:</strong> if <code>fn</code> is async, mutations after the first <code>await</code> are <em>not</em> tagged — re-enter <code>withOrigin</code> in continuations.</li>
+      <li><code>destroyEntity</code> cascades — teardown events and relation policy effects — inherit the origin active at the call site. Per-tick buffers stay origin-blind.</li>
+    </ul>
+<figure class="code" data-lang="ts"><pre><code>const REMOTE = Symbol('remote');
+
+world.withOrigin(REMOTE, () =&gt; applyRemoteBatch(world, packet));
+
+world.onComponentChanged(Position, (id, prev, next) =&gt; {
+  if (world.mutationOrigin === REMOTE) return; // don't echo back to peers
+  broadcast(id, next);
+});</code></pre></figure>
+  </section>
+
+  <!-- ============================ INTROSPECTION ============================ -->
+  <section id="world-introspection">
+    <h2>World · introspection<a class="anchor" href="#world-introspection">#</a></h2>
+    <p>All O(k) in the number of registered types or attached items — no hidden scan of entity storage.</p>
+
+    <h3 id="getallentities">getAllEntities<a class="anchor" href="#getallentities">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getAllEntities(): EntityId[]</code></pre></figure>
+    <p>All live entity ids.</p>
+
+    <h3 id="getregisteredcomponents">getRegisteredComponents<a class="anchor" href="#getregisteredcomponents">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getRegisteredComponents(): ComponentType[]</code></pre></figure>
+    <p>Every ComponentType that has had a store created in this world.</p>
+
+    <h3 id="getregisteredtags">getRegisteredTags<a class="anchor" href="#getregisteredtags">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getRegisteredTags(): TagType[]</code></pre></figure>
+    <p>Every TagType that has had a store created in this world.</p>
+
+    <h3 id="getregisteredresources">getRegisteredResources<a class="anchor" href="#getregisteredresources">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getRegisteredResources(): ResourceType[]</code></pre></figure>
+    <p>Every ResourceType that has been accessed in this world.</p>
+
+    <h3 id="getcomponentsof">getComponentsOf<a class="anchor" href="#getcomponentsof">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getComponentsOf(entity: EntityId): ComponentType[]</code></pre></figure>
+    <p>The ComponentTypes currently attached to an entity — combine with <code>getComponent</code> to walk all data generically (serializers, inspectors).</p>
+
+    <h3 id="gettagsof">getTagsOf<a class="anchor" href="#gettagsof">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getTagsOf(entity: EntityId): TagType[]</code></pre></figure>
+    <p>The TagTypes currently attached to an entity.</p>
+  </section>
+
+  <!-- ============================ FRAME ============================ -->
+  <section id="world-frame">
+    <h2>World · frame lifecycle<a class="anchor" href="#world-frame">#</a></h2>
+    <p>The end-of-frame protocol, called in this order after your systems run:</p>
+
+    <h3 id="emitframe">emitFrame<a class="anchor" href="#emitframe">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>emitFrame(): void</code></pre></figure>
+    <p>Fires every <a href="#onframe"><code>onFrame</code></a> subscriber.</p>
+
+    <h3 id="cleardirty">clearDirty<a class="anchor" href="#cleardirty">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>clearDirty(): void</code></pre></figure>
+    <p>
+      Resets all per-tick buffers — component <code>changed</code> / <code>added</code> /
+      <code>removed</code>, tag <code>added</code> / <code>removed</code>, and relation
+      <code>added</code> / <code>removed</code>. Buffers accumulate until <em>you</em> call
+      this; skipping frames simply batches more change.
+    </p>
+
+    <h3 id="incrementtick">incrementTick<a class="anchor" href="#incrementtick">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>incrementTick(): void</code></pre></figure>
+    <p>Advances <a href="#currenttick"><code>currentTick</code></a> by one.</p>
+  </section>
+
+  <!-- ============================ SYSTEM SCHEDULER ============================ -->
+  <section id="systemscheduler">
+    <h2>SystemScheduler<a class="anchor" href="#systemscheduler">#</a></h2>
+<figure class="code sig" data-lang="ts"><pre><code>new SystemScheduler()</code></pre></figure>
+    <p>
+      Orders systems by <code>after</code> / <code>before</code> constraints using a stable
+      topological sort (Kahn's algorithm; registration order breaks ties). Cycles throw with
+      the names involved; constraints referencing unregistered names are tolerated and ignored.
+    </p>
+
+    <h3 id="scheduler-register">register<a class="anchor" href="#scheduler-register">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>register(system: SystemDef): void</code></pre></figure>
+    <p>Adds a system. Re-registering a name <strong>replaces</strong> the existing system (hot-reload friendly) and invalidates the cached sort.</p>
+
+    <h3 id="scheduler-remove">remove<a class="anchor" href="#scheduler-remove">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>remove(name: string): void</code></pre></figure>
+    <p>Removes a system by name.</p>
+
+    <h3 id="scheduler-execute">execute<a class="anchor" href="#scheduler-execute">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>execute(world: World): void</code></pre></figure>
+    <p>Runs all systems in dependency order, bracketing each with the profiler's <code>beginSystem</code> / <code>endSystem</code> if attached.</p>
+
+    <h3 id="scheduler-getsystemnames">getSystemNames<a class="anchor" href="#scheduler-getsystemnames">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getSystemNames(): string[]</code></pre></figure>
+    <p>The resolved execution order (triggers the sort).</p>
+
+    <h3 id="scheduler-size">size<a class="anchor" href="#scheduler-size">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>get size(): number</code></pre></figure>
+    <p>Number of registered systems.</p>
+
+    <h3 id="scheduler-profiler">profiler<a class="anchor" href="#scheduler-profiler">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>profiler: SystemProfiler | null</code></pre></figure>
+    <p>Optional instrumentation hook — see <a href="#systemprofiler"><code>SystemProfiler</code></a>.</p>
+  </section>
+
+  <!-- ============================ PHASED SCHEDULER ============================ -->
+  <section id="phasedscheduler">
+    <h2>PhasedScheduler<a class="anchor" href="#phasedscheduler">#</a></h2>
+<figure class="code sig" data-lang="ts"><pre><code>new PhasedScheduler&lt;P extends string&gt;(options: PhasedSchedulerOptions&lt;P&gt;)</code></pre></figure>
+    <p>
+      Runs systems in a caller-defined phase order — the library ships zero phase opinions.
+      Within a phase, <code>after</code> / <code>before</code> topo-sort identically to
+      <code>SystemScheduler</code> (one runs internally per phase). Across phases, ordering is
+      implicit in phase order; <strong>cross-phase constraints are rejected</strong> at first
+      <code>execute()</code> with an error explaining the fix. The constructor throws on an
+      empty or duplicate-containing <code>phases</code> array, or a <code>defaultPhase</code>
+      not in it. Use <code>as const</code> on the phases literal for type-narrowed phase
+      strings throughout. Also exposes <code>remove(name)</code>, <code>getSystemNames()</code>,
+      and <code>profiler</code> with the same shapes as <code>SystemScheduler</code>.
+    </p>
+
+    <h3 id="phased-register">register<a class="anchor" href="#phased-register">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>register(system: SystemDef): void</code></pre></figure>
+    <p>
+      Adds a system to the bucket for <code>system.phase</code>, falling back to
+      <code>defaultPhase</code>. Throws if the system has no phase and no default is
+      configured, or if the phase is not in the configured list. Re-registering into a
+      different phase <strong>moves</strong> the system — it never runs twice.
+    </p>
+
+    <h3 id="phased-getphase">getPhase<a class="anchor" href="#phased-getphase">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getPhase(name: string): P | undefined</code></pre></figure>
+    <p>The phase a system is registered in, or <code>undefined</code>.</p>
+
+    <h3 id="phased-getphases">getPhases<a class="anchor" href="#phased-getphases">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getPhases(): readonly P[]</code></pre></figure>
+    <p>The configured phase order (read-only view of the constructor input).</p>
+
+    <h3 id="phased-execute">execute<a class="anchor" href="#phased-execute">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>execute(world: World): void</code></pre></figure>
+    <p>
+      Runs one tick, phase by phase. Non-empty phases are bracketed with the profiler's
+      optional <code>beginPhase</code> / <code>endPhase</code>; systems with
+      <code>beginSystem</code> / <code>endSystem</code>. Cross-phase constraint validation
+      happens lazily on first call and after every register/remove.
+    </p>
+  </section>
+
+  <!-- ============================ TYPES ============================ -->
+  <section id="types">
+    <h2>Types<a class="anchor" href="#types">#</a></h2>
+
+    <h3 id="entityid">EntityId<a class="anchor" href="#entityid">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>type EntityId = number</code></pre></figure>
+    <p>Opaque entity identifier — a sequential integer internally, monotonic, never reused.</p>
+
+    <h3 id="componenttype">ComponentType<a class="anchor" href="#componenttype">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>interface ComponentType&lt;T&gt; { name: string; defaults: T; __kind: 'component' }</code></pre></figure>
+    <p>Frozen identity object from <a href="#definecomponent"><code>defineComponent</code></a>; the <code>name</code> is the lookup key.</p>
+
+    <h3 id="tagtype">TagType<a class="anchor" href="#tagtype">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>interface TagType { name: string; __kind: 'tag' }</code></pre></figure>
+    <p>Frozen identity object from <a href="#definetag"><code>defineTag</code></a>.</p>
+
+    <h3 id="resourcetype">ResourceType<a class="anchor" href="#resourcetype">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>interface ResourceType&lt;T&gt; { name: string; defaults: T; __kind: 'resource' }</code></pre></figure>
+    <p>Frozen identity object from <a href="#defineresource"><code>defineResource</code></a>.</p>
+
+    <h3 id="relationtype">RelationType<a class="anchor" href="#relationtype">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>interface RelationType { name: string; options: Required&lt;RelationOptions&gt;; __kind: 'relation' }</code></pre></figure>
+    <p>Frozen identity object from <a href="#definerelation"><code>defineRelation</code></a>, carrying the normalized options.</p>
+
+    <h3 id="relationoptions">RelationOptions<a class="anchor" href="#relationoptions">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>interface RelationOptions {
+  sourceExclusive?: boolean;  // ≤ 1 target per source (default: false)
+  targetExclusive?: boolean;  // ≤ 1 source per target (default: false)
+  onTargetDestroy?: 'cascade' | 'clear' | { tag: TagType };  // default: 'clear'
+}</code></pre></figure>
+    <p>
+      The two exclusivity bounds are independent: <code>ChildOf</code> is
+      <code>sourceExclusive</code> only (one parent, many children); a true 1:1 ownership edge
+      sets both. <code>onTargetDestroy</code> runs per source when the target dies, after the
+      destroy sweep completes: <code>'clear'</code> drops the edge, <code>'cascade'</code>
+      destroys the source too, <code>{ tag }</code> adds the tag to the source.
+    </p>
+
+    <h3 id="notterm">NotTerm<a class="anchor" href="#notterm">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>interface NotTerm { type: ComponentType | TagType; __kind: 'not' }</code></pre></figure>
+    <p>Negated query term from <a href="#not"><code>Not()</code></a>.</p>
+
+    <h3 id="systemdef">SystemDef<a class="anchor" href="#systemdef">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>interface SystemDef {
+  name: string;
+  phase?: string;             // PhasedScheduler bucket; ignored by SystemScheduler
+  after?: string | string[];  // run after these systems (same phase)
+  before?: string | string[]; // run before these systems (same phase)
+  execute: (world: World) =&gt; void;
+}</code></pre></figure>
+
+    <h3 id="systemprofiler">SystemProfiler<a class="anchor" href="#systemprofiler">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>interface SystemProfiler {
+  beginSystem(name: string): void;
+  endSystem(name: string): void;
+  beginPhase?(phase: string): void;  // consulted only by PhasedScheduler
+  endPhase?(phase: string): void;
+}</code></pre></figure>
+    <p>Attach to either scheduler's <code>profiler</code> property; the scheduler just calls the hooks if present.</p>
+
+    <h3 id="phasedscheduleroptions">PhasedSchedulerOptions<a class="anchor" href="#phasedscheduleroptions">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>interface PhasedSchedulerOptions&lt;P extends string&gt; {
+  phases: readonly P[];  // phase order, earliest first; non-empty, no duplicates
+  defaultPhase?: P;      // applied when a system has no `phase`; unset → unstamped register throws
+}</code></pre></figure>
+
+    <h3 id="handler-types">Handler types<a class="anchor" href="#handler-types">#</a></h3>
+<figure class="code" data-lang="ts"><pre><code>type ComponentChangedHandler&lt;T&gt; = (entityId: EntityId, prev: T | undefined, next: T) =&gt; void;
+type ComponentRemovedHandler&lt;T&gt; = (entityId: EntityId, prev: T) =&gt; void;
+type TagChangedHandler          = (entityId: EntityId) =&gt; void;
+type RelationHandler            = (source: EntityId, target: EntityId) =&gt; void;
+type RelationEdge               = readonly [EntityId, EntityId];
+type FrameHandler               = () =&gt; void;
+type Unsubscribe                = () =&gt; void;
+type QueryResult                = EntityId[];
+type ComponentInit              = [ComponentType&lt;unknown&gt;, unknown] | [TagType];</code></pre></figure>
+  </section>
+
+  <footer>
+    <span>MIT © James Yong</span>
+    <span>
+      <a href="index.html">Guide</a> ·
+      <a href="https://github.com/jamesyong-42/reactive-ecs">GitHub</a> ·
+      <a href="https://www.npmjs.com/package/@jamesyong42/reactive-ecs">npm</a>
+    </span>
+  </footer>
+
+</div>
+</main>
+
+<script>
+  // ---------- Tiny TS syntax highlighter ----------
+    (() => {
+      const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const re = new RegExp(
+        [
+          '(\\/\\/[^\\n]*)',
+          "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)",
+          '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this|get)\\b',
+          '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',
+          '([A-Za-z_$][\\w$]*)(?=\\s*\\()',
+          '\\b([A-Z][\\w$]*)\\b',
+        ].join('|'),
+        'g'
+      );
+      document.querySelectorAll('figure.code code').forEach((el) => {
+        if (el.closest('figure').dataset.lang === 'sh') {
+          el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
+          return;
+        }
+        const src = el.textContent;
+        let out = '';
+        let last = 0;
+        let m = re.exec(src);
+        while (m) {
+          out += esc(src.slice(last, m.index));
+          const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
+          out += `<span class="${cls}">${esc(m[0])}</span>`;
+          last = m.index + m[0].length;
+          m = re.exec(src);
+        }
+        el.innerHTML = out + esc(src.slice(last));
+      });
+    })();
+
+    // ---------- Copy buttons ----------
+    document.querySelectorAll('figure.code').forEach((fig) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'copy';
+      btn.textContent = 'copy';
+      btn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(fig.querySelector('code').textContent);
+          btn.textContent = 'copied';
+          btn.classList.add('done');
+          setTimeout(() => {
+            btn.textContent = 'copy';
+            btn.classList.remove('done');
+          }, 1400);
+        } catch {
+          /* clipboard unavailable (e.g. file://) — ignore */
+        }
+      });
+      fig.appendChild(btn);
+    });
+
+    // ---------- Scrollspy (h3-level) ----------
+    (() => {
+      const heads = Array.from(document.querySelectorAll('main h3[id], main h2[id]'));
+      const links = new Map(
+        heads.map((h) => [h.id, document.querySelector(`.sidebar a[href="#${h.id}"]`)])
+      );
+      let active = null;
+      function onScroll() {
+        let current = heads[0];
+        for (const h of heads) {
+          if (h.getBoundingClientRect().top < 140) current = h;
+        }
+        if (current === active) return;
+        active = current;
+        links.forEach((l) => {
+          l?.classList.remove('active');
+        });
+        const link = links.get(current.id);
+        if (link) {
+          link.classList.add('active');
+          const r = link.getBoundingClientRect();
+          if (r.top < 0 || r.bottom > window.innerHeight) {
+            link.scrollIntoView({ block: 'center' });
+          }
+        }
+      }
+      document.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+
+    // ---------- Mobile nav ----------
+    (() => {
+      const toggle = document.getElementById('navToggle');
+      toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+      document.querySelectorAll('.sidebar a').forEach((a) => {
+        a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+      });
+    })();
+</script>
+
+</body>
+</html>
