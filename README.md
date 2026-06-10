@@ -147,7 +147,17 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
 - **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). Shallow defaults merge, deep-clone on add to prevent shared mutation.
 - **Tags** — zero-data boolean markers (`defineTag('Selected')`).
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
-- **Cached queries** — `world.query(Position, Velocity, Selected)` returns entity IDs; results are cached and updated incrementally as components/tags are added or removed.
+- **Cached queries** — `world.query(Position, Velocity, Selected)` returns entity IDs; results are cached and updated incrementally as components/tags are added or removed. Terms are AND-composed; wrap a component or tag in `Not()` to require its absence (`Or` is deliberately absent — run two queries instead):
+
+  ```ts
+  import { Not } from '@jamesyong42/reactive-ecs';
+
+  world.query(Position, Not(Velocity)); // positioned entities that are NOT moving
+  world.query(Position, Not(Selected)); // negated tags work too
+  // At least one positive term is required — query(Not(Velocity)) throws.
+  ```
+
+  Not-queries are maintained incrementally like any other: adding the negated type to a matching entity evicts it from the cached result, and removing it re-admits.
 - **Change tracking** — `queryChanged`, `queryAdded`, `queryRemoved`, `queryAddedTag`, `queryRemovedTag`, per-tick dirty sets. Removed-buffers include entities torn down by `destroyEntity` so consumers managing external resources (GPU buffers, DOM nodes, subscriptions) get a single channel for "this entity no longer has C."
 - **Events** — `onComponentChanged`, `onComponentRemoved`, `onTagAdded`, `onTagRemoved`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`. `onComponentRemoved` fires synchronously before the data is deleted (so `prev` is readable) and also fires during `destroyEntity` for every component the entity owned.
 - **Introspection** — enumerate entities, registered types, and per-entity component/tag composition for editors and debugging tools.
