@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defineComponent, defineResource, defineTag } from '../define.js';
+import { defineComponent, defineResource, defineTag, Not } from '../define.js';
 import { createWorld } from '../world.js';
 
 const Position = defineComponent('Position', { x: 0, y: 0 });
@@ -313,6 +313,103 @@ describe('World', () => {
 			// no Position attached
 			world.removeComponent(e, Position);
 			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+	});
+
+	describe('Not() query terms', () => {
+		it('excludes entities holding the negated component', () => {
+			const world = createWorld();
+			const moving = world.createEntity();
+			const still = world.createEntity();
+			world.addComponent(moving, Position, { x: 0, y: 0 });
+			world.addComponent(moving, Velocity, { dx: 1, dy: 0 });
+			world.addComponent(still, Position, { x: 1, y: 1 });
+
+			expect(world.query(Position, Not(Velocity))).toEqual([still]);
+		});
+
+		it('adding the negated component evicts from the cached result; removing re-admits', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+
+			world.addComponent(e, Velocity, { dx: 1, dy: 0 });
+			expect(world.query(Position, Not(Velocity))).toEqual([]);
+
+			world.removeComponent(e, Velocity);
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+		});
+
+		it('adding the negated tag evicts from the cached result; removing re-admits', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			expect(world.query(Position, Not(Selected))).toEqual([e]);
+
+			world.addTag(e, Selected);
+			expect(world.query(Position, Not(Selected))).toEqual([]);
+
+			world.removeTag(e, Selected);
+			expect(world.query(Position, Not(Selected))).toEqual([e]);
+		});
+
+		it('treats a negated type whose store was never created as absent', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			// Velocity and Visible stores never created in this world
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+			expect(world.query(Position, Not(Visible))).toEqual([e]);
+		});
+
+		it('destroyEntity removes the entity from a Not-query cached result', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+
+			world.destroyEntity(e);
+			expect(world.query(Position, Not(Velocity))).toEqual([]);
+		});
+
+		it('throws on a query of only Not() terms', () => {
+			const world = createWorld();
+			expect(() => world.query(Not(Velocity))).toThrow(
+				'query() requires at least one positive term',
+			);
+		});
+
+		it('query(A, Not(A)) is legal and always empty', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			expect(world.query(Position, Not(Position))).toEqual([]);
+		});
+
+		it('structurally identical Not-queries hit the same cache regardless of term order', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			// First call builds the cache; the reordered call must read the same
+			// live set, so an eviction is visible through both spellings.
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+			expect(world.query(Not(Velocity), Position)).toEqual([e]);
+			world.addComponent(e, Velocity, { dx: 1, dy: 0 });
+			expect(world.query(Not(Velocity), Position)).toEqual([]);
+			expect(world.query(Position, Not(Velocity))).toEqual([]);
+		});
+
+		it('query(A, Not(B)) and query(A, B) never share a cache key', () => {
+			const world = createWorld();
+			const both = world.createEntity();
+			const posOnly = world.createEntity();
+			world.addComponent(both, Position, { x: 0, y: 0 });
+			world.addComponent(both, Velocity, { dx: 1, dy: 0 });
+			world.addComponent(posOnly, Position, { x: 1, y: 1 });
+
+			expect(world.query(Position, Velocity)).toEqual([both]);
+			expect(world.query(Position, Not(Velocity))).toEqual([posOnly]);
 		});
 	});
 
