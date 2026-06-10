@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.6.0...reactive-ecs-v0.7.0) (2026-06-10)
+
+
+### Features
+
+* first-class relations (RFC-002.1) ([1ede273](https://github.com/jamesyong-42/reactive-ecs/commit/1ede273e1246e64b818b8d53c9a02c5d9e82e48e))
+* **types:** RelationType, RelationOptions, and relation handler types ([f425799](https://github.com/jamesyong-42/reactive-ecs/commit/f4257991849701312ad10c9e938f155237418aeb))
+* **world:** relation destroy sweep with deferred policies ([d2ec45f](https://github.com/jamesyong-42/reactive-ecs/commit/d2ec45f3f5efd7dcfa44d8c72b295b30bca452b2))
+* **world:** relation per-tick buffers and observers ([9407fd7](https://github.com/jamesyong-42/reactive-ecs/commit/9407fd712b05a3d603fc7d23adf228bdc790bb66))
+* **world:** relation store with relate/unrelate and reads ([5bfe5b5](https://github.com/jamesyong-42/reactive-ecs/commit/5bfe5b50f621b3181dd3341e75ccae5e8e8744a9))
+
 ## [0.6.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.5.0...reactive-ecs-v0.6.0) (2026-06-10)
 
 
