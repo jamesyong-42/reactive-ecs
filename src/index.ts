@@ -22,6 +22,7 @@ export type {
 	NotTerm,
 	QueryResult,
 	RelationEdge,
+	RelationFilter,
 	RelationHandler,
 	RelationOptions,
 	RelationType,

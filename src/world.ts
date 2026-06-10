@@ -7,6 +7,7 @@ import type {
 	NotTerm,
 	QueryResult,
 	RelationEdge,
+	RelationFilter,
 	RelationHandler,
 	RelationType,
 	ResourceChangedHandler,
@@ -54,6 +55,9 @@ interface RelationStore {
 	removed: Set<string>;
 	addedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
+	/** Per-target handler maps — the wildcard stays in the source-keyed maps. */
+	addedTargetHandlers: Map<EntityId, Set<RelationHandler>>;
+	removedTargetHandlers: Map<EntityId, Set<RelationHandler>>;
 }
 
 /** Internal storage for a single resource type */
@@ -77,6 +81,50 @@ function decodeEdgeKeys(keys: Set<string>): [EntityId, EntityId][] {
 		result.push([Number(key.slice(0, sep)), Number(key.slice(sep + 1))]);
 	}
 	return result;
+}
+
+/** Add `handler` to the set keyed by `key`, creating the set on demand. */
+function addToHandlerMap<K>(
+	map: Map<K, Set<RelationHandler>>,
+	key: K,
+	handler: RelationHandler,
+): Unsubscribe {
+	let handlers = map.get(key);
+	if (!handlers) {
+		handlers = new Set();
+		map.set(key, handlers);
+	}
+	handlers.add(handler);
+	return () => {
+		handlers.delete(handler);
+	};
+}
+
+/**
+ * Register a relation handler under the key its filter selects: a bare id or
+ * `{ source }` keys by source, `{ target }` keys by target, `{ source, target }`
+ * lives in the source bucket (so it fires in per-source position) with the
+ * target check wrapped around the handler, and no filter means wildcard.
+ */
+function subscribeRelationHandler(
+	sourceHandlers: Map<EntityId | '*', Set<RelationHandler>>,
+	targetHandlers: Map<EntityId, Set<RelationHandler>>,
+	handler: RelationHandler,
+	filter?: RelationFilter,
+): Unsubscribe {
+	const normalized = typeof filter === 'number' ? { source: filter } : filter;
+	const source = normalized?.source;
+	const target = normalized?.target;
+	if (source !== undefined && target !== undefined) {
+		const wrapped: RelationHandler = (s, t) => {
+			if (t === target) handler(s, t);
+		};
+		return addToHandlerMap(sourceHandlers, source, wrapped);
+	}
+	if (target !== undefined) {
+		return addToHandlerMap(targetHandlers, target, handler);
+	}
+	return addToHandlerMap(sourceHandlers, source ?? '*', handler);
 }
 
 /**
@@ -323,6 +371,8 @@ export function createWorld(): World {
 			removed: new Set(),
 			addedHandlers: new Map(),
 			removedHandlers: new Map(),
+			addedTargetHandlers: new Map(),
+			removedTargetHandlers: new Map(),
 		};
 		relations.set(type.name, store);
 		return store;
@@ -411,6 +461,10 @@ export function createWorld(): World {
 		if (sourceHandlers) {
 			for (const h of sourceHandlers) h(source, target);
 		}
+		const targetHandlers = store.addedTargetHandlers.get(target);
+		if (targetHandlers) {
+			for (const h of targetHandlers) h(source, target);
+		}
 		const wildcardHandlers = store.addedHandlers.get('*');
 		if (wildcardHandlers) {
 			for (const h of wildcardHandlers) h(source, target);
@@ -425,6 +479,10 @@ export function createWorld(): World {
 		const sourceHandlers = store.removedHandlers.get(source);
 		if (sourceHandlers) {
 			for (const h of sourceHandlers) h(source, target);
+		}
+		const targetHandlers = store.removedTargetHandlers.get(target);
+		if (targetHandlers) {
+			for (const h of targetHandlers) h(source, target);
 		}
 		const wildcardHandlers = store.removedHandlers.get('*');
 		if (wildcardHandlers) {
@@ -560,6 +618,8 @@ export function createWorld(): World {
 				}
 				store.addedHandlers.delete(id);
 				store.removedHandlers.delete(id);
+				store.addedTargetHandlers.delete(id);
+				store.removedTargetHandlers.delete(id);
 			}
 			// Remove all components — fire onComponentRemoved per owned component
 			// and populate the per-tick `removed` buffer so queryRemoved sees the id.
@@ -1011,37 +1071,29 @@ export function createWorld(): World {
 		onRelationAdded(
 			type: RelationType,
 			handler: RelationHandler,
-			sourceId?: EntityId,
+			filter?: RelationFilter,
 		): Unsubscribe {
 			const store = getRelationStore(type);
-			const key: EntityId | '*' = sourceId ?? '*';
-			let handlers = store.addedHandlers.get(key);
-			if (!handlers) {
-				handlers = new Set();
-				store.addedHandlers.set(key, handlers);
-			}
-			handlers.add(handler);
-			return () => {
-				handlers.delete(handler);
-			};
+			return subscribeRelationHandler(
+				store.addedHandlers,
+				store.addedTargetHandlers,
+				handler,
+				filter,
+			);
 		},
 
 		onRelationRemoved(
 			type: RelationType,
 			handler: RelationHandler,
-			sourceId?: EntityId,
+			filter?: RelationFilter,
 		): Unsubscribe {
 			const store = getRelationStore(type);
-			const key: EntityId | '*' = sourceId ?? '*';
-			let handlers = store.removedHandlers.get(key);
-			if (!handlers) {
-				handlers = new Set();
-				store.removedHandlers.set(key, handlers);
-			}
-			handlers.add(handler);
-			return () => {
-				handlers.delete(handler);
-			};
+			return subscribeRelationHandler(
+				store.removedHandlers,
+				store.removedTargetHandlers,
+				handler,
+				filter,
+			);
 		},
 
 		onResourceChanged<T>(type: ResourceType<T>, handler: ResourceChangedHandler<T>): Unsubscribe {

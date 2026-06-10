@@ -128,6 +128,14 @@ export type ResourceChangedHandler<T = unknown> = (prev: T, next: T) => void;
  */
 export type RelationHandler = (source: EntityId, target: EntityId) => void;
 
+/**
+ * Filter for relation observers. A bare `EntityId` means source — the
+ * original third-parameter shape, kept for back-compat. `{ target }` fires
+ * only for edges pointing at that target (the parent-watches-children case);
+ * `{ source, target }` requires both endpoints to match — the exact edge.
+ */
+export type RelationFilter = EntityId | { source?: EntityId; target?: EntityId };
+
 /** A single relation edge — `[source, target]`. */
 export type RelationEdge = readonly [EntityId, EntityId];
 
@@ -338,15 +346,30 @@ export interface World {
 	onTagAdded(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
 	/** Subscribes to tag removals, optionally filtered to a single entity. */
 	onTagRemoved(type: TagType, handler: TagChangedHandler, entityId?: EntityId): Unsubscribe;
-	/** Subscribes to relation edge additions, optionally filtered to a single source entity. */
-	onRelationAdded(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
 	/**
-	 * Subscribes to relation edge removals, optionally filtered to a single
-	 * source entity. Also fires for each edge torn down by `destroyEntity` of
-	 * either endpoint — the dying entity's components and tags are still
-	 * readable at fire-time, but handlers must not mutate mid-destroy.
+	 * Subscribes to relation edge additions, optionally filtered: a bare
+	 * `EntityId` means source (back-compat), `{ target }` fires only for edges
+	 * pointing at that target, and `{ source, target }` matches only the exact
+	 * edge. Handlers fire per-source, then per-target, then wildcard.
 	 */
-	onRelationRemoved(type: RelationType, handler: RelationHandler, sourceId?: EntityId): Unsubscribe;
+	onRelationAdded(
+		type: RelationType,
+		handler: RelationHandler,
+		filter?: RelationFilter,
+	): Unsubscribe;
+	/**
+	 * Subscribes to relation edge removals, optionally filtered like
+	 * `onRelationAdded`: bare `EntityId` = source, `{ target }` = edges into
+	 * that target, `{ source, target }` = the exact edge. Also fires for each
+	 * edge torn down by `destroyEntity` of either endpoint — the dying entity's
+	 * components and tags are still readable at fire-time, but handlers must
+	 * not mutate mid-destroy.
+	 */
+	onRelationRemoved(
+		type: RelationType,
+		handler: RelationHandler,
+		filter?: RelationFilter,
+	): Unsubscribe;
 	/**
 	 * Subscribes to resource changes — fires synchronously inside `setResource`
 	 * after the merge is applied, with a pre-merge snapshot as `prev` and the
