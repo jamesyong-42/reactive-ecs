@@ -4,6 +4,7 @@ import type {
 	ComponentType,
 	EntityId,
 	FrameHandler,
+	NotTerm,
 	QueryResult,
 	ResourceType,
 	TagChangedHandler,
@@ -74,22 +75,33 @@ export function createWorld(): World {
 	const destroyListeners = new Set<(entity: EntityId) => void>();
 
 	// === Query cache ===
-	// Key: sorted type names joined by '\0'
+	// Key: sorted type names joined by '\0' — negated names are prefixed with '!'
+	// so query(A, Not(B)) and query(A, B) can never collide
 	// Value: live Set<EntityId> of entities matching all types in the key
 	const queryCache = new Map<string, Set<EntityId>>();
-	// Reverse index: typeName → Set<queryKey> — which cached queries use this type
+	// Reverse index: typeName → Set<queryKey> — which cached queries use this type.
+	// Negated type names are registered too: adding/removing the negated type
+	// must re-evaluate membership in queries that exclude it.
 	const typeToQueries = new Map<string, Set<string>>();
 	// Store the type names per query key for re-evaluation
-	const queryKeyTypes = new Map<string, { components: string[]; tags: string[] }>();
+	const queryKeyTypes = new Map<
+		string,
+		{ components: string[]; tags: string[]; notComponents: string[]; notTags: string[] }
+	>();
 
-	function getQueryKey(types: (ComponentType | TagType)[]): string {
+	function getQueryKey(types: (ComponentType | TagType | NotTerm)[]): string {
 		return types
-			.map((t) => t.name)
+			.map((t) => (t.__kind === 'not' ? `!${t.type.name}` : t.name))
 			.sort()
 			.join('\0');
 	}
 
-	function buildQueryResult(compNames: string[], tagNames: string[]): Set<EntityId> {
+	function buildQueryResult(
+		compNames: string[],
+		tagNames: string[],
+		notCompNames: string[],
+		notTagNames: string[],
+	): Set<EntityId> {
 		const result = new Set<EntityId>();
 
 		// Find smallest set to start iteration
@@ -117,19 +129,32 @@ export function createWorld(): World {
 
 		for (const entity of smallest) {
 			if (!alive.has(entity)) continue;
-			if (matchesQuery(entity, compNames, tagNames)) {
+			if (matchesQuery(entity, compNames, tagNames, notCompNames, notTagNames)) {
 				result.add(entity);
 			}
 		}
 		return result;
 	}
 
-	function matchesQuery(entity: EntityId, compNames: string[], tagNames: string[]): boolean {
+	function matchesQuery(
+		entity: EntityId,
+		compNames: string[],
+		tagNames: string[],
+		notCompNames: string[],
+		notTagNames: string[],
+	): boolean {
 		for (const name of compNames) {
 			if (!components.get(name)?.data.has(entity)) return false;
 		}
 		for (const name of tagNames) {
 			if (!tags.get(name)?.entities.has(entity)) return false;
+		}
+		// Negated terms — a missing store counts as absent (optional chaining)
+		for (const name of notCompNames) {
+			if (components.get(name)?.data.has(entity)) return false;
+		}
+		for (const name of notTagNames) {
+			if (tags.get(name)?.entities.has(entity)) return false;
 		}
 		return true;
 	}
@@ -142,7 +167,7 @@ export function createWorld(): World {
 			const cached = queryCache.get(key);
 			const types = queryKeyTypes.get(key);
 			if (!cached || !types) continue;
-			if (matchesQuery(entity, types.components, types.tags)) {
+			if (matchesQuery(entity, types.components, types.tags, types.notComponents, types.notTags)) {
 				cached.add(entity);
 			} else {
 				cached.delete(entity);
@@ -449,7 +474,7 @@ export function createWorld(): World {
 
 		// === Queries (cached) ===
 
-		query(...types: (ComponentType | TagType)[]): QueryResult {
+		query(...types: (ComponentType | TagType | NotTerm)[]): QueryResult {
 			if (types.length === 0) return [...alive];
 
 			const key = getQueryKey(types);
@@ -461,17 +486,33 @@ export function createWorld(): World {
 			// Build cache on first call
 			const compNames: string[] = [];
 			const tagNames: string[] = [];
+			const notCompNames: string[] = [];
+			const notTagNames: string[] = [];
 			for (const type of types) {
 				if (type.__kind === 'component') compNames.push(type.name);
-				else tagNames.push(type.name);
+				else if (type.__kind === 'tag') tagNames.push(type.name);
+				else if (type.type.__kind === 'component') notCompNames.push(type.type.name);
+				else notTagNames.push(type.type.name);
+			}
+			if (compNames.length === 0 && tagNames.length === 0) {
+				throw new Error(
+					'query() requires at least one positive term; a query of only Not() terms would scan every entity',
+				);
 			}
 
-			cached = buildQueryResult(compNames, tagNames);
+			cached = buildQueryResult(compNames, tagNames, notCompNames, notTagNames);
 			queryCache.set(key, cached);
-			queryKeyTypes.set(key, { components: compNames, tags: tagNames });
+			queryKeyTypes.set(key, {
+				components: compNames,
+				tags: tagNames,
+				notComponents: notCompNames,
+				notTags: notTagNames,
+			});
 
-			// Register reverse index so cache updates on add/remove
-			for (const name of [...compNames, ...tagNames]) {
+			// Register reverse index so cache updates on add/remove — negated
+			// names too, so adding the negated type evicts the entity (and
+			// removing it re-admits)
+			for (const name of [...compNames, ...tagNames, ...notCompNames, ...notTagNames]) {
 				let queryKeys = typeToQueries.get(name);
 				if (!queryKeys) {
 					queryKeys = new Set();

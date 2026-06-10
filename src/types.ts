@@ -15,6 +15,12 @@ export interface TagType {
 	readonly __kind: 'tag';
 }
 
+/** Negated query term created by Not() — matches entities WITHOUT the wrapped type */
+export interface NotTerm {
+	readonly type: ComponentType | TagType;
+	readonly __kind: 'not';
+}
+
 /** Resource type definition created by defineResource() */
 export interface ResourceType<T = unknown> {
 	readonly name: string;
@@ -124,8 +130,8 @@ export interface World {
 
 	// Queries
 
-	/** Returns entity IDs matching all specified component/tag types. */
-	query(...types: (ComponentType | TagType)[]): QueryResult;
+	/** Returns entity IDs matching all positive types and none of the Not() types. */
+	query(...types: (ComponentType | TagType | NotTerm)[]): QueryResult;
 	/** Returns entities whose component changed this tick. */
 	queryChanged(type: ComponentType): QueryResult;
 	/** Returns entities that received this component this tick. */

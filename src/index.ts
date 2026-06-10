@@ -1,4 +1,4 @@
-export { defineComponent, defineResource, defineSystem, defineTag } from './define.js';
+export { defineComponent, defineResource, defineSystem, defineTag, Not } from './define.js';
 export {
 	PhasedScheduler,
 	type PhasedSchedulerOptions,
@@ -12,6 +12,7 @@ export type {
 	ComponentType,
 	EntityId,
 	FrameHandler,
+	NotTerm,
 	QueryResult,
 	ResourceType,
 	SystemDef,
