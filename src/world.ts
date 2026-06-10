@@ -91,6 +91,10 @@ function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
 export function createWorld(): World {
 	let nextEntityId = 1;
 	let currentTick = 0;
+	// Origin tag for the current synchronous mutation window — set by
+	// withOrigin(), read by handlers via world.mutationOrigin. `undefined`
+	// (no window) is the unforgeable "local" origin.
+	let mutationOrigin: string | symbol | undefined;
 	const alive = new Set<EntityId>();
 
 	// Component storage: one Map per component type
@@ -396,6 +400,26 @@ export function createWorld(): World {
 	const world: World = {
 		get currentTick() {
 			return currentTick;
+		},
+
+		get mutationOrigin() {
+			return mutationOrigin;
+		},
+
+		withOrigin<T>(origin: string | symbol, fn: () => T): T {
+			if (typeof origin !== 'string' && typeof origin !== 'symbol') {
+				throw new Error(
+					`withOrigin(${String(origin)}): origin must be a string or symbol — ` +
+						`\`undefined\` is reserved as the implicit "no origin" and cannot be set explicitly`,
+				);
+			}
+			const prev = mutationOrigin;
+			mutationOrigin = origin;
+			try {
+				return fn();
+			} finally {
+				mutationOrigin = prev;
+			}
 		},
 
 		get entityCount() {
