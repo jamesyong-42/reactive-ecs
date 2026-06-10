@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.5.0...reactive-ecs-v0.6.0) (2026-06-10)
+
+
+### Features
+
+* Not() query term ([144ee98](https://github.com/jamesyong-42/reactive-ecs/commit/144ee98f45e49467b210f3e5dc6bb57e6dfc9094))
+
 ## [0.5.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.4.0...reactive-ecs-v0.5.0) (2026-06-10)
 
 
