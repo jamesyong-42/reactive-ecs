@@ -222,8 +222,12 @@ export interface World {
 	addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>): void;
 	/** Removes a component from an entity. */
 	removeComponent<T>(entity: EntityId, type: ComponentType<T>): void;
-	/** Reads a component from an entity. Returns undefined if not present. */
-	getComponent<T>(entity: EntityId, type: ComponentType<T>): T | undefined;
+	/**
+	 * Reads a component from an entity. Returns undefined if not present.
+	 * The returned object is the live store value typed read-only; write
+	 * through `setComponent` / `replaceComponent`.
+	 */
+	getComponent<T>(entity: EntityId, type: ComponentType<T>): Readonly<T> | undefined;
 	/** Checks if an entity has a component. */
 	hasComponent(entity: EntityId, type: ComponentType): boolean;
 	/** Partially updates a component on an entity (shallow merge). */
@@ -318,8 +322,11 @@ export interface World {
 
 	// Resources
 
-	/** Reads a singleton resource. */
-	getResource<T>(type: ResourceType<T>): T;
+	/**
+	 * Reads a singleton resource. The returned object is the live store value
+	 * typed read-only; write through `setResource`.
+	 */
+	getResource<T>(type: ResourceType<T>): Readonly<T>;
 	/** Partially updates a singleton resource (shallow merge). */
 	setResource<T>(type: ResourceType<T>, data: Partial<T>): void;
 

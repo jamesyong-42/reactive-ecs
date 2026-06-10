@@ -707,7 +707,7 @@ export function createWorld(): World {
 			updateCachesForEntity(type.name, entity);
 		},
 
-		getComponent<T>(entity: EntityId, type: ComponentType<T>): T | undefined {
+		getComponent<T>(entity: EntityId, type: ComponentType<T>): Readonly<T> | undefined {
 			const store = getComponentStore(type);
 			return store.data.get(entity);
 		},
@@ -984,7 +984,7 @@ export function createWorld(): World {
 
 		// === Resources ===
 
-		getResource<T>(type: ResourceType<T>): T {
+		getResource<T>(type: ResourceType<T>): Readonly<T> {
 			return getResourceStore(type).value;
 		},
 
