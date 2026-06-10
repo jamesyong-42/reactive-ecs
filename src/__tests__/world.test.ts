@@ -36,14 +36,54 @@ describe('World', () => {
 		it('adds and gets components with defaults merged', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			// Use a Partial cast: runtime merges with defaults, but the type
-			// signature requires the full shape. See note in addComponent.
-			world.addComponent(e, Position, { x: 42 } as { x: number; y: number });
+			world.addComponent(e, Position, { x: 42 });
 			const pos = world.getComponent(e, Position);
 			expect(pos).toBeDefined();
 			if (!pos) throw new Error('Position component missing');
 			expect(pos.x).toBe(42);
 			expect(pos.y).toBe(0); // default
+		});
+
+		it('addComponent with no data attaches pure defaults', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position);
+			expect(world.getComponent(e, Position)).toEqual({ x: 0, y: 0 });
+		});
+
+		it('re-add on an entity that already has the component is an honest replace', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+			world.addComponent(e, Position, { x: 9 });
+
+			// Observers see the existing value as prev — never a fake first attach.
+			expect(handler).toHaveBeenCalledTimes(1);
+			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 0 });
+			// The replace lands in queryChanged but NOT in queryAdded.
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+		});
+
+		it('remove-then-re-add in the same tick still lands in queryAdded', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.clearDirty();
+
+			const handler = vi.fn();
+			world.onComponentChanged(Position, handler);
+			world.removeComponent(e, Position);
+			world.addComponent(e, Position, { x: 5 });
+
+			// The component was absent at add time — unchanged first-attach path.
+			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 5, y: 0 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryRemoved(Position)).toEqual([]);
 		});
 
 		it('sets partial component data', () => {
@@ -73,6 +113,33 @@ describe('World', () => {
 			const e = world.createEntity();
 			world.addComponent(e, Label, { text: 'Hello World' });
 			expect(world.getComponent(e, Label)?.text).toBe('Hello World');
+		});
+
+		it('defaults containing an array of objects are not shared between entities', () => {
+			const Path = defineComponent('Path', { points: [{ x: 0 }] });
+			const world = createWorld();
+			const e1 = world.createEntity();
+			const e2 = world.createEntity();
+			world.addComponent(e1, Path);
+			world.addComponent(e2, Path);
+
+			const p1 = world.getComponent(e1, Path);
+			const p2 = world.getComponent(e2, Path);
+			if (!p1 || !p2) throw new Error('Path component missing');
+			// Objects inside arrays are cloned per entity — distinct identities.
+			expect(p1.points[0]).not.toBe(p2.points[0]);
+			expect(p1.points[0]).not.toBe(Path.defaults.points[0]);
+			expect(p1.points[0]).toEqual({ x: 0 });
+		});
+
+		it('class instances in init data are kept by reference', () => {
+			class SpatialIndex {}
+			const Indexed = defineComponent('Indexed', { index: null as SpatialIndex | null });
+			const world = createWorld();
+			const e = world.createEntity();
+			const instance = new SpatialIndex();
+			world.addComponent(e, Indexed, { index: instance });
+			expect(world.getComponent(e, Indexed)?.index).toBe(instance);
 		});
 	});
 
@@ -1017,7 +1084,10 @@ describe('World', () => {
 				entity,
 				components: source.getComponentsOf(entity).map((type) => ({
 					type,
-					data: JSON.parse(JSON.stringify(source.getComponent(entity, type))) as unknown,
+					data: JSON.parse(JSON.stringify(source.getComponent(entity, type))) as Record<
+						string,
+						unknown
+					>,
 				})),
 				tags: source.getTagsOf(entity),
 			}));

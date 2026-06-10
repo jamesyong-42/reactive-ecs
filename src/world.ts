@@ -80,19 +80,35 @@ function decodeEdgeKeys(keys: Set<string>): [EntityId, EntityId][] {
 }
 
 /**
+ * Recursively clone plain data: arrays and objects whose constructor is
+ * `Object` are copied; class instances (and anything else) are kept by
+ * reference. No cycle detection — inputs must be acyclic plain data.
+ */
+function clonePlainData(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map(clonePlainData);
+	}
+	if (value !== null && typeof value === 'object' && (value as object).constructor === Object) {
+		const out: Record<string, unknown> = {};
+		for (const key in value as Record<string, unknown>) {
+			out[key] = clonePlainData((value as Record<string, unknown>)[key]);
+		}
+		return out;
+	}
+	return value;
+}
+
+/**
  * Instantiate a value from `defaults`, applying optional `overrides`, and
- * deep-clone nested arrays / plain objects so callers can't accidentally share
- * state with the type's defaults or with each other.
+ * recursively clone nested arrays / plain objects so callers can't
+ * accidentally share state with the type's defaults or with each other.
+ * Class instances are kept by reference. Defaults and init data must be
+ * acyclic plain data — there is no cycle detection.
  */
 function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
 	const merged = (overrides ? { ...defaults, ...overrides } : { ...defaults }) as T;
 	for (const key in merged) {
-		const val = merged[key];
-		if (Array.isArray(val)) {
-			(merged as Record<string, unknown>)[key] = [...val];
-		} else if (val !== null && typeof val === 'object' && (val as object).constructor === Object) {
-			(merged as Record<string, unknown>)[key] = { ...val };
-		}
+		(merged as Record<string, unknown>)[key] = clonePlainData(merged[key]);
 	}
 	return merged;
 }
@@ -591,23 +607,28 @@ export function createWorld(): World {
 
 		// === Component access ===
 
-		addComponent<T>(entity: EntityId, type: ComponentType<T>, data: T) {
+		addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>) {
 			if (!alive.has(entity)) {
 				throw new Error(
 					`addComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
 				);
 			}
 			const store = getComponentStore(type);
-			const merged = instantiateDefaults(type.defaults, data as Partial<T>);
+			// Attach-or-replace: prev distinguishes the two for observers, and the
+			// membership buffers only record a true first attach.
+			const prev = store.data.get(entity);
+			const merged = instantiateDefaults(type.defaults, data);
 			store.data.set(entity, merged);
 			store.dirty.add(entity);
-			store.added.add(entity);
-			// Net-cancellation with queryRemoved: re-adding within the same tick
-			// undoes a prior remove from the buffer.
-			store.removed.delete(entity);
+			if (prev === undefined) {
+				store.added.add(entity);
+				// Net-cancellation with queryRemoved: re-adding within the same tick
+				// undoes a prior remove from the buffer.
+				store.removed.delete(entity);
+			}
 			// Update cached queries that include this component
 			updateCachesForEntity(type.name, entity);
-			emitComponentChanged(store, entity, undefined, merged);
+			emitComponentChanged(store, entity, prev, merged);
 		},
 
 		removeComponent<T>(entity: EntityId, type: ComponentType<T>) {

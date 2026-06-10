@@ -203,8 +203,15 @@ export interface World {
 
 	// Component access
 
-	/** Attaches a component with data to an entity. */
-	addComponent<T>(entity: EntityId, type: ComponentType<T>, data: T): void;
+	/**
+	 * Attaches a component to an entity — attach-or-replace. The value is
+	 * `data` merged over the type's defaults; partial initialization is safe,
+	 * and omitted data attaches pure defaults. When the entity already has the
+	 * component, the existing value is replaced: observers receive the existing
+	 * value as `prev` and the entity lands in the `queryChanged` buffer only —
+	 * `prev === undefined` in observers reliably means first attach.
+	 */
+	addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>): void;
 	/** Removes a component from an entity. */
 	removeComponent<T>(entity: EntityId, type: ComponentType<T>): void;
 	/** Reads a component from an entity. Returns undefined if not present. */
