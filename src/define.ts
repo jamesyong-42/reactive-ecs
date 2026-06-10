@@ -1,4 +1,4 @@
-import type { ComponentType, ResourceType, SystemDef, TagType } from './types.js';
+import type { ComponentType, NotTerm, ResourceType, SystemDef, TagType } from './types.js';
 
 /**
  * Defines a new ECS component type with a name and default values.
@@ -17,6 +17,14 @@ export function defineComponent<T extends Record<string, unknown>>(
  */
 export function defineTag(name: string): TagType {
 	return Object.freeze({ name, __kind: 'tag' as const });
+}
+
+/**
+ * Wraps a component or tag type as a negated query term.
+ * `world.query(A, Not(B))` matches entities that have A and do NOT have B.
+ */
+export function Not(type: ComponentType | TagType): NotTerm {
+	return Object.freeze({ type, __kind: 'not' as const });
 }
 
 /**
