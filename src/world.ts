@@ -447,6 +447,38 @@ export function createWorld(): World {
 			alive.delete(id);
 			// Remove from all cached queries
 			removeCachesForEntity(id);
+			// Relation sweep — BEFORE component/tag teardown so onRelationRemoved
+			// handlers can still read the dying entity's data. Policy effects are
+			// collected here and applied only after teardown completes: mutating
+			// mid-sweep would observe a half-destroyed world.
+			const deferredEffects: (
+				| { kind: 'destroy'; source: EntityId }
+				| { kind: 'tag'; source: EntityId; tag: TagType }
+			)[] = [];
+			for (const store of relations.values()) {
+				// id as source — outgoing edges simply vanish, symmetric to
+				// component teardown. No policy applies; the source is gone.
+				const targets = store.forward.get(id);
+				if (targets) {
+					for (const target of [...targets]) removeRelationEdge(store, id, target);
+				}
+				// id as target — each incoming edge is removed AND the relation's
+				// onTargetDestroy policy contributes a deferred effect per source.
+				const sources = store.inverse.get(id);
+				if (sources) {
+					const policy = store.type.options.onTargetDestroy;
+					for (const source of [...sources]) {
+						removeRelationEdge(store, source, id);
+						if (policy === 'cascade') {
+							deferredEffects.push({ kind: 'destroy', source });
+						} else if (policy !== 'clear') {
+							deferredEffects.push({ kind: 'tag', source, tag: policy.tag });
+						}
+					}
+				}
+				store.addedHandlers.delete(id);
+				store.removedHandlers.delete(id);
+			}
 			// Remove all components — fire onComponentRemoved per owned component
 			// and populate the per-tick `removed` buffer so queryRemoved sees the id.
 			for (const store of components.values()) {
@@ -472,6 +504,18 @@ export function createWorld(): World {
 				store.added.delete(id);
 				store.addedHandlers.delete(id);
 				store.removedHandlers.delete(id);
+			}
+			// Apply deferred relation policy effects — only now is mutation safe.
+			for (const effect of deferredEffects) {
+				if (effect.kind === 'destroy') {
+					// An already-dead source is a no-op via the alive guard above.
+					// Cascade chains and cycles terminate: ids are never reused and
+					// re-destroying is a no-op.
+					world.destroyEntity(effect.source);
+				} else if (alive.has(effect.source)) {
+					// Skipped if a prior effect destroyed the source.
+					world.addTag(effect.source, effect.tag);
+				}
 			}
 		},
 

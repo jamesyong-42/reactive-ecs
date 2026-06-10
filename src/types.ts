@@ -144,7 +144,11 @@ export interface World {
 	 * forever instead of letting their ids be re-issued.
 	 */
 	setNextEntityId(n: number): void;
-	/** Destroys an entity and removes all its components and tags. */
+	/**
+	 * Destroys an entity and removes all its components, tags, and relation
+	 * edges (as source or target — applying each relation's `onTargetDestroy`
+	 * policy after teardown completes).
+	 */
 	destroyEntity(id: EntityId): void;
 	/** Checks if an entity ID is still alive. */
 	entityExists(id: EntityId): boolean;
