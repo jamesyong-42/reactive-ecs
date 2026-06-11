@@ -26,6 +26,14 @@ export class SystemScheduler {
 	private systems: SystemDef[] = [];
 	private sorted: SystemDef[] | null = null;
 	profiler: SystemProfiler | null = null;
+	/**
+	 * @internal When true, constraints naming systems not registered in THIS
+	 * scheduler are skipped instead of throwing — set by PhasedScheduler on its
+	 * per-phase buckets, where a constraint may legally point at a system in
+	 * another phase. The PhasedScheduler validates unknown targets itself
+	 * against the full registry.
+	 */
+	tolerateUnknownConstraints = false;
 
 	register(system: SystemDef) {
 		// Replace if system with same name exists
@@ -73,11 +81,32 @@ export class SystemScheduler {
 	/**
 	 * Topological sort based on after/before constraints.
 	 * Falls back to registration order for unconstrained systems.
+	 *
+	 * Validation is deferred to here — first execute() / getSystemNames()
+	 * after any register/remove — so systems can be registered in any order.
+	 * A constraint naming an unregistered system throws: silent tolerance
+	 * would let a typo quietly reorder the pipeline.
 	 */
 	private topoSort(): SystemDef[] {
 		const byName = new Map<string, SystemDef>();
 		for (const s of this.systems) {
 			byName.set(s.name, s);
+		}
+
+		if (!this.tolerateUnknownConstraints) {
+			for (const s of this.systems) {
+				for (const kind of ['after', 'before'] as const) {
+					const value = s[kind];
+					const deps = Array.isArray(value) ? value : value ? [value] : [];
+					for (const dep of deps) {
+						if (!byName.has(dep)) {
+							throw new Error(
+								`System '${s.name}' declares ${kind}: '${dep}', but no system named '${dep}' is registered.`,
+							);
+						}
+					}
+				}
+			}
 		}
 
 		// Build adjacency list: edges[a] = [b] means a must run before b
@@ -265,6 +294,10 @@ export class PhasedScheduler<P extends string = string> {
 		let bucket = this.buckets.get(phase);
 		if (!bucket) {
 			bucket = new SystemScheduler();
+			// Constraints may legally point at systems in other phases — the
+			// bucket can't see them, so unknown-target validation happens here
+			// in ensureValidated() against the full registry instead.
+			bucket.tolerateUnknownConstraints = true;
 			this.buckets.set(phase, bucket);
 		}
 		bucket.register(system);
@@ -333,7 +366,11 @@ export class PhasedScheduler<P extends string = string> {
 			const afters = Array.isArray(after) ? after : after ? [after] : [];
 			for (const dep of afters) {
 				const depEntry = this.entries.get(dep);
-				if (!depEntry) continue; // unknown deps tolerated, matching SystemScheduler
+				if (!depEntry) {
+					throw new Error(
+						`System '${name}' declares after: '${dep}', but no system named '${dep}' is registered.`,
+					);
+				}
 				const dIdx = this.phaseToIndex.get(depEntry.phase) ?? -1;
 				if (dIdx > sIdx) {
 					throw new Error(
@@ -345,7 +382,11 @@ export class PhasedScheduler<P extends string = string> {
 			const befores = Array.isArray(before) ? before : before ? [before] : [];
 			for (const dep of befores) {
 				const depEntry = this.entries.get(dep);
-				if (!depEntry) continue;
+				if (!depEntry) {
+					throw new Error(
+						`System '${name}' declares before: '${dep}', but no system named '${dep}' is registered.`,
+					);
+				}
 				const dIdx = this.phaseToIndex.get(depEntry.phase) ?? -1;
 				if (dIdx < sIdx) {
 					throw new Error(

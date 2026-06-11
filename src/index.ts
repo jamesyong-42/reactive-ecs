@@ -15,9 +15,9 @@ export {
 export { tickWorld } from './tick.js';
 export type {
 	ComponentChangedHandler,
-	ComponentInit,
 	ComponentRemovedHandler,
 	ComponentType,
+	CreateWorldOptions,
 	EntityId,
 	FrameHandler,
 	NotTerm,

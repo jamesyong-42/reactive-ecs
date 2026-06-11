@@ -18,13 +18,13 @@ describe('Origin-tagged mutations (RFC-003)', () => {
 			expect(world.mutationOrigin).toBeUndefined();
 		});
 
-		it('a handler fired by a bare setComponent reads undefined', () => {
+		it('a handler fired by a bare patchComponent reads undefined', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 0, y: 0 });
 			const seen: (string | symbol | undefined)[] = [];
 			world.onComponentChanged(Position, () => seen.push(world.mutationOrigin));
-			world.setComponent(e, Position, { x: 1 });
+			world.patchComponent(e, Position, { x: 1 });
 			expect(seen).toEqual([undefined]);
 		});
 	});
@@ -40,7 +40,7 @@ describe('Origin-tagged mutations (RFC-003)', () => {
 
 			world.withOrigin(REMOTE, () => {
 				world.addComponent(e, Position, { x: 0, y: 0 }); // add path
-				world.setComponent(e, Position, { x: 5 }); // set path
+				world.patchComponent(e, Position, { x: 5 }); // set path
 			});
 			expect(wildcard).toEqual([REMOTE, REMOTE]);
 			expect(perEntity).toEqual([REMOTE, REMOTE]);
@@ -93,7 +93,7 @@ describe('Origin-tagged mutations (RFC-003)', () => {
 			world.addComponent(e, Position, { x: 0, y: 0 });
 			const seen: (string | symbol | undefined)[] = [];
 			world.onComponentChanged(Position, () => seen.push(world.mutationOrigin));
-			world.withOrigin('peer-42', () => world.setComponent(e, Position, { x: 1 }));
+			world.withOrigin('peer-42', () => world.patchComponent(e, Position, { x: 1 }));
 			expect(seen).toEqual(['peer-42']);
 		});
 	});
@@ -107,12 +107,12 @@ describe('Origin-tagged mutations (RFC-003)', () => {
 			world.onComponentChanged(Position, () => seen.push(world.mutationOrigin));
 
 			world.withOrigin(REMOTE, () => {
-				world.withOrigin(UNDO, () => world.setComponent(e, Position, { x: 1 }));
+				world.withOrigin(UNDO, () => world.patchComponent(e, Position, { x: 1 }));
 				// After inner exit, mutations read the enclosing origin.
-				world.setComponent(e, Position, { x: 2 });
+				world.patchComponent(e, Position, { x: 2 });
 			});
 			// After outer exit, back to undefined.
-			world.setComponent(e, Position, { x: 3 });
+			world.patchComponent(e, Position, { x: 3 });
 
 			expect(seen).toEqual([UNDO, REMOTE, undefined]);
 		});
@@ -136,7 +136,7 @@ describe('Origin-tagged mutations (RFC-003)', () => {
 			expect(world.mutationOrigin).toBeUndefined();
 
 			// Subsequent mutations read the restored (no-window) value.
-			world.setComponent(e, Position, { x: 1 });
+			world.patchComponent(e, Position, { x: 1 });
 			expect(seen).toEqual([undefined]);
 		});
 
@@ -238,9 +238,9 @@ describe('Origin-tagged mutations (RFC-003)', () => {
 			world.onComponentChanged(Position, () => seen.push(world.mutationOrigin));
 
 			await world.withOrigin(REMOTE, async () => {
-				world.setComponent(e, Position, { x: 1 }); // pre-await: tagged
+				world.patchComponent(e, Position, { x: 1 }); // pre-await: tagged
 				await Promise.resolve();
-				world.setComponent(e, Position, { x: 2 }); // post-await: NOT tagged
+				world.patchComponent(e, Position, { x: 2 }); // post-await: NOT tagged
 			});
 
 			expect(seen).toEqual([REMOTE, undefined]);

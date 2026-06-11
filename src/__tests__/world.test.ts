@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defineComponent, defineResource, defineTag, Not } from '../define.js';
+import { defineComponent, defineRelation, defineResource, defineTag, Not } from '../define.js';
 import { createWorld } from '../world.js';
 
 const Position = defineComponent('Position', { x: 0, y: 0 });
@@ -69,7 +69,7 @@ describe('World', () => {
 			expect(world.queryAdded(Position)).toEqual([]);
 		});
 
-		it('remove-then-re-add in the same tick still lands in queryAdded', () => {
+		it('remove-then-re-add in the same tick is a net present→present — queryChanged only', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
@@ -80,17 +80,19 @@ describe('World', () => {
 			world.removeComponent(e, Position);
 			world.addComponent(e, Position, { x: 5 });
 
-			// The component was absent at add time — unchanged first-attach path.
+			// Events are per-mutation: the component was absent at add time.
 			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 5, y: 0 });
-			expect(world.queryAdded(Position)).toEqual([e]);
+			// Buffers are net: present at the last clearDirty() and present now.
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
 			expect(world.queryRemoved(Position)).toEqual([]);
 		});
 
-		it('sets partial component data', () => {
+		it('patches partial component data', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 10, y: 20 });
-			world.setComponent(e, Position, { x: 99 });
+			world.patchComponent(e, Position, { x: 99 });
 			const pos = world.getComponent(e, Position);
 			expect(pos).toBeDefined();
 			if (!pos) throw new Error('Position component missing');
@@ -143,22 +145,28 @@ describe('World', () => {
 		});
 	});
 
-	describe('replaceComponent', () => {
-		it('attaches when absent — emits prev undefined, lands in added + dirty', () => {
+	describe('patchComponent', () => {
+		it('shallow-merges one level — untouched fields survive', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			const handler = vi.fn();
-			world.onComponentChanged(Position, handler);
-
-			world.replaceComponent(e, Position, { x: 3, y: 4 });
-			expect(world.getComponent(e, Position)).toEqual({ x: 3, y: 4 });
-			expect(handler).toHaveBeenCalledTimes(1);
-			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 3, y: 4 });
-			expect(world.queryAdded(Position)).toEqual([e]);
-			expect(world.queryChanged(Position)).toEqual([e]);
+			world.addComponent(e, Position, { x: 1, y: 2 });
+			world.patchComponent(e, Position, { x: 9 });
+			expect(world.getComponent(e, Position)).toEqual({ x: 9, y: 2 });
 		});
 
-		it('replaces when present — emits the true prev, lands in dirty only', () => {
+		it('nested objects in the patch replace wholesale — the merge is one level deep', () => {
+			const Style = defineComponent('PatchStyle', {
+				fill: { color: 'red', opacity: 1 } as Record<string, unknown>,
+			});
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Style);
+			world.patchComponent(e, Style, { fill: { color: 'blue' } });
+			// The nested object is replaced, not merged — opacity is gone.
+			expect(world.getComponent(e, Style)).toEqual({ fill: { color: 'blue' } });
+		});
+
+		it('emits onComponentChanged with a top-level prev snapshot and lands in queryChanged', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
@@ -166,42 +174,29 @@ describe('World', () => {
 
 			const handler = vi.fn();
 			world.onComponentChanged(Position, handler);
-			world.replaceComponent(e, Position, { x: 9, y: 9 });
+			world.patchComponent(e, Position, { x: 9 });
 
 			expect(handler).toHaveBeenCalledTimes(1);
-			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 9 });
+			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 2 });
 			expect(world.queryChanged(Position)).toEqual([e]);
 			expect(world.queryAdded(Position)).toEqual([]);
 		});
 
-		it('replaces the WHOLE value — no merge with the existing one', () => {
+		it('throws on a dead entity — absence is never silent', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			world.addComponent(e, Position, { x: 7, y: 7 });
-			world.replaceComponent(e, Position, { x: 1, y: 0 });
-			// y comes from the supplied value (full shape), not the prior 7.
-			expect(world.getComponent(e, Position)).toEqual({ x: 1, y: 0 });
-		});
-
-		it('net-cancels with removeComponent in the same tick', () => {
-			const world = createWorld();
-			const e = world.createEntity();
-			world.addComponent(e, Position, { x: 1, y: 2 });
-			world.clearDirty();
-
-			world.removeComponent(e, Position);
-			expect(world.queryRemoved(Position)).toEqual([e]);
-			world.replaceComponent(e, Position, { x: 5, y: 5 });
-			expect(world.queryRemoved(Position)).toEqual([]);
-			expect(world.queryAdded(Position)).toEqual([e]);
-		});
-
-		it('throws on a dead entity', () => {
-			const world = createWorld();
-			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
 			world.destroyEntity(e);
-			expect(() => world.replaceComponent(e, Position, { x: 0, y: 0 })).toThrow(
-				/does not exist or has been destroyed/,
+			expect(() => world.patchComponent(e, Position, { x: 1 })).toThrow(
+				`patchComponent(Position): entity ${e} does not exist or has been destroyed`,
+			);
+		});
+
+		it('throws when the entity is alive but lacks the component', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			expect(() => world.patchComponent(e, Position, { x: 1 })).toThrow(
+				`patchComponent(Position): entity ${e} has no Position — use addComponent to attach`,
 			);
 		});
 	});
@@ -280,21 +275,22 @@ describe('World', () => {
 			expect(result).toEqual([e1]);
 		});
 
-		it('queryChanged returns dirty entities', () => {
+		it('queryChanged returns written entities — fresh adds land in queryAdded only', () => {
 			const world = createWorld();
 			const e1 = world.createEntity();
 			const e2 = world.createEntity();
 			world.addComponent(e1, Position, { x: 0, y: 0 });
 			world.addComponent(e2, Position, { x: 1, y: 1 });
 
-			// Both are dirty after add
-			expect(world.queryChanged(Position)).toHaveLength(2);
+			// A fresh attach is absent→present: added only, never changed.
+			expect(world.queryChanged(Position)).toHaveLength(0);
+			expect(world.queryAdded(Position)).toHaveLength(2);
 
 			// Clear dirty
 			world.clearDirty();
 
-			// Only e1 is dirty after set
-			world.setComponent(e1, Position, { x: 99 });
+			// Only e1 is dirty after patch
+			world.patchComponent(e1, Position, { x: 99 });
 			const changed = world.queryChanged(Position);
 			expect(changed).toHaveLength(1);
 			expect(changed).toContain(e1);
@@ -336,29 +332,31 @@ describe('World', () => {
 			expect(world.queryRemoved(Position)).toHaveLength(0);
 		});
 
-		it('queryRemoved net-cancels with addComponent in the same tick', () => {
+		it('remove-then-add of a component present at tick start nets to queryChanged', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
 			world.clearDirty();
 
-			// remove then add → the entity should be in `added` but NOT in `removed`
+			// remove then add → net present→present: `changed` only
 			world.removeComponent(e, Position);
 			expect(world.queryRemoved(Position)).toEqual([e]);
 			world.addComponent(e, Position, { x: 9, y: 9 });
 			expect(world.queryRemoved(Position)).toEqual([]);
-			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryChanged(Position)).toEqual([e]);
 		});
 
-		it('queryAdded net-cancels with removeComponent in the same tick', () => {
+		it('add-then-remove in the same tick is a net absent→absent — no buffer', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			// add then remove (no prior state) → added empty, removed has the entity
+			// add then remove (no prior state) → all three buffers empty
 			world.addComponent(e, Position, { x: 0, y: 0 });
 			expect(world.queryAdded(Position)).toEqual([e]);
 			world.removeComponent(e, Position);
 			expect(world.queryAdded(Position)).toEqual([]);
-			expect(world.queryRemoved(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
 		});
 
 		it('queryRemoved includes entities torn down by destroyEntity', () => {
@@ -386,14 +384,14 @@ describe('World', () => {
 			expect(world.queryAddedTag(Selected)).toHaveLength(0);
 		});
 
-		it('queryAddedTag net-cancels with removeTag in the same tick', () => {
+		it('addTag-then-removeTag in the same tick is a net absent→absent — no buffer', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addTag(e, Selected);
 			expect(world.queryAddedTag(Selected)).toEqual([e]);
 			world.removeTag(e, Selected);
 			expect(world.queryAddedTag(Selected)).toEqual([]);
-			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+			expect(world.queryRemovedTag(Selected)).toEqual([]);
 		});
 
 		it('queryRemovedTag returns entities that lost a tag this tick', () => {
@@ -405,7 +403,7 @@ describe('World', () => {
 			expect(world.queryRemovedTag(Selected)).toEqual([e]);
 		});
 
-		it('queryRemovedTag net-cancels with addTag in the same tick', () => {
+		it('removeTag-then-addTag of a tag held at tick start is vacuous — no buffer', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addTag(e, Selected);
@@ -413,8 +411,9 @@ describe('World', () => {
 			world.removeTag(e, Selected);
 			expect(world.queryRemovedTag(Selected)).toEqual([e]);
 			world.addTag(e, Selected);
+			// Net present→present and tags have no changed buffer — nothing.
 			expect(world.queryRemovedTag(Selected)).toEqual([]);
-			expect(world.queryAddedTag(Selected)).toEqual([e]);
+			expect(world.queryAddedTag(Selected)).toEqual([]);
 		});
 
 		it('queryRemovedTag includes entities torn down by destroyEntity', () => {
@@ -443,6 +442,99 @@ describe('World', () => {
 			// no Position attached
 			world.removeComponent(e, Position);
 			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+	});
+
+	describe('per-tick buffer partition', () => {
+		// The three buffers partition entities by NET transition since the last
+		// clearDirty(): absent→present = added; present→present with ≥1 write =
+		// changed; present→absent = removed; absent→absent = nothing.
+
+		it('add + patch in the same tick → added only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.patchComponent(e, Position, { y: 2 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+
+		it('patch only → changed only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.patchComponent(e, Position, { x: 2 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+
+		it('re-add (replace) of a component present at tick start → changed only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.addComponent(e, Position, { x: 2 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+		});
+
+		it('destroy of a pre-existing component/tag owner → removed only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.addTag(e, Selected);
+			world.clearDirty();
+			world.destroyEntity(e);
+			expect(world.queryRemoved(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+			expect(world.queryAddedTag(Selected)).toEqual([]);
+		});
+
+		it('create + add + destroy in the same tick → no buffer at all', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.patchComponent(e, Position, { x: 2 });
+			world.addTag(e, Selected);
+			world.destroyEntity(e);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+			expect(world.queryAddedTag(Selected)).toEqual([]);
+			expect(world.queryRemovedTag(Selected)).toEqual([]);
+		});
+
+		it('patch after destroy-survivor remove still classifies against tick start', () => {
+			// remove → re-add → patch, all same tick, component present at start:
+			// the entity stays a net present→present write — changed only.
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.removeComponent(e, Position);
+			world.addComponent(e, Position, { x: 5 });
+			world.patchComponent(e, Position, { y: 9 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+
+		it('the partition resets at clearDirty — next tick classifies against the new baseline', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.removeComponent(e, Position);
+			world.clearDirty();
+			// Present→absent happened LAST tick; this tick the add is a true attach.
+			world.addComponent(e, Position, { x: 2 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
 		});
 	});
 
@@ -762,7 +854,7 @@ describe('World', () => {
 			expect(handler).toHaveBeenCalledTimes(1);
 
 			unsub();
-			world.setComponent(e, Position, { x: 99 });
+			world.patchComponent(e, Position, { x: 99 });
 			expect(handler).toHaveBeenCalledTimes(1); // not called again
 		});
 
@@ -893,6 +985,238 @@ describe('World', () => {
 
 			world.getResource(A);
 			expect(() => world.getResource(B)).toThrow(/Resource name collision/i);
+		});
+	});
+
+	describe('freeze option — dev-mode ownership enforcement', () => {
+		it('freeze on: mutating a component read throws in strict mode — top level and nested', () => {
+			const Box = defineComponent('FreezeBox', { v: 0, nested: { count: 0 }, list: [1] });
+			const world = createWorld({ freeze: true });
+			const e = world.createEntity();
+			world.addComponent(e, Box, { v: 1 });
+
+			const read = world.getComponent(e, Box) as {
+				v: number;
+				nested: { count: number };
+				list: number[];
+			};
+			expect(() => {
+				read.v = 99;
+			}).toThrow(TypeError);
+			expect(() => {
+				read.nested.count = 99;
+			}).toThrow(TypeError);
+			expect(() => read.list.push(2)).toThrow(TypeError);
+			// The store is untouched by the rejected writes.
+			expect(world.getComponent(e, Box)).toEqual({ v: 1, nested: { count: 0 }, list: [1] });
+		});
+
+		it('freeze on: patched values are frozen too — the API write path still works', () => {
+			const Box = defineComponent('FreezeBox2', { v: 0, nested: { count: 0 } });
+			const world = createWorld({ freeze: true });
+			const e = world.createEntity();
+			world.addComponent(e, Box);
+			world.patchComponent(e, Box, { nested: { count: 5 } });
+
+			const read = world.getComponent(e, Box) as { v: number; nested: { count: number } };
+			expect(read).toEqual({ v: 0, nested: { count: 5 } });
+			expect(() => {
+				read.nested.count = 9;
+			}).toThrow(TypeError);
+		});
+
+		it('freeze on: mutating a resource read throws — including nested plain objects', () => {
+			const Cfg = defineResource('FreezeCfg', { opts: { darkMode: false } });
+			const world = createWorld({ freeze: true });
+			world.setResource(Cfg, { opts: { darkMode: true } });
+
+			const read = world.getResource(Cfg) as { opts: { darkMode: boolean } };
+			expect(() => {
+				read.opts.darkMode = false;
+			}).toThrow(TypeError);
+			// Lazy default instantiation is frozen as well.
+			const Lazy = defineResource('FreezeLazy', { nested: { n: 0 } });
+			const lazyRead = world.getResource(Lazy) as { nested: { n: number } };
+			expect(() => {
+				lazyRead.nested.n = 1;
+			}).toThrow(TypeError);
+		});
+
+		it('freeze on: class instances in component data stay mutable — they remain the caller’s', () => {
+			class SpatialIndex {
+				count = 0;
+			}
+			const Indexed = defineComponent('FreezeIndexed', { index: null as SpatialIndex | null });
+			const world = createWorld({ freeze: true });
+			const e = world.createEntity();
+			const instance = new SpatialIndex();
+			world.addComponent(e, Indexed, { index: instance });
+
+			const read = world.getComponent(e, Indexed);
+			expect(read?.index).toBe(instance);
+			expect(Object.isFrozen(read?.index)).toBe(false);
+			if (read?.index) read.index.count = 7; // in-place mutation is legal
+			expect(instance.count).toBe(7);
+		});
+
+		it('default off: reads stay mutable in place (unchanged behavior)', () => {
+			const Box = defineComponent('NoFreezeBox', { nested: { count: 0 } });
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Box);
+			const read = world.getComponent(e, Box) as { nested: { count: number } };
+			expect(() => {
+				read.nested.count = 42;
+			}).not.toThrow();
+			expect(world.getComponent(e, Box)?.nested.count).toBe(42);
+		});
+	});
+
+	describe('disposeQuery', () => {
+		it('drops the cache entry; re-querying rebuilds correctly via one scan', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			world.addComponent(e1, Position, { x: 1, y: 1 });
+			expect(world.query(Position)).toEqual([e1]);
+
+			world.disposeQuery(Position);
+			// Mutations while the entry is disposed are not incrementally
+			// maintained — the rebuild must still see them.
+			const e2 = world.createEntity();
+			world.addComponent(e2, Position, { x: 2, y: 2 });
+			expect(world.query(Position).sort()).toEqual([e1, e2]);
+		});
+
+		it('is signature-exact and order-insensitive, like query()', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			world.addTag(e, Selected);
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+			expect(world.query(Position, Selected)).toEqual([e]);
+
+			// Disposing the reordered spelling drops the same entry; the other
+			// signature is untouched.
+			world.disposeQuery(Not(Velocity), Position);
+			expect(world.query(Position, Selected)).toEqual([e]);
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+		});
+
+		it('incremental maintenance works again after the rebuild', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			world.addComponent(e1, Position, { x: 1, y: 1 });
+			world.query(Position);
+			world.disposeQuery(Position);
+			world.query(Position); // rebuild
+
+			const e2 = world.createEntity();
+			world.addComponent(e2, Position, { x: 2, y: 2 });
+			expect(world.query(Position).sort()).toEqual([e1, e2]);
+			world.removeComponent(e1, Position);
+			expect(world.query(Position)).toEqual([e2]);
+			world.destroyEntity(e2);
+			expect(world.query(Position)).toEqual([]);
+		});
+
+		it('is a no-op for a never-queried signature', () => {
+			const world = createWorld();
+			expect(() => world.disposeQuery(Position, Not(Selected))).not.toThrow();
+		});
+	});
+
+	describe('mutation guard during the destroy sweep', () => {
+		const GUARD = /cannot mutate the world from a handler during entity teardown/;
+
+		it('a handler mutating during destroy throws — addComponent / patchComponent / destroyEntity / relate', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			const other = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 1 });
+			world.addComponent(other, Position, { x: 2, y: 2 });
+
+			let checked = false;
+			world.onComponentRemoved(Position, (id) => {
+				if (id !== e) return;
+				expect(() => world.addComponent(other, Velocity, { dx: 1 })).toThrow(GUARD);
+				expect(() => world.patchComponent(other, Position, { x: 9 })).toThrow(GUARD);
+				expect(() => world.destroyEntity(other)).toThrow(GUARD);
+				expect(() => world.relate(other, defineRelation('GuardRel'), other)).toThrow(GUARD);
+				checked = true;
+			});
+
+			world.destroyEntity(e);
+			expect(checked).toBe(true);
+			// The world is intact after the rejected mutations.
+			expect(world.entityExists(other)).toBe(true);
+			expect(world.getComponent(other, Position)).toEqual({ x: 2, y: 2 });
+		});
+
+		it('onEntityDestroyed and onTagRemoved are inside the guard too', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+
+			let checks = 0;
+			world.onEntityDestroyed(() => {
+				expect(() => world.createEntity()).toThrow(GUARD);
+				expect(() => world.setResource(Camera, { x: 1 })).toThrow(GUARD);
+				checks++;
+			});
+			world.onTagRemoved(Selected, () => {
+				expect(() => world.addTag(e, Visible)).toThrow(GUARD);
+				expect(() => world.removeTag(e, Selected)).toThrow(GUARD);
+				checks++;
+			});
+
+			world.destroyEntity(e);
+			expect(checks).toBe(2);
+		});
+
+		it('handler mutations OUTSIDE a destroy still work', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.onComponentChanged(Position, (id) => {
+				// Observe-and-mutate outside teardown is legal.
+				world.addTag(id, Selected);
+			});
+			world.addComponent(e, Position, { x: 1, y: 1 });
+			expect(world.hasTag(e, Selected)).toBe(true);
+			// And a later removeComponent outside destroy works as before.
+			world.removeComponent(e, Position);
+			expect(world.hasComponent(e, Position)).toBe(false);
+		});
+
+		it('onTargetDestroy policy effects still apply after the sweep — cascade and { tag }', () => {
+			const Cancelled = defineTag('GuardCancelled');
+			const CascadeRel = defineRelation('GuardCascade', { onTargetDestroy: 'cascade' });
+			const TagRel = defineRelation('GuardTag', { onTargetDestroy: { tag: Cancelled } });
+			const world = createWorld();
+			const chrome = world.createEntity();
+			const watcher = world.createEntity();
+			const target = world.createEntity();
+			world.relate(chrome, CascadeRel, target);
+			world.relate(watcher, TagRel, target);
+
+			// The deferred effects are the world's own mutations — legal.
+			world.destroyEntity(target);
+			expect(world.entityExists(chrome)).toBe(false);
+			expect(world.hasTag(watcher, Cancelled)).toBe(true);
+		});
+
+		it('nested cascade destroys still work — the guard lifts between sweeps', () => {
+			const ChainRel = defineRelation('GuardChain', { onTargetDestroy: 'cascade' });
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+			const c = world.createEntity();
+			world.relate(a, ChainRel, b);
+			world.relate(b, ChainRel, c);
+
+			world.destroyEntity(c);
+			expect(world.entityExists(a)).toBe(false);
+			expect(world.entityExists(b)).toBe(false);
+			expect(world.entityExists(c)).toBe(false);
 		});
 	});
 
@@ -1225,14 +1549,14 @@ describe('World', () => {
 	});
 
 	describe('write aliasing', () => {
-		it('setComponent clones incoming plain data — caller aliases cannot mutate world state', () => {
+		it('patchComponent clones incoming plain data — caller aliases cannot mutate world state', () => {
 			const Box = defineComponent('AliasBox', { inner: { v: 0 }, list: [0] });
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Box);
 			const inner = { v: 99 };
 			const data = { inner, list: [1, 2] };
-			world.setComponent(e, Box, data);
+			world.patchComponent(e, Box, data);
 			inner.v = 123;
 			data.list.push(3);
 			expect(world.getComponent(e, Box)).toEqual({ inner: { v: 99 }, list: [1, 2] });
@@ -1247,7 +1571,7 @@ describe('World', () => {
 			expect(world.getResource(Cfg).opts.darkMode).toBe(true);
 		});
 
-		it('setComponent prev snapshot does not alias next at the top level', () => {
+		it('patchComponent prev snapshot does not alias next at the top level', () => {
 			const Box = defineComponent('AliasBox2', { v: 0 });
 			const world = createWorld();
 			const e = world.createEntity();
@@ -1256,7 +1580,7 @@ describe('World', () => {
 			world.onComponentChanged(Box, (_id, prev, next) => {
 				captured = { prev, next };
 			});
-			world.setComponent(e, Box, { v: 1 });
+			world.patchComponent(e, Box, { v: 1 });
 			expect(captured.prev).not.toBe(captured.next);
 			expect(captured.prev).toEqual({ v: 0 });
 			expect(captured.next).toEqual({ v: 1 });

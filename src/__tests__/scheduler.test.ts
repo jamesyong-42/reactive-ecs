@@ -93,17 +93,56 @@ describe('SystemScheduler', () => {
 		expect(order).toEqual(['a2']);
 	});
 
-	it('ignores after/before referencing non-existent systems', () => {
-		const order: string[] = [];
-		const scheduler = new SystemScheduler();
-		const world = createWorld();
+	describe('unknown constraint targets', () => {
+		it('throws at first execute when after names an unregistered system', () => {
+			const scheduler = new SystemScheduler();
+			const world = createWorld();
 
-		scheduler.register(
-			defineSystem({ name: 'a', after: 'nonexistent', execute: () => order.push('a') }),
-		);
+			scheduler.register(defineSystem({ name: 'render', after: 'phsyics', execute: () => {} }));
 
-		scheduler.execute(world);
-		expect(order).toEqual(['a']);
+			expect(() => scheduler.execute(world)).toThrow(
+				"System 'render' declares after: 'phsyics', but no system named 'phsyics' is registered.",
+			);
+		});
+
+		it('throws at first execute when before names an unregistered system', () => {
+			const scheduler = new SystemScheduler();
+			const world = createWorld();
+
+			scheduler.register(defineSystem({ name: 'a', before: 'missing', execute: () => {} }));
+
+			expect(() => scheduler.execute(world)).toThrow(
+				"System 'a' declares before: 'missing', but no system named 'missing' is registered.",
+			);
+		});
+
+		it('register-in-any-order still works — validation is deferred to execute', () => {
+			const order: string[] = [];
+			const scheduler = new SystemScheduler();
+			const world = createWorld();
+
+			// 'b' names 'a' before 'a' exists — legal, as long as 'a' arrives
+			// before the first execute.
+			scheduler.register(defineSystem({ name: 'b', after: 'a', execute: () => order.push('b') }));
+			scheduler.register(defineSystem({ name: 'a', execute: () => order.push('a') }));
+
+			expect(() => scheduler.execute(world)).not.toThrow();
+			expect(order).toEqual(['a', 'b']);
+		});
+
+		it('removing a constraint target re-validates on the next execute', () => {
+			const scheduler = new SystemScheduler();
+			const world = createWorld();
+
+			scheduler.register(defineSystem({ name: 'a', execute: () => {} }));
+			scheduler.register(defineSystem({ name: 'b', after: 'a', execute: () => {} }));
+			expect(() => scheduler.execute(world)).not.toThrow();
+
+			scheduler.remove('a');
+			expect(() => scheduler.execute(world)).toThrow(
+				"System 'b' declares after: 'a', but no system named 'a' is registered.",
+			);
+		});
 	});
 
 	it('ignores duplicate dependencies instead of reporting a false cycle', () => {
@@ -273,7 +312,7 @@ describe('SystemScheduler', () => {
 
 			// Tick 0: C changed this tick → runs.
 			tick = 0;
-			world.setComponent(e, C, { v: 1 });
+			world.patchComponent(e, C, { v: 1 });
 			scheduler.execute(world);
 			world.clearDirty();
 
@@ -284,7 +323,7 @@ describe('SystemScheduler', () => {
 
 			// Tick 2: C changed again → runs.
 			tick = 2;
-			world.setComponent(e, C, { v: 2 });
+			world.patchComponent(e, C, { v: 2 });
 			scheduler.execute(world);
 			world.clearDirty();
 

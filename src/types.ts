@@ -71,6 +71,14 @@ export interface SystemDef {
 	 * cross-phase ordering.
 	 */
 	readonly phase?: string;
+	/**
+	 * Names of systems this one must run after / before. Validated lazily at
+	 * the first `execute()` (and re-validated after every register/remove), so
+	 * systems can be registered in any order — but a constraint naming a
+	 * system that is never registered throws, naming both parties. Silent
+	 * tolerance would let a typo quietly reorder the pipeline. Optional
+	 * cross-configuration ordering belongs to phases, not constraints.
+	 */
 	readonly after?: string | string[];
 	readonly before?: string | string[];
 	/**
@@ -91,8 +99,20 @@ export interface SystemDef {
 /** Query result — array of entity IDs */
 export type QueryResult = EntityId[];
 
-/** Component initializer for entity creation */
-export type ComponentInit = [ComponentType<unknown>, unknown] | [TagType];
+/** Options for createWorld(). */
+export interface CreateWorldOptions {
+	/**
+	 * Dev-mode option: deep-freeze exactly what the world clones — plain
+	 * objects and arrays at any depth, never class instances — wherever
+	 * cloned data enters a store (addComponent, patchComponent, resource
+	 * instantiation, setResource). Clone and freeze are two enforcements of
+	 * the same ownership boundary: plain data crossing the API is owned by
+	 * the world. With freeze on, in-place mutation of a read then throws in
+	 * strict mode instead of silently bypassing change tracking.
+	 * Default: false.
+	 */
+	readonly freeze?: boolean;
+}
 
 /**
  * Event handler types. Payloads are typed `Readonly` for the same reason
@@ -131,7 +151,7 @@ export type ResourceChangedHandler<T = unknown> = (prev: Readonly<T>, next: Read
  * Fired synchronously when a relation edge is added or removed. Removal
  * handlers also fire for each edge torn down by `destroyEntity` of either
  * endpoint — during the destroy sweep the dying entity's components and tags
- * are still readable, but handlers must not mutate the world mid-destroy.
+ * are still readable, but mutating the world from a handler mid-sweep throws.
  */
 export type RelationHandler = (source: EntityId, target: EntityId) => void;
 
@@ -191,7 +211,10 @@ export interface World {
 	/**
 	 * Destroys an entity and removes all its components, tags, and relation
 	 * edges (as source or target — applying each relation's `onTargetDestroy`
-	 * policy after teardown completes).
+	 * policy after teardown completes). Handlers fired during the teardown
+	 * sweep may read the dying entity but not mutate the world — every
+	 * mutating method throws until the sweep completes. React via the removed
+	 * buffers or an `onTargetDestroy` policy instead.
 	 */
 	destroyEntity(id: EntityId): void;
 	/** Checks if an entity ID is still alive. */
@@ -219,12 +242,14 @@ export interface World {
 	// Component access
 
 	/**
-	 * Attaches a component to an entity — attach-or-replace. The value is
-	 * `data` merged over the type's defaults; partial initialization is safe,
-	 * and omitted data attaches pure defaults. When the entity already has the
-	 * component, the existing value is replaced: observers receive the existing
-	 * value as `prev` and the entity lands in the `queryChanged` buffer only —
-	 * `prev === undefined` in observers reliably means first attach.
+	 * Attaches a component to an entity — attach-or-replace (upsert). The
+	 * value is `data` merged over the type's defaults; partial initialization
+	 * is safe, and omitted data attaches pure defaults. When the entity
+	 * already has the component, the existing value is replaced: observers
+	 * receive the existing value as `prev` — `prev === undefined` in observers
+	 * reliably means first attach. Buffers record the NET transition since the
+	 * last clearDirty(): absent then → `queryAdded`, present then →
+	 * `queryChanged`.
 	 */
 	addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>): void;
 	/** Removes a component from an entity. */
@@ -232,23 +257,26 @@ export interface World {
 	/**
 	 * Reads a component from an entity. Returns undefined if not present.
 	 * The returned object is the live store value typed read-only; write
-	 * through `setComponent` / `replaceComponent`.
+	 * through `patchComponent` / `addComponent`.
 	 */
 	getComponent<T>(entity: EntityId, type: ComponentType<T>): Readonly<T> | undefined;
 	/** Checks if an entity has a component. */
 	hasComponent(entity: EntityId, type: ComponentType): boolean;
-	/** Partially updates a component on an entity (shallow merge). */
-	setComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>): void;
 	/**
-	 * Full-value upsert: the component's next value is a recursive clone of
-	 * `data` merged over the type's defaults. Unlike `setComponent` (shallow
-	 * merge into the existing value, no-op if absent) and `addComponent`
-	 * (defaults-merge attach-or-replace with optional partial data), the
-	 * caller supplies the complete value. Observers receive the true prev
-	 * (`undefined` if the component was absent); buffers record absent →
-	 * added + dirty, present → dirty only. Throws if the entity is not alive.
+	 * Strict shallow-merge update of an existing component: one level deep,
+	 * nested objects in `data` replace wholesale. Incoming plain data is
+	 * defensively cloned; observers receive a top-level snapshot of the prior
+	 * value as `prev`. The entity lands in the buffer matching its net
+	 * transition: `queryChanged` when the component was present at the last
+	 * `clearDirty()`, while a component attached this tick stays in
+	 * `queryAdded`.
+	 * Non-creating by design — absence is never silent: throws if the entity
+	 * is dead, and throws if the entity is alive but lacks the component (use
+	 * `addComponent` to attach). For writes that may race a destroy (async
+	 * callbacks, timers), the idiomatic guard is
+	 * `if (world.entityExists(id)) world.patchComponent(id, Type, data)`.
 	 */
-	replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T): void;
+	patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>): void;
 
 	// Tag access
 
@@ -266,7 +294,7 @@ export interface World {
 	 * target is not alive — a born-dangling edge is impossible. No-op if the
 	 * exact edge already exists. If an exclusivity bound would be violated,
 	 * the existing edge is replaced: removed-then-added events fire, mirroring
-	 * setComponent overwrite semantics.
+	 * addComponent overwrite semantics.
 	 */
 	relate(source: EntityId, type: RelationType, target: EntityId): void;
 	/**
@@ -278,46 +306,77 @@ export interface World {
 	getTargets(source: EntityId, type: RelationType): EntityId[];
 	/** Returns source's single target — convenience for sourceExclusive relations. */
 	getTarget(source: EntityId, type: RelationType): EntityId | undefined;
-	/** Returns the sources pointing at `target` — the always-coherent inverse. `[]` if none. */
-	getSources(type: RelationType, target: EntityId): EntityId[];
+	/**
+	 * Returns the sources pointing at `target` — the always-coherent inverse.
+	 * `[]` if none. Entity-first like every per-entity read/write:
+	 * `(entity, type, ...)`.
+	 */
+	getSources(target: EntityId, type: RelationType): EntityId[];
 
 	// Queries
 
 	/** Returns entity IDs matching all positive types and none of the Not() types. */
 	query(...types: (ComponentType | TagType | NotTerm)[]): QueryResult;
-	/** Returns entities whose component changed this tick. */
+	/**
+	 * Drops the cache entry and reverse-index registrations for this exact
+	 * query signature (order-insensitive, like `query`). No-op if the
+	 * signature was never queried. A later `query` with the same signature
+	 * rebuilds the cache with one scan over the smallest candidate store —
+	 * that rebuild is the only full-scan path in the library; once rebuilt,
+	 * the entry is maintained incrementally again.
+	 */
+	disposeQuery(...types: (ComponentType | TagType | NotTerm)[]): void;
+	/**
+	 * Returns entities whose NET transition for this component since the last
+	 * `clearDirty()` is present→present with at least one write. The three
+	 * per-tick buffers (`queryAdded` / `queryChanged` / `queryRemoved`)
+	 * partition touched entities by net transition and are disjoint by
+	 * definition — a fresh attach lands in `queryAdded` only, never here.
+	 */
 	queryChanged(type: ComponentType): QueryResult;
-	/** Returns entities that received this component this tick. */
+	/**
+	 * Returns entities whose net transition for this component since the last
+	 * `clearDirty()` is absent→present. Disjoint from `queryChanged` and
+	 * `queryRemoved`; an add followed by a remove in the same tick
+	 * (absent→absent) lands in no buffer.
+	 */
 	queryAdded(type: ComponentType): QueryResult;
 	/**
-	 * Returns entities that lost this component this tick — via `removeComponent`
-	 * or `destroyEntity`. Mirror of `queryAdded`. Net-cancels with `addComponent`
-	 * in the same tick.
+	 * Returns entities whose net transition for this component since the last
+	 * `clearDirty()` is present→absent — via `removeComponent` or
+	 * `destroyEntity`. A remove followed by a re-add in the same tick is
+	 * present→present and lands in `queryChanged` instead.
 	 */
 	queryRemoved(type: ComponentType): QueryResult;
 	/** Returns all entities with a specific tag. */
 	queryTagged(type: TagType): QueryResult;
 	/**
-	 * Returns entities that gained this tag this tick. Mirror of `queryAdded`
-	 * for tags. Net-cancels with `removeTag` in the same tick.
+	 * Returns entities whose net transition for this tag since the last
+	 * `clearDirty()` is absent→present. Tags have no changed buffer:
+	 * remove-then-re-add of a tag held at the last `clearDirty()` is a
+	 * vacuous present→present and lands in no buffer.
 	 */
 	queryAddedTag(type: TagType): QueryResult;
 	/**
-	 * Returns entities that lost this tag this tick — via `removeTag` or
-	 * `destroyEntity`. Net-cancels with `addTag` in the same tick.
+	 * Returns entities whose net transition for this tag since the last
+	 * `clearDirty()` is present→absent — via `removeTag` or `destroyEntity`.
+	 * Add-then-remove in the same tick (absent→absent) lands in no buffer.
 	 */
 	queryRemovedTag(type: TagType): QueryResult;
 	/** Returns all live edges of a relation as `[source, target]` pairs. */
 	queryRelation(type: RelationType): RelationEdge[];
 	/**
-	 * Returns edges added this tick. Mirror of `queryAdded` for relations.
-	 * Net-cancels with `unrelate` of the same edge in the same tick.
+	 * Returns edges whose net transition since the last `clearDirty()` is
+	 * absent→present. Edges have no changed buffer: unrelate-then-re-relate of
+	 * an edge present at the last `clearDirty()` is a vacuous present→present
+	 * and lands in no buffer.
 	 */
 	queryRelationAdded(type: RelationType): RelationEdge[];
 	/**
-	 * Returns edges removed this tick — via `unrelate`, exclusivity
-	 * replacement, or `destroyEntity` of either endpoint. Net-cancels with
-	 * `relate` of the same edge in the same tick.
+	 * Returns edges whose net transition since the last `clearDirty()` is
+	 * present→absent — via `unrelate`, exclusivity replacement, or
+	 * `destroyEntity` of either endpoint. Relate-then-unrelate in the same
+	 * tick (absent→absent) lands in no buffer.
 	 */
 	queryRelationRemoved(type: RelationType): RelationEdge[];
 	/**
@@ -376,8 +435,8 @@ export interface World {
 	 * `onRelationAdded`: bare `EntityId` = source, `{ target }` = edges into
 	 * that target, `{ source, target }` = the exact edge. Also fires for each
 	 * edge torn down by `destroyEntity` of either endpoint — the dying entity's
-	 * components and tags are still readable at fire-time, but handlers must
-	 * not mutate mid-destroy.
+	 * components and tags are still readable at fire-time, but mutating the
+	 * world mid-sweep throws.
 	 */
 	onRelationRemoved(
 		type: RelationType,
@@ -416,7 +475,10 @@ export interface World {
 
 	// Frame lifecycle (used by engine after tick)
 
-	/** Clears per-frame dirty tracking state. */
+	/**
+	 * Clears the per-tick buffers and the transition baselines they classify
+	 * against — the partition point for the added/changed/removed buffers.
+	 */
 	clearDirty(): void;
 	/** Increments the tick counter. */
 	incrementTick(): void;

@@ -2,6 +2,7 @@ import type {
 	ComponentChangedHandler,
 	ComponentRemovedHandler,
 	ComponentType,
+	CreateWorldOptions,
 	EntityId,
 	FrameHandler,
 	NotTerm,
@@ -26,6 +27,12 @@ interface ComponentStore<T = unknown> {
 	dirty: Set<EntityId>;
 	added: Set<EntityId>;
 	removed: Set<EntityId>;
+	/**
+	 * Presence at FIRST touch this tick, recorded on the first mutation of
+	 * (store, entity) since the last clearDirty(). The reference point for
+	 * classifying the net transition into exactly one per-tick buffer.
+	 */
+	baseline: Map<EntityId, boolean>;
 	handlers: Map<EntityId | '*', Set<ComponentChangedHandler<T>>>;
 	removedHandlers: Map<EntityId | '*', Set<ComponentRemovedHandler<T>>>;
 }
@@ -37,6 +44,8 @@ interface TagStore {
 	entities: Set<EntityId>;
 	added: Set<EntityId>;
 	removed: Set<EntityId>;
+	/** Presence at first touch this tick — see ComponentStore.baseline. */
+	baseline: Map<EntityId, boolean>;
 	addedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 }
@@ -49,10 +58,12 @@ interface RelationStore {
 	forward: Map<EntityId, Set<EntityId>>;
 	/** target → sources (targetExclusive ⇒ size ≤ 1) */
 	inverse: Map<EntityId, Set<EntityId>>;
-	/** Edge keys added this tick */
+	/** Edge keys whose net transition this tick is absent→present */
 	added: Set<string>;
-	/** Edge keys removed this tick (including destroy-driven removals) */
+	/** Edge keys whose net transition this tick is present→absent (including destroy-driven removals) */
 	removed: Set<string>;
+	/** Edge presence at first touch this tick — see ComponentStore.baseline. */
+	baseline: Map<string, boolean>;
 	addedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
 	/** Per-target handler maps — the wildcard stays in the source-keyed maps. */
@@ -164,7 +175,7 @@ function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
 /**
  * Defensive clone of incoming partial write data — same plain-data rules as
  * `instantiateDefaults` (arrays / plain objects cloned recursively, class
- * instances by reference). Used by `setComponent` / `setResource` so a
+ * instances by reference). Used by `patchComponent` / `setResource` so a
  * caller-held alias to nested data can never mutate world state silently.
  */
 function clonePartial<T>(data: Partial<T>): Partial<T> {
@@ -175,14 +186,97 @@ function clonePartial<T>(data: Partial<T>): Partial<T> {
 	return out;
 }
 
-export function createWorld(): World {
+/**
+ * Classify a key's NET transition since the last clearDirty() into exactly
+ * one per-tick buffer. `baseline` records presence at the FIRST touch this
+ * tick; each subsequent mutation re-derives the net transition against it:
+ *
+ *   absent→present  = added;   present→present (≥1 write) = changed
+ *   present→absent  = removed; absent→absent              = nothing
+ *
+ * `changed` is null for stores without a changed buffer (tags, relation
+ * edges) — there, present→present is vacuous and lands nowhere.
+ */
+function classifyTransition<K>(
+	baseline: Map<K, boolean>,
+	added: Set<K>,
+	changed: Set<K> | null,
+	removed: Set<K>,
+	key: K,
+	presentBefore: boolean,
+	presentNow: boolean,
+): void {
+	let base = baseline.get(key);
+	if (base === undefined) {
+		base = presentBefore;
+		baseline.set(key, base);
+	}
+	added.delete(key);
+	changed?.delete(key);
+	removed.delete(key);
+	if (presentNow) {
+		if (base) changed?.add(key);
+		else added.add(key);
+	} else if (base) {
+		removed.add(key);
+	}
+}
+
+/**
+ * Recursively deep-freeze plain data in place — the mirror of
+ * `clonePlainData`: arrays and objects whose constructor is `Object` are
+ * frozen at every depth; class instances (and anything else) are left
+ * untouched. Freezing exactly what the world clones makes clone and freeze
+ * two enforcements of the same ownership boundary.
+ */
+function deepFreezePlain(value: unknown): void {
+	if (Array.isArray(value)) {
+		Object.freeze(value);
+		for (const item of value) deepFreezePlain(item);
+		return;
+	}
+	if (value !== null && typeof value === 'object' && (value as object).constructor === Object) {
+		Object.freeze(value);
+		for (const key in value as Record<string, unknown>) {
+			deepFreezePlain((value as Record<string, unknown>)[key]);
+		}
+	}
+}
+
+export function createWorld(options?: CreateWorldOptions): World {
 	let nextEntityId = 1;
 	let currentTick = 0;
+	// Dev-mode ownership enforcement — freeze exactly what the world clones,
+	// wherever cloned data enters a store. See CreateWorldOptions.freeze.
+	const freezeEnabled = options?.freeze === true;
+
+	/** Deep-freeze plain data entering a store when `freeze` is on. */
+	function maybeFreeze<T>(value: T): T {
+		if (freezeEnabled) deepFreezePlain(value);
+		return value;
+	}
 	// Origin tag for the current synchronous mutation window — set by
 	// withOrigin(), read by handlers via world.mutationOrigin. `undefined`
 	// (no window) is the unforgeable "local" origin.
 	let mutationOrigin: string | symbol | undefined;
+	// True while destroyEntity runs its teardown sweep. Handlers fired during
+	// the sweep (onEntityDestroyed, onComponentRemoved, onTagRemoved,
+	// onRelationRemoved) observe a half-destroyed entity — mutating from there
+	// is rejected. The flag lifts BEFORE deferred onTargetDestroy policy
+	// effects apply: those are mutations the world itself performs. Scope is
+	// the destroy sweep only — no general reentrancy lock.
+	let tearingDown = false;
 	const alive = new Set<EntityId>();
+
+	/** Reject mutation while a destroy sweep is in progress. */
+	function assertNotTearingDown() {
+		if (tearingDown) {
+			throw new Error(
+				'cannot mutate the world from a handler during entity teardown — ' +
+					'react via the removed buffers or an onTargetDestroy policy instead',
+			);
+		}
+	}
 
 	// Component storage: one Map per component type
 	const components = new Map<string, ComponentStore>();
@@ -335,6 +429,7 @@ export function createWorld(): World {
 			dirty: new Set(),
 			added: new Set(),
 			removed: new Set(),
+			baseline: new Map(),
 			handlers: new Map(),
 			removedHandlers: new Map(),
 		};
@@ -359,6 +454,7 @@ export function createWorld(): World {
 			entities: new Set(),
 			added: new Set(),
 			removed: new Set(),
+			baseline: new Map(),
 			addedHandlers: new Map(),
 			removedHandlers: new Map(),
 		};
@@ -383,6 +479,7 @@ export function createWorld(): World {
 			inverse: new Map(),
 			added: new Set(),
 			removed: new Set(),
+			baseline: new Map(),
 			addedHandlers: new Map(),
 			removedHandlers: new Map(),
 			addedTargetHandlers: new Map(),
@@ -405,20 +502,12 @@ export function createWorld(): World {
 		}
 		const store: ResourceStore<T> = {
 			type,
-			value: instantiateDefaults(type.defaults),
+			value: maybeFreeze(instantiateDefaults(type.defaults)),
 			handlers: new Set(),
 		};
 		// Cast to the erased type held in the Map. Safe — see note on getComponentStore's return.
 		resources.set(type.name, store as ResourceStore);
 		return store;
-	}
-
-	function hasListeners<T>(store: ComponentStore<T>): boolean {
-		if (store.handlers.size === 0) return false;
-		for (const set of store.handlers.values()) {
-			if (set.size > 0) return true;
-		}
-		return false;
 	}
 
 	function emitComponentChanged<T>(
@@ -505,9 +594,10 @@ export function createWorld(): World {
 	}
 
 	/**
-	 * Remove a single edge from both indexes, populate the `removed` buffer
-	 * (net-cancelling a same-tick add), and emit onRelationRemoved. Shared by
-	 * unrelate, exclusivity replacement, and the destroy sweep.
+	 * Remove a single edge from both indexes, classify the edge's net
+	 * transition into the per-tick buffers, and emit onRelationRemoved.
+	 * Shared by unrelate, exclusivity replacement, and the destroy sweep.
+	 * Callers guarantee the edge exists.
 	 */
 	function removeRelationEdge(store: RelationStore, source: EntityId, target: EntityId) {
 		const targets = store.forward.get(source);
@@ -521,9 +611,7 @@ export function createWorld(): World {
 			if (sources.size === 0) store.inverse.delete(target);
 		}
 		const key = edgeKey(source, target);
-		store.removed.add(key);
-		// Net-cancellation with queryRelationAdded in the same tick.
-		store.added.delete(key);
+		classifyTransition(store.baseline, store.added, null, store.removed, key, true, false);
 		emitRelationRemoved(store, source, target);
 	}
 
@@ -559,6 +647,7 @@ export function createWorld(): World {
 		// === Entity lifecycle ===
 
 		createEntity(): EntityId {
+			assertNotTearingDown();
 			const id = nextEntityId++;
 			alive.add(id);
 			for (const listener of createListeners) listener(id);
@@ -566,6 +655,7 @@ export function createWorld(): World {
 		},
 
 		createEntityWithId(id: EntityId): EntityId {
+			assertNotTearingDown();
 			if (!Number.isInteger(id) || id < 1) {
 				throw new Error(`createEntityWithId(${id}): id must be a positive integer`);
 			}
@@ -594,13 +684,8 @@ export function createWorld(): World {
 		},
 
 		destroyEntity(id: EntityId) {
+			assertNotTearingDown();
 			if (!alive.has(id)) return;
-			// Notify destroy listeners BEFORE removing components/tags
-			// so callbacks can still read the entity's data
-			for (const listener of destroyListeners) listener(id);
-			alive.delete(id);
-			// Remove from all cached queries
-			removeCachesForEntity(id);
 			// Relation sweep — BEFORE component/tag teardown so onRelationRemoved
 			// handlers can still read the dying entity's data. Policy effects are
 			// collected here and applied only after teardown completes: mutating
@@ -609,57 +694,79 @@ export function createWorld(): World {
 				| { kind: 'destroy'; source: EntityId }
 				| { kind: 'tag'; source: EntityId; tag: TagType }
 			)[] = [];
-			for (const store of relations.values()) {
-				// id as source — outgoing edges simply vanish, symmetric to
-				// component teardown. No policy applies; the source is gone.
-				const targets = store.forward.get(id);
-				if (targets) {
-					for (const target of [...targets]) removeRelationEdge(store, id, target);
-				}
-				// id as target — each incoming edge is removed AND the relation's
-				// onTargetDestroy policy contributes a deferred effect per source.
-				const sources = store.inverse.get(id);
-				if (sources) {
-					const policy = store.type.options.onTargetDestroy;
-					for (const source of [...sources]) {
-						removeRelationEdge(store, source, id);
-						if (policy === 'cascade') {
-							deferredEffects.push({ kind: 'destroy', source });
-						} else if (policy !== 'clear') {
-							deferredEffects.push({ kind: 'tag', source, tag: policy.tag });
+			// The sweep begins: reject mutation from handlers until teardown
+			// completes (lifted before policy effects apply, in the finally).
+			tearingDown = true;
+			try {
+				// Notify destroy listeners BEFORE removing components/tags
+				// so callbacks can still read the entity's data
+				for (const listener of destroyListeners) listener(id);
+				alive.delete(id);
+				// Remove from all cached queries
+				removeCachesForEntity(id);
+				for (const store of relations.values()) {
+					// id as source — outgoing edges simply vanish, symmetric to
+					// component teardown. No policy applies; the source is gone.
+					const targets = store.forward.get(id);
+					if (targets) {
+						for (const target of [...targets]) removeRelationEdge(store, id, target);
+					}
+					// id as target — each incoming edge is removed AND the relation's
+					// onTargetDestroy policy contributes a deferred effect per source.
+					const sources = store.inverse.get(id);
+					if (sources) {
+						const policy = store.type.options.onTargetDestroy;
+						for (const source of [...sources]) {
+							removeRelationEdge(store, source, id);
+							if (policy === 'cascade') {
+								deferredEffects.push({ kind: 'destroy', source });
+							} else if (policy !== 'clear') {
+								deferredEffects.push({ kind: 'tag', source, tag: policy.tag });
+							}
 						}
 					}
+					store.addedHandlers.delete(id);
+					store.removedHandlers.delete(id);
+					store.addedTargetHandlers.delete(id);
+					store.removedTargetHandlers.delete(id);
 				}
-				store.addedHandlers.delete(id);
-				store.removedHandlers.delete(id);
-				store.addedTargetHandlers.delete(id);
-				store.removedTargetHandlers.delete(id);
-			}
-			// Remove all components — fire onComponentRemoved per owned component
-			// and populate the per-tick `removed` buffer so queryRemoved sees the id.
-			for (const store of components.values()) {
-				if (store.data.has(id)) {
-					const prev = store.data.get(id);
-					emitComponentRemoved(store, id, prev);
-					store.removed.add(id);
+				// Remove all components — fire onComponentRemoved per owned component
+				// and classify the net transition: a component present at the last
+				// clearDirty() lands in `removed`; one created-and-destroyed this tick
+				// (absent→absent) lands nowhere.
+				for (const store of components.values()) {
+					if (store.data.has(id)) {
+						const prev = store.data.get(id);
+						emitComponentRemoved(store, id, prev);
+						store.data.delete(id);
+						classifyTransition(
+							store.baseline,
+							store.added,
+							store.dirty,
+							store.removed,
+							id,
+							true,
+							false,
+						);
+					}
+					store.handlers.delete(id);
+					store.removedHandlers.delete(id);
 				}
-				store.data.delete(id);
-				store.dirty.delete(id);
-				store.added.delete(id);
-				store.handlers.delete(id);
-				store.removedHandlers.delete(id);
-			}
-			// Remove all tags — fire onTagRemoved per owned tag and populate
-			// the per-tick `removed` buffer.
-			for (const store of tags.values()) {
-				if (store.entities.has(id)) {
-					emitTagRemoved(store, id);
-					store.removed.add(id);
+				// Remove all tags — fire onTagRemoved per owned tag; same net
+				// classification as components (minus a changed buffer).
+				for (const store of tags.values()) {
+					if (store.entities.has(id)) {
+						emitTagRemoved(store, id);
+						store.entities.delete(id);
+						classifyTransition(store.baseline, store.added, null, store.removed, id, true, false);
+					}
+					store.addedHandlers.delete(id);
+					store.removedHandlers.delete(id);
 				}
-				store.entities.delete(id);
-				store.added.delete(id);
-				store.addedHandlers.delete(id);
-				store.removedHandlers.delete(id);
+			} finally {
+				// Teardown is complete (or threw) — mutation is legal again. The
+				// deferred policy effects below are the world's own mutations.
+				tearingDown = false;
 			}
 			// Apply deferred relation policy effects — only now is mutation safe.
 			for (const effect of deferredEffects) {
@@ -682,41 +789,51 @@ export function createWorld(): World {
 		// === Component access ===
 
 		addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>) {
+			assertNotTearingDown();
 			if (!alive.has(entity)) {
 				throw new Error(
 					`addComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
 				);
 			}
 			const store = getComponentStore(type);
-			// Attach-or-replace: prev distinguishes the two for observers, and the
-			// membership buffers only record a true first attach.
+			// Attach-or-replace: prev distinguishes the two for observers; the
+			// buffers record the NET transition since the last clearDirty().
 			const prev = store.data.get(entity);
-			const merged = instantiateDefaults(type.defaults, data);
+			const merged = maybeFreeze(instantiateDefaults(type.defaults, data));
 			store.data.set(entity, merged);
-			store.dirty.add(entity);
-			if (prev === undefined) {
-				store.added.add(entity);
-				// Net-cancellation with queryRemoved: re-adding within the same tick
-				// undoes a prior remove from the buffer.
-				store.removed.delete(entity);
-			}
+			classifyTransition(
+				store.baseline,
+				store.added,
+				store.dirty,
+				store.removed,
+				entity,
+				prev !== undefined,
+				true,
+			);
 			// Update cached queries that include this component
 			updateCachesForEntity(type.name, entity);
 			emitComponentChanged(store, entity, prev, merged);
 		},
 
 		removeComponent<T>(entity: EntityId, type: ComponentType<T>) {
+			assertNotTearingDown();
 			const store = getComponentStore(type);
 			if (store.data.has(entity)) {
 				const prev = store.data.get(entity) as T;
 				// Fire onComponentRemoved BEFORE data is deleted so `prev` is
 				// readable from the store too if the handler wants it.
 				emitComponentRemoved(store, entity, prev);
-				store.removed.add(entity);
+				store.data.delete(entity);
+				classifyTransition(
+					store.baseline,
+					store.added,
+					store.dirty,
+					store.removed,
+					entity,
+					true,
+					false,
+				);
 			}
-			store.data.delete(entity);
-			store.dirty.delete(entity);
-			store.added.delete(entity);
 			// Update cached queries — entity may no longer match
 			updateCachesForEntity(type.name, entity);
 		},
@@ -732,53 +849,48 @@ export function createWorld(): World {
 		},
 
 		// Only allocate prev object when there are listeners
-		setComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>) {
-			const store = getComponentStore(type);
-			const existing = store.data.get(entity);
-			if (!existing) return;
-			// Clone incoming plain data so a caller-held alias can't mutate
-			// world state behind the API later.
-			const incoming = clonePartial(data);
-			if (hasListeners(store)) {
-				// Top-level snapshot — `prev` itself never aliases the live
-				// object. Nested values the merge didn't replace are shared with
-				// `next`, which is safe: write paths clone incoming data and
-				// stored nested values are only ever replaced, never mutated.
-				const prev = { ...existing };
-				Object.assign(existing, incoming);
-				store.dirty.add(entity);
-				emitComponentChanged(store, entity, prev, existing);
-			} else {
-				Object.assign(existing, incoming);
-				store.dirty.add(entity);
-			}
-		},
-
-		replaceComponent<T>(entity: EntityId, type: ComponentType<T>, data: T) {
+		patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>) {
+			assertNotTearingDown();
 			if (!alive.has(entity)) {
 				throw new Error(
-					`replaceComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
+					`patchComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
 				);
 			}
 			const store = getComponentStore(type);
-			const prev = store.data.get(entity);
-			const next = instantiateDefaults(type.defaults, data);
-			store.data.set(entity, next);
-			store.dirty.add(entity);
-			if (prev === undefined) {
-				store.added.add(entity);
-				// Net-cancellation with queryRemoved: re-adding within the same tick
-				// undoes a prior remove from the buffer.
-				store.removed.delete(entity);
+			const existing = store.data.get(entity);
+			if (existing === undefined) {
+				throw new Error(
+					`patchComponent(${type.name}): entity ${entity} has no ${type.name} — ` +
+						`use addComponent to attach`,
+				);
 			}
-			// Update cached queries that include this component
-			updateCachesForEntity(type.name, entity);
-			emitComponentChanged(store, entity, prev, next);
+			// Clone incoming plain data so a caller-held alias can't mutate
+			// world state behind the API later, then REPLACE the stored object —
+			// stored values are never mutated in place (which also keeps frozen
+			// stores writable through the API). The displaced object becomes
+			// `prev`: it leaves the store at this write, so it never aliases the
+			// live value. Nested values the merge didn't replace are shared with
+			// `next`, which is safe: write paths clone incoming data and stored
+			// nested values are only ever replaced, never mutated.
+			const incoming = clonePartial(data);
+			const next = maybeFreeze({ ...existing, ...incoming } as T);
+			store.data.set(entity, next);
+			classifyTransition(
+				store.baseline,
+				store.added,
+				store.dirty,
+				store.removed,
+				entity,
+				true,
+				true,
+			);
+			emitComponentChanged(store, entity, existing, next);
 		},
 
 		// === Tag access ===
 
 		addTag(entity: EntityId, type: TagType) {
+			assertNotTearingDown();
 			if (!alive.has(entity)) {
 				throw new Error(
 					`addTag(${type.name}): entity ${entity} does not exist or has been destroyed`,
@@ -787,21 +899,21 @@ export function createWorld(): World {
 			const store = getTagStore(type);
 			if (store.entities.has(entity)) return;
 			store.entities.add(entity);
-			store.added.add(entity);
-			// Net-cancellation with queryRemovedTag in the same tick.
-			store.removed.delete(entity);
+			// Net classification: a tag present at the last clearDirty() that was
+			// removed and re-added this tick is a vacuous present→present — it
+			// lands in no buffer (tags have no changed buffer).
+			classifyTransition(store.baseline, store.added, null, store.removed, entity, false, true);
 			// Update cached queries that include this tag
 			updateCachesForEntity(type.name, entity);
 			emitTagAdded(store, entity);
 		},
 
 		removeTag(entity: EntityId, type: TagType) {
+			assertNotTearingDown();
 			const store = getTagStore(type);
 			if (!store.entities.has(entity)) return;
 			store.entities.delete(entity);
-			store.removed.add(entity);
-			// Net-cancellation with queryAddedTag in the same tick.
-			store.added.delete(entity);
+			classifyTransition(store.baseline, store.added, null, store.removed, entity, true, false);
 			// Update cached queries — entity may no longer match
 			updateCachesForEntity(type.name, entity);
 			emitTagRemoved(store, entity);
@@ -815,6 +927,7 @@ export function createWorld(): World {
 		// === Relation access ===
 
 		relate(source: EntityId, type: RelationType, target: EntityId) {
+			assertNotTearingDown();
 			if (!alive.has(source)) {
 				throw new Error(
 					`relate(${type.name}): source entity ${source} does not exist or has been destroyed`,
@@ -828,7 +941,7 @@ export function createWorld(): World {
 			const store = getRelationStore(type);
 			if (store.forward.get(source)?.has(target)) return;
 			// Exclusivity violation replaces — the displaced edge is removed with
-			// full removed-event semantics BEFORE the add, mirroring setComponent
+			// full removed-event semantics BEFORE the add, mirroring addComponent
 			// overwrite (removed-then-added).
 			if (type.options.sourceExclusive) {
 				const existingTargets = store.forward.get(source);
@@ -855,13 +968,15 @@ export function createWorld(): World {
 			}
 			sources.add(source);
 			const key = edgeKey(source, target);
-			store.added.add(key);
-			// Net-cancellation with queryRelationRemoved in the same tick.
-			store.removed.delete(key);
+			// Net classification: an edge present at the last clearDirty() that
+			// was unrelated and re-related this tick is a vacuous present→present
+			// — it lands in no buffer (edges have no changed buffer).
+			classifyTransition(store.baseline, store.added, null, store.removed, key, false, true);
 			emitRelationAdded(store, source, target);
 		},
 
 		unrelate(source: EntityId, type: RelationType, target?: EntityId) {
+			assertNotTearingDown();
 			const store = getRelationStore(type);
 			const targets = store.forward.get(source);
 			if (!targets) return;
@@ -887,7 +1002,7 @@ export function createWorld(): World {
 			return undefined;
 		},
 
-		getSources(type: RelationType, target: EntityId): EntityId[] {
+		getSources(target: EntityId, type: RelationType): EntityId[] {
 			const store = getRelationStore(type);
 			const sources = store.inverse.get(target);
 			return sources ? [...sources] : [];
@@ -943,6 +1058,18 @@ export function createWorld(): World {
 			}
 
 			return [...cached];
+		},
+
+		disposeQuery(...types: (ComponentType | TagType | NotTerm)[]): void {
+			const key = getQueryKey(types);
+			queryCache.delete(key);
+			queryKeyTypes.delete(key);
+			// Drop reverse-index registrations so mutations stop maintaining the
+			// dead entry; empty buckets are removed entirely.
+			for (const [name, queryKeys] of typeToQueries) {
+				queryKeys.delete(key);
+				if (queryKeys.size === 0) typeToQueries.delete(name);
+			}
 		},
 
 		queryChanged(type: ComponentType): QueryResult {
@@ -1009,22 +1136,19 @@ export function createWorld(): World {
 			return getResourceStore(type).value;
 		},
 
-		// Only allocate the prev snapshot when there are listeners
 		setResource<T>(type: ResourceType<T>, data: Partial<T>) {
+			assertNotTearingDown();
 			const store = getResourceStore(type);
 			changedResources.add(type.name);
-			// Clone incoming plain data — same aliasing guarantee as setComponent.
+			// Clone incoming plain data — same aliasing guarantee as
+			// patchComponent — then REPLACE the stored value (never mutate in
+			// place). The displaced object becomes `prev`: it leaves the store at
+			// this write, so it never aliases the live value; untouched nested
+			// values are shared with `next` (safe — see patchComponent).
 			const incoming = clonePartial(data);
-			if (store.handlers.size > 0) {
-				// Top-level snapshot BEFORE the merge — `prev` itself never
-				// aliases the live value; untouched nested values are shared
-				// with `next` (safe — see setComponent).
-				const prev = { ...store.value };
-				Object.assign(store.value as Record<string, unknown>, incoming);
-				emitResourceChanged(store, prev, store.value);
-			} else {
-				Object.assign(store.value as Record<string, unknown>, incoming);
-			}
+			const prev = store.value;
+			store.value = maybeFreeze({ ...prev, ...incoming } as T);
+			emitResourceChanged(store, prev, store.value);
 		},
 
 		// === Events ===
@@ -1194,14 +1318,17 @@ export function createWorld(): World {
 				store.dirty.clear();
 				store.added.clear();
 				store.removed.clear();
+				store.baseline.clear();
 			}
 			for (const store of tags.values()) {
 				store.added.clear();
 				store.removed.clear();
+				store.baseline.clear();
 			}
 			for (const store of relations.values()) {
 				store.added.clear();
 				store.removed.clear();
+				store.baseline.clear();
 			}
 			changedResources.clear();
 		},

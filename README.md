@@ -11,6 +11,16 @@ The focus is **reactivity**: component changes, tag additions, and resource upda
 
 If you want raw per-frame throughput for thousands of game entities, use [bitECS](https://github.com/NateTheGreatt/bitECS) or [becsy](https://lastolivegames.github.io/becsy/). If you want structured world state that a UI can subscribe to without reinventing the plumbing, this is for you.
 
+## Design principles
+
+Every API decision in this library answers to five rules:
+
+1. **Absence is never silent** — reads return `undefined`; non-creating writes against absence throw.
+2. **One ownership rule** — plain data crossing the API boundary is owned by the world: cloned in, frozen in dev, replaced never mutated; class instances stay the caller's, by reference.
+3. **Events are the journal; buffers are the partition** — events are lossless, synchronous, per-mutation; buffers classify the net transition since the last `clearDirty()` and are disjoint by definition.
+4. **Entity first** — every per-entity read/write is `(entity, type, ...)`.
+5. **The tick is one call** — `tickWorld` is the door; `emitFrame` / `clearDirty` / `incrementTick` are the escape hatch.
+
 ## Install
 
 ```bash
@@ -29,6 +39,7 @@ import {
   defineSystem,
   defineTag,
   SystemScheduler,
+  tickWorld,
 } from '@jamesyong42/reactive-ecs';
 
 // 1. Define types
@@ -52,24 +63,50 @@ const movement = defineSystem({
     for (const id of w.query(Position, Velocity)) {
       const p = w.getComponent(id, Position)!;
       const v = w.getComponent(id, Velocity)!;
-      w.setComponent(id, Position, { x: p.x + v.dx, y: p.y + v.dy });
+      w.patchComponent(id, Position, { x: p.x + v.dx, y: p.y + v.dy });
     }
   },
 });
 
-// 4. Schedule & tick
+// 4. Schedule & tick — tickWorld is the door
 const scheduler = new SystemScheduler();
 scheduler.register(movement);
 
 function tick() {
-  scheduler.execute(world);
-  world.emitFrame();
-  world.clearDirty();
-  world.incrementTick();
+  tickWorld(world, (w) => scheduler.execute(w));
 }
-// Or the one-call equivalent (import { tickWorld }):
-// tickWorld(world, () => scheduler.execute(world));
 ```
+
+`tickWorld(world, fn)` runs `fn`, then `emitFrame()`, `clearDirty()`, `incrementTick()` — in that order, so `onFrame` subscribers still see this tick's buffers. The manual trio exists as the escape hatch when you need to interleave something between those steps:
+
+```ts
+scheduler.execute(world);
+world.emitFrame();
+world.clearDirty();
+world.incrementTick();
+```
+
+## The write API — add, patch, remove
+
+Three verbs with disjoint meanings:
+
+- **`addComponent(e, Type, data?)`** — upsert: attach-or-replace. `data` is partial, merged over the type's defaults; omitted data attaches pure defaults. Observers receive the existing value as `prev` on a replace, so `prev === undefined` reliably means first attach.
+- **`patchComponent(e, Type, data)`** — strict shallow-merge update of an *existing* component. One level deep; nested objects in `data` replace wholesale. Non-creating by design — absence is never silent:
+
+  ```
+  patchComponent(Position): entity 42 does not exist or has been destroyed
+  patchComponent(Position): entity 42 has no Position — use addComponent to attach
+  ```
+
+- **`removeComponent(e, Type)`** — detach; fires `onComponentRemoved` with the discarded value before deletion.
+
+For writes that may race a destroy (async callbacks, timers, network responses), the idiomatic guard is:
+
+```ts
+if (world.entityExists(id)) world.patchComponent(id, Position, { x });
+```
+
+A throw from an unguarded write is the library telling you an entity died while you weren't looking — silently dropping the write (or worse, resurrecting the component) would hide the race.
 
 ## Reactivity — subscribing to world state
 
@@ -102,7 +139,28 @@ Resources are no exception: `onResourceChanged` fires synchronously inside `setR
 
 This is what makes it practical to drive React / Vue / Svelte components from the world — wire the event callbacks to `useState`/`signal`/store updates.
 
-Reads are typed read-only: `getComponent` returns `Readonly<T> | undefined` and `getResource` returns `Readonly<T>`. The returned object is the live store value, so write through `setComponent` / `replaceComponent` / `setResource` instead of mutating it — that's what keeps the events above firing.
+## Change tracking — the partition rule
+
+Events are the journal; buffers are the partition. The per-tick buffers classify every touched entity by its **net transition since the last `clearDirty()`** — and the three buffers are disjoint by definition:
+
+| Net transition since `clearDirty()` | Buffer |
+| --- | --- |
+| absent → present | `queryAdded` only |
+| present → present, ≥ 1 write | `queryChanged` only |
+| present → absent | `queryRemoved` only |
+| absent → absent | none |
+
+Consequences worth internalizing:
+
+- A fresh attach lands in `queryAdded` only — never `queryChanged`. "New" and "updated" are different downstream actions (create the sprite vs. move it), so they never alias.
+- `removeComponent` + `addComponent` of a component that existed at tick start nets to `queryChanged` — the world holds the component before and after, so it was changed, however violently.
+- `addComponent` + `removeComponent` within one tick nets to nothing. So does create + add + destroy.
+- Tags and relation edges follow the same rule minus a changed buffer — for them present → present is vacuous (re-adding a tag is a no-op).
+- `destroyEntity` participates: pre-existing components/tags/edges land in the removed buffers; same-tick ephemera land nowhere.
+
+Events never net-cancel: a remove-then-re-add still fires `onComponentRemoved` and `onComponentChanged(prev: undefined)` in order. If you need every intermediate state, subscribe. **Buffers belong to the tick pipeline; anything on its own cadence subscribes to events.**
+
+Reads are typed read-only: `getComponent` returns `Readonly<T> | undefined` and `getResource` returns `Readonly<T>`. The returned object is the live store value, so write through `patchComponent` / `addComponent` / `setResource` instead of mutating it — that's what keeps the events above firing. In development, `createWorld({ freeze: true })` enforces this at runtime: the world deep-freezes exactly what it clones (plain objects and arrays at any depth — never class instances), so in-place mutation of a read throws in strict mode. Clone and freeze are two enforcements of the same ownership boundary.
 
 ## Origin tagging — coexisting observers
 
@@ -114,7 +172,7 @@ const UNDO = Symbol('undo-replay');
 
 // The sync adapter applies a remote batch without re-broadcasting it:
 world.withOrigin(REMOTE, () => {
-  world.setComponent(id, Position, { x: 10 });
+  world.patchComponent(id, Position, { x: 10 });
 });
 
 // The broadcaster skips remote echoes and undo replays:
@@ -151,11 +209,13 @@ const ChildOf = defineRelation('ChildOf', {
 world.relate(child, ChildOf, parent);   // throws if either endpoint is dead
 world.getTargets(child, ChildOf);       // → [parent]
 world.getTarget(child, ChildOf);        // → parent — convenience for sourceExclusive
-world.getSources(ChildOf, parent);      // → all children — the always-coherent inverse
+world.getSources(parent, ChildOf);      // → all children — the always-coherent inverse
 world.unrelate(child, ChildOf, parent); // or omit target to drop ALL of child's edges
 ```
 
-Relating past an exclusivity bound **replaces**: a `sourceExclusive` source relating to a second target unrelates the first (removed-then-added events, like `setComponent` overwrite). Re-relating an existing edge is a no-op.
+Like every per-entity call, the entity comes first — `getSources(parent, ChildOf)` reads "who points at `parent`?".
+
+Relating past an exclusivity bound **replaces**: a `sourceExclusive` source relating to a second target unrelates the first (removed-then-added events, like `addComponent` overwrite). Re-relating an existing edge is a no-op.
 
 **The destroy guarantee: no relation edge ever survives the destruction of either endpoint.** When an entity dies as a *source*, its outgoing edges simply vanish. When it dies as a *target*, each incoming edge is removed and the relation's `onTargetDestroy` policy is applied to each source — after the destroy sweep completes, never mid-teardown:
 
@@ -169,13 +229,13 @@ Edge changes flow through the same two channels as every other primitive — per
 
 ```ts
 world.queryRelation(ChildOf);        // all live edges as [source, target] pairs
-world.queryRelationAdded(ChildOf);   // edges added this tick — cleared by clearDirty()
-world.queryRelationRemoved(ChildOf); // edges removed this tick, INCLUDING destroy-driven ones
+world.queryRelationAdded(ChildOf);   // edges whose net transition this tick is absent→present
+world.queryRelationRemoved(ChildOf); // net present→absent, INCLUDING destroy-driven removals
 
 world.onRelationAdded(ChildOf, (source, target) => { /* ... */ });
 world.onRelationRemoved(ChildOf, (source, target) => {
   // Fires synchronously — during a destroy, the dying entity's components
-  // and tags are still readable here. Read freely; don't mutate mid-destroy.
+  // and tags are still readable here. Read freely; mutating mid-sweep throws.
 }, sourceId); // bare id = per-source filter, like the entityId filter elsewhere
 
 // { target } watches edges INTO an entity — e.g. re-render a parent's child
@@ -186,6 +246,31 @@ world.onRelationRemoved(ChildOf, handler, { target: parent });
 ```
 
 Relations are a side index, never a query key — `world.query()` ignores them, so per-frame edge churn can't thrash the query cache. The litmus for reaching for one: **make it a relation only if you query the inverse.** A reference you only ever read forward is fine as an `EntityId` component field.
+
+## Document state vs. interaction state
+
+In an editor-shaped app the world holds two kinds of entities, and they want different deletion semantics. This is architecture, not a workaround:
+
+- **Interaction entities** — gesture recognizers, pointers, selection chrome, drag ghosts. They churn, lose arbitrations, and die. Delete them with `destroyEntity` and let cascade / `{ tag }` policies tear down their dependents. Their ids appearing in saved data would be a bug.
+- **Document entities** — shapes, layers, notes: anything inside the undo horizon. "Deleting" one must be reversible, and ids are never reused, so `destroyEntity` is the wrong verb while undo can still resurrect it. Use a **tombstone tag** and exclude it from document queries:
+
+```ts
+const Tombstoned = defineTag('Tombstoned');
+
+// "delete" — fully reversible, id and data intact
+world.addTag(shape, Tombstoned);
+// undo
+world.removeTag(shape, Tombstoned);
+
+// document queries exclude the dead by construction
+world.query(Shape, Not(Tombstoned));
+
+// renderers react to the tag like any other state
+world.onTagAdded(Tombstoned, (id) => hideSprite(id));
+world.onTagRemoved(Tombstoned, (id) => showSprite(id));
+```
+
+`destroyEntity` for a document entity then means exactly one thing: **eviction past the undo horizon** — the moment the app guarantees no undo stack, clipboard, or collaborator can ever reference that id again.
 
 ## Introspection
 
@@ -234,7 +319,7 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
 ## What it gives you
 
 - **Entities** — opaque integer IDs; creation is O(1), destruction is proportional to the entity's components/tags/edges plus the number of registered stores and query caches.
-- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). `addComponent` takes optional partial data merged over the defaults — omitted data attaches pure defaults — and is attach-or-replace: re-adding replaces the value, observers get the existing value as `prev`, so `prev === undefined` reliably means first attach. `replaceComponent` is the full-value upsert. Initial data and defaults are defensively cloned all the way down (plain objects/arrays at any depth — class instances are kept by reference) to prevent accidental shared mutation; reads come back as `Readonly<T>`.
+- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). `addComponent` is the upsert (partial data over defaults; re-adding replaces, with the existing value as `prev`), `patchComponent` is the strict shallow-merge update that throws on absence, `removeComponent` detaches. Plain data is defensively cloned all the way down (class instances are kept by reference) on every write path; reads come back as `Readonly<T>`, and `createWorld({ freeze: true })` enforces that at runtime in dev.
 - **Tags** — zero-data boolean markers (`defineTag('Selected')`).
 - **Relations** — managed entity-to-entity edges (`defineRelation('ChildOf', { ... })`) with an always-coherent inverse index and lifecycle cleanup: `relate`, `unrelate`, `getTargets`, `getTarget`, `getSources`, `queryRelation`, `queryRelationAdded`, `queryRelationRemoved`, `onRelationAdded`, `onRelationRemoved`. Exclusivity bounds and `onTargetDestroy` policies (`'clear'` / `'cascade'` / `{ tag }`) per relation type.
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
@@ -248,11 +333,11 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
   // At least one positive term is required — query(Not(Velocity)) throws.
   ```
 
-  Not-queries are maintained incrementally like any other: adding the negated type to a matching entity evicts it from the cached result, and removing it re-admits.
-- **Change tracking** — `queryChanged`, `queryAdded`, `queryRemoved`, `queryAddedTag`, `queryRemovedTag`, `queryChangedResources`, per-tick dirty sets. Removed-buffers include entities torn down by `destroyEntity` so consumers managing external resources (GPU buffers, DOM nodes, subscriptions) get a single channel for "this entity no longer has C." `queryChangedResources` lists the resources set this tick, in first-changed order.
+  Not-queries are maintained incrementally like any other: adding the negated type to a matching entity evicts it from the cached result, and removing it re-admits. Why no pure-negative queries? A no-arg `query()` is cheap — it copies the maintained alive set. A pure `Not()` query would need its own cached set re-evaluated on every mutation of the negated types *and on every entity create* — it's that standing maintenance cost, not the one-off scan, that the throw refuses. `disposeQuery(...)` drops a cache entry you're done with; re-querying rebuilds it with one scan (the only full-scan path in the library) and resumes incremental maintenance.
+- **Change tracking** — `queryChanged`, `queryAdded`, `queryRemoved`, `queryAddedTag`, `queryRemovedTag`, `queryChangedResources` per-tick buffers; see [Change tracking](#change-tracking--the-partition-rule). Removed-buffers include entities torn down by `destroyEntity` so consumers managing external resources (GPU buffers, DOM nodes, subscriptions) get a single channel for "this entity no longer has C." `queryChangedResources` lists the resources set this tick, in first-changed order.
 - **Events** — `onComponentChanged`, `onComponentRemoved`, `onTagAdded`, `onTagRemoved`, `onResourceChanged`, `onEntityCreated`, `onEntityDestroyed`, `onFrame`. `onComponentRemoved` fires synchronously before the data is deleted (so `prev` is readable) and also fires during `destroyEntity` for every component the entity owned.
 - **Introspection** — enumerate entities, registered types, and per-entity component/tag composition for editors and debugging tools.
-- **Scheduler** — `SystemScheduler` orders systems via `after` / `before` with Kahn's topological sort (stable on registration order).
+- **Scheduler** — `SystemScheduler` orders systems via `after` / `before` with Kahn's topological sort (stable on registration order). Constraints are validated at first execute: one naming an unregistered system throws, naming both parties — a typo must not silently reorder the pipeline.
 - **Phased scheduler** — `PhasedScheduler` runs systems in a caller-defined phase order. You declare the phases at construction time (`new PhasedScheduler({ phases: [...] })`); the library ships zero phase opinions. Within a phase, the same `after` / `before` constraints continue to topo-sort; cross-phase ordering is implicit in phase order, and cross-phase constraints that contradict it are rejected.
 - **Optional profiler hook** — attach any `{ beginSystem, endSystem }` object (with optional `beginPhase` / `endPhase`) to `scheduler.profiler` for tracing.
 
@@ -289,14 +374,19 @@ scheduler.register(defineSystem({
 }));
 
 function tick() {
-  scheduler.execute(world);
-  world.emitFrame();
-  world.clearDirty();
-  world.incrementTick();
+  tickWorld(world, (w) => scheduler.execute(w));
 }
 ```
 
 Within a phase, `after` / `before` continue to topo-sort. Across phases, ordering is implicit in phase order — a system in an earlier phase always runs before a system in a later one. Cross-phase `after` / `before` references that CONTRADICT phase order (e.g., a `react`-phase system declaring `after` a `derive`-phase system, or `before` an earlier-phase one) are rejected at first execute; redundant ones — `after` a system in an earlier phase, `before` one in a later phase — are allowed, because phase order already satisfies them.
+
+Both schedulers also reject a constraint that names a system that was never registered, at first execute:
+
+```
+System 'render' declares after: 'phsyics', but no system named 'phsyics' is registered.
+```
+
+Validation is deferred to execute (not register), so systems can be registered in any order. There is deliberately no "optional dependency" escape: **optional-dependency ordering across app configurations is what phases are for** — `phase: 'derive'` says "after all simulation, whatever simulation is installed" without naming any particular system.
 
 ### `PhasedSchedulerOptions`
 

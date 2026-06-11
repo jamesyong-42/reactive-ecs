@@ -10,391 +10,391 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <style>
   :root {
-                      --paper: #f7f4ed;
-                      --paper-deep: #efeadf;
-                      --ink: #1d1a13;
-                      --ink-soft: #4f4a3d;
-                      --ink-faint: #8a8371;
-                      --line: #ded7c6;
-                      --accent: #0d7a68;
-                      --accent-deep: #0a5d50;
-                      --accent-wash: #e2efeb;
-                      --amber: #b4690e;
-                      --amber-wash: #f6ecdb;
-                      --code-bg: #142420;
-                      --code-ink: #d8e6e0;
-                      --code-cmt: #6f8d83;
-                      --code-str: #c9b97a;
-                      --code-kw: #7fc8b4;
-                      --code-fn: #e3c98f;
-                      --code-typ: #a9c9e8;
-                      --code-num: #d8a0a0;
-                      --sidebar-w: 272px;
-                      --content-w: 736px;
-                      --radius: 6px;
-                    }
+                              --paper: #f7f4ed;
+                              --paper-deep: #efeadf;
+                              --ink: #1d1a13;
+                              --ink-soft: #4f4a3d;
+                              --ink-faint: #8a8371;
+                              --line: #ded7c6;
+                              --accent: #0d7a68;
+                              --accent-deep: #0a5d50;
+                              --accent-wash: #e2efeb;
+                              --amber: #b4690e;
+                              --amber-wash: #f6ecdb;
+                              --code-bg: #142420;
+                              --code-ink: #d8e6e0;
+                              --code-cmt: #6f8d83;
+                              --code-str: #c9b97a;
+                              --code-kw: #7fc8b4;
+                              --code-fn: #e3c98f;
+                              --code-typ: #a9c9e8;
+                              --code-num: #d8a0a0;
+                              --sidebar-w: 272px;
+                              --content-w: 736px;
+                              --radius: 6px;
+                            }
 
-                    * { box-sizing: border-box; }
+                            * { box-sizing: border-box; }
 
-                    html { scroll-behavior: smooth; }
+                            html { scroll-behavior: smooth; }
 
-                    body {
-                      margin: 0;
-                      background: var(--paper);
-                      color: var(--ink);
-                      font-family: 'Schibsted Grotesk', sans-serif;
-                      font-size: 16.5px;
-                      line-height: 1.65;
-                      -webkit-font-smoothing: antialiased;
-                      background-image: radial-gradient(circle at 1px 1px, rgba(29, 26, 19, 0.05) 1px, transparent 0);
-                      background-size: 26px 26px;
-                    }
+                            body {
+                              margin: 0;
+                              background: var(--paper);
+                              color: var(--ink);
+                              font-family: 'Schibsted Grotesk', sans-serif;
+                              font-size: 16.5px;
+                              line-height: 1.65;
+                              -webkit-font-smoothing: antialiased;
+                              background-image: radial-gradient(circle at 1px 1px, rgba(29, 26, 19, 0.05) 1px, transparent 0);
+                              background-size: 26px 26px;
+                            }
 
-                    ::selection { background: var(--accent); color: #fff; }
+                            ::selection { background: var(--accent); color: #fff; }
 
-                    /* ---------- Sidebar ---------- */
+                            /* ---------- Sidebar ---------- */
 
-                    .sidebar {
-                      position: fixed;
-                      top: 0; left: 0; bottom: 0;
-                      width: var(--sidebar-w);
-                      padding: 32px 28px 48px;
-                      overflow-y: auto;
-                      border-right: 1px solid var(--line);
-                      background: var(--paper);
-                      z-index: 40;
-                      scrollbar-width: thin;
-                    }
+                            .sidebar {
+                              position: fixed;
+                              top: 0; left: 0; bottom: 0;
+                              width: var(--sidebar-w);
+                              padding: 32px 28px 48px;
+                              overflow-y: auto;
+                              border-right: 1px solid var(--line);
+                              background: var(--paper);
+                              z-index: 40;
+                              scrollbar-width: thin;
+                            }
 
-                    .brand {
-                      display: flex;
-                      align-items: center;
-                      gap: 12px;
-                      text-decoration: none;
-                      color: var(--ink);
-                      margin-bottom: 6px;
-                    }
-                    .brand .pulse-mini {
-                      position: relative;
-                      width: 10px; height: 10px;
-                      border-radius: 50%;
-                      background: var(--accent);
-                      flex: none;
-                    }
-                    .brand .pulse-mini::after {
-                      content: '';
-                      position: absolute; inset: 0;
-                      border-radius: 50%;
-                      border: 1.5px solid var(--accent);
-                      animation: ripple 2.6s cubic-bezier(.2, .6, .3, 1) infinite;
-                    }
-                    @keyframes ripple {
-                      from { transform: scale(1); opacity: .8; }
-                      to { transform: scale(6.5); opacity: 0; }
-                    }
-                    .brand b {
-                      font-family: 'Fraunces', serif;
-                      font-weight: 600;
-                      font-size: 19px;
-                      letter-spacing: -0.01em;
-                    }
-                    .brand-version {
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 11px;
-                      color: var(--ink-faint);
-                      margin: 0 0 18px 22px;
-                    }
+                            .brand {
+                              display: flex;
+                              align-items: center;
+                              gap: 12px;
+                              text-decoration: none;
+                              color: var(--ink);
+                              margin-bottom: 6px;
+                            }
+                            .brand .pulse-mini {
+                              position: relative;
+                              width: 10px; height: 10px;
+                              border-radius: 50%;
+                              background: var(--accent);
+                              flex: none;
+                            }
+                            .brand .pulse-mini::after {
+                              content: '';
+                              position: absolute; inset: 0;
+                              border-radius: 50%;
+                              border: 1.5px solid var(--accent);
+                              animation: ripple 2.6s cubic-bezier(.2, .6, .3, 1) infinite;
+                            }
+                            @keyframes ripple {
+                              from { transform: scale(1); opacity: .8; }
+                              to { transform: scale(6.5); opacity: 0; }
+                            }
+                            .brand b {
+                              font-family: 'Fraunces', serif;
+                              font-weight: 600;
+                              font-size: 19px;
+                              letter-spacing: -0.01em;
+                            }
+                            .brand-version {
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 11px;
+                              color: var(--ink-faint);
+                              margin: 0 0 18px 22px;
+                            }
 
-                    .nav-group { margin-bottom: 18px; }
-                    .nav-group > span {
-                      display: block;
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 10.5px;
-                      font-weight: 600;
-                      text-transform: uppercase;
-                      letter-spacing: 0.14em;
-                      color: var(--ink-faint);
-                      margin-bottom: 6px;
-                    }
-                    .nav-group a {
-                      display: block;
-                      padding: 2px 10px;
-                      margin-left: -10px;
-                      font-size: 13px;
-                      font-family: 'IBM Plex Mono', monospace;
-                      color: var(--ink-soft);
-                      text-decoration: none;
-                      border-left: 2px solid transparent;
-                      border-radius: 0 var(--radius) var(--radius) 0;
-                      transition: color .12s, background .12s;
-                    }
-                    .nav-group a.guide-link {
-                      font-family: 'Schibsted Grotesk', sans-serif;
-                      font-size: 14px;
-                    }
-                    .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
-                    .nav-group a.active {
-                      color: var(--accent-deep);
-                      border-left-color: var(--accent);
-                      background: var(--accent-wash);
-                      font-weight: 600;
-                    }
+                            .nav-group { margin-bottom: 18px; }
+                            .nav-group > span {
+                              display: block;
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 10.5px;
+                              font-weight: 600;
+                              text-transform: uppercase;
+                              letter-spacing: 0.14em;
+                              color: var(--ink-faint);
+                              margin-bottom: 6px;
+                            }
+                            .nav-group a {
+                              display: block;
+                              padding: 2px 10px;
+                              margin-left: -10px;
+                              font-size: 13px;
+                              font-family: 'IBM Plex Mono', monospace;
+                              color: var(--ink-soft);
+                              text-decoration: none;
+                              border-left: 2px solid transparent;
+                              border-radius: 0 var(--radius) var(--radius) 0;
+                              transition: color .12s, background .12s;
+                            }
+                            .nav-group a.guide-link {
+                              font-family: 'Schibsted Grotesk', sans-serif;
+                              font-size: 14px;
+                            }
+                            .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
+                            .nav-group a.active {
+                              color: var(--accent-deep);
+                              border-left-color: var(--accent);
+                              background: var(--accent-wash);
+                              font-weight: 600;
+                            }
 
-                    .sidebar-foot {
-                      margin-top: 26px;
-                      padding-top: 18px;
-                      border-top: 1px solid var(--line);
-                      font-size: 13px;
-                    }
-                    .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
-                    .sidebar-foot a:hover { color: var(--accent-deep); }
+                            .sidebar-foot {
+                              margin-top: 26px;
+                              padding-top: 18px;
+                              border-top: 1px solid var(--line);
+                              font-size: 13px;
+                            }
+                            .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
+                            .sidebar-foot a:hover { color: var(--accent-deep); }
 
-                    .nav-toggle {
-                      display: none;
-                      position: fixed;
-                      top: 14px; left: 14px;
-                      z-index: 60;
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 12px;
-                      padding: 7px 12px;
-                      background: var(--ink);
-                      color: var(--paper);
-                      border: none;
-                      border-radius: var(--radius);
-                      cursor: pointer;
-                    }
+                            .nav-toggle {
+                              display: none;
+                              position: fixed;
+                              top: 14px; left: 14px;
+                              z-index: 60;
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 12px;
+                              padding: 7px 12px;
+                              background: var(--ink);
+                              color: var(--paper);
+                              border: none;
+                              border-radius: var(--radius);
+                              cursor: pointer;
+                            }
 
-                    /* ---------- Main column ---------- */
+                            /* ---------- Main column ---------- */
 
-                    main {
-                      margin-left: var(--sidebar-w);
-                      padding: 0 48px 120px;
-                    }
-                    .measure { max-width: var(--content-w); margin: 0 auto; }
+                            main {
+                              margin-left: var(--sidebar-w);
+                              padding: 0 48px 120px;
+                            }
+                            .measure { max-width: var(--content-w); margin: 0 auto; }
 
-                    /* ---------- Page header ---------- */
+                            /* ---------- Page header ---------- */
 
-                    .page-head {
-                      padding: 72px 0 36px;
-                      border-bottom: 1px solid var(--line);
-                      margin-bottom: 48px;
-                    }
-                    .page-head .kicker {
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 12px;
-                      letter-spacing: 0.12em;
-                      text-transform: uppercase;
-                      color: var(--accent-deep);
-                      margin-bottom: 14px;
-                    }
-                    .page-head h1 {
-                      font-family: 'Fraunces', serif;
-                      font-size: clamp(34px, 5vw, 46px);
-                      font-weight: 600;
-                      letter-spacing: -0.02em;
-                      line-height: 1.08;
-                      margin: 0 0 14px;
-                    }
-                    .page-head p {
-                      color: var(--ink-soft);
-                      max-width: 620px;
-                      margin: 0;
-                    }
+                            .page-head {
+                              padding: 72px 0 36px;
+                              border-bottom: 1px solid var(--line);
+                              margin-bottom: 48px;
+                            }
+                            .page-head .kicker {
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 12px;
+                              letter-spacing: 0.12em;
+                              text-transform: uppercase;
+                              color: var(--accent-deep);
+                              margin-bottom: 14px;
+                            }
+                            .page-head h1 {
+                              font-family: 'Fraunces', serif;
+                              font-size: clamp(34px, 5vw, 46px);
+                              font-weight: 600;
+                              letter-spacing: -0.02em;
+                              line-height: 1.08;
+                              margin: 0 0 14px;
+                            }
+                            .page-head p {
+                              color: var(--ink-soft);
+                              max-width: 620px;
+                              margin: 0;
+                            }
 
-                    /* ---------- Typography ---------- */
+                            /* ---------- Typography ---------- */
 
-                    section { margin-bottom: 64px; }
+                            section { margin-bottom: 64px; }
 
-                    h2 {
-                      font-family: 'Fraunces', serif;
-                      font-size: 28px;
-                      font-weight: 600;
-                      letter-spacing: -0.015em;
-                      line-height: 1.15;
-                      margin: 0 0 8px;
-                      padding-top: 14px;
-                      scroll-margin-top: 28px;
-                    }
-                    h2::before {
-                      content: '';
-                      display: block;
-                      width: 34px; height: 3px;
-                      background: var(--accent);
-                      margin-bottom: 20px;
-                    }
-                    h3 {
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 17px;
-                      font-weight: 600;
-                      margin: 40px 0 8px;
-                      scroll-margin-top: 28px;
-                      color: var(--accent-deep);
-                    }
+                            h2 {
+                              font-family: 'Fraunces', serif;
+                              font-size: 28px;
+                              font-weight: 600;
+                              letter-spacing: -0.015em;
+                              line-height: 1.15;
+                              margin: 0 0 8px;
+                              padding-top: 14px;
+                              scroll-margin-top: 28px;
+                            }
+                            h2::before {
+                              content: '';
+                              display: block;
+                              width: 34px; height: 3px;
+                              background: var(--accent);
+                              margin-bottom: 20px;
+                            }
+                            h3 {
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 17px;
+                              font-weight: 600;
+                              margin: 40px 0 8px;
+                              scroll-margin-top: 28px;
+                              color: var(--accent-deep);
+                            }
 
-                    p { margin: 0 0 14px; }
-                    p, li { color: var(--ink); }
-                    strong { font-weight: 650; }
-                    a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13, 122, 104, .35); text-underline-offset: 2px; }
-                    a:hover { text-decoration-color: var(--accent); }
+                            p { margin: 0 0 14px; }
+                            p, li { color: var(--ink); }
+                            strong { font-weight: 650; }
+                            a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13, 122, 104, .35); text-underline-offset: 2px; }
+                            a:hover { text-decoration-color: var(--accent); }
 
-                    ul, ol { padding-left: 22px; margin: 0 0 14px; }
-                    li { margin-bottom: 5px; }
+                            ul, ol { padding-left: 22px; margin: 0 0 14px; }
+                            li { margin-bottom: 5px; }
 
-                    code {
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 0.86em;
-                      background: var(--paper-deep);
-                      border: 1px solid var(--line);
-                      border-radius: 4px;
-                      padding: 1px 5px;
-                      white-space: nowrap;
-                    }
+                            code {
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 0.86em;
+                              background: var(--paper-deep);
+                              border: 1px solid var(--line);
+                              border-radius: 4px;
+                              padding: 1px 5px;
+                              white-space: nowrap;
+                            }
 
-                    .anchor {
-                      margin-left: 8px;
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 0.65em;
-                      color: var(--ink-faint);
-                      text-decoration: none;
-                      opacity: 0;
-                      transition: opacity .12s;
-                    }
-                    h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+                            .anchor {
+                              margin-left: 8px;
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 0.65em;
+                              color: var(--ink-faint);
+                              text-decoration: none;
+                              opacity: 0;
+                              transition: opacity .12s;
+                            }
+                            h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 
-                    /* ---------- Code blocks ---------- */
+                            /* ---------- Code blocks ---------- */
 
-                    figure.code {
-                      position: relative;
-                      margin: 14px 0 18px;
-                      border-radius: 8px;
-                      background: var(--code-bg);
-                      box-shadow: 0 1px 0 rgba(29, 26, 19, .18), 0 12px 28px -18px rgba(20, 36, 32, .55);
-                      overflow: hidden;
-                    }
-                    figure.code::before {
-                      content: attr(data-lang);
-                      position: absolute;
-                      top: 9px; right: 64px;
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 10.5px;
-                      letter-spacing: .1em;
-                      text-transform: uppercase;
-                      color: var(--code-cmt);
-                    }
-                    figure.code pre {
-                      margin: 0;
-                      padding: 20px 24px;
-                      overflow-x: auto;
-                    }
-                    figure.code.sig pre { padding: 13px 24px; }
-                    figure.code code {
-                      background: none;
-                      border: none;
-                      padding: 0;
-                      white-space: pre;
-                      font-size: 13.5px;
-                      line-height: 1.62;
-                      color: var(--code-ink);
-                    }
-                    .tok-cmt { color: var(--code-cmt); font-style: italic; }
-                    .tok-str { color: var(--code-str); }
-                    .tok-kw { color: var(--code-kw); }
-                    .tok-fn { color: var(--code-fn); }
-                    .tok-typ { color: var(--code-typ); }
-                    .tok-num { color: var(--code-num); }
+                            figure.code {
+                              position: relative;
+                              margin: 14px 0 18px;
+                              border-radius: 8px;
+                              background: var(--code-bg);
+                              box-shadow: 0 1px 0 rgba(29, 26, 19, .18), 0 12px 28px -18px rgba(20, 36, 32, .55);
+                              overflow: hidden;
+                            }
+                            figure.code::before {
+                              content: attr(data-lang);
+                              position: absolute;
+                              top: 9px; right: 64px;
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 10.5px;
+                              letter-spacing: .1em;
+                              text-transform: uppercase;
+                              color: var(--code-cmt);
+                            }
+                            figure.code pre {
+                              margin: 0;
+                              padding: 20px 24px;
+                              overflow-x: auto;
+                            }
+                            figure.code.sig pre { padding: 13px 24px; }
+                            figure.code code {
+                              background: none;
+                              border: none;
+                              padding: 0;
+                              white-space: pre;
+                              font-size: 13.5px;
+                              line-height: 1.62;
+                              color: var(--code-ink);
+                            }
+                            .tok-cmt { color: var(--code-cmt); font-style: italic; }
+                            .tok-str { color: var(--code-str); }
+                            .tok-kw { color: var(--code-kw); }
+                            .tok-fn { color: var(--code-fn); }
+                            .tok-typ { color: var(--code-typ); }
+                            .tok-num { color: var(--code-num); }
 
-                    button.copy {
-                      position: absolute;
-                      top: 8px; right: 8px;
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 10.5px;
-                      letter-spacing: .06em;
-                      text-transform: uppercase;
-                      color: var(--code-cmt);
-                      background: rgba(255, 255, 255, .04);
-                      border: 1px solid rgba(216, 230, 224, .18);
-                      border-radius: 4px;
-                      padding: 4px 9px;
-                      cursor: pointer;
-                      transition: color .12s, border-color .12s;
-                    }
-                    button.copy:hover { color: var(--code-ink); border-color: rgba(216, 230, 224, .4); }
-                    button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
+                            button.copy {
+                              position: absolute;
+                              top: 8px; right: 8px;
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 10.5px;
+                              letter-spacing: .06em;
+                              text-transform: uppercase;
+                              color: var(--code-cmt);
+                              background: rgba(255, 255, 255, .04);
+                              border: 1px solid rgba(216, 230, 224, .18);
+                              border-radius: 4px;
+                              padding: 4px 9px;
+                              cursor: pointer;
+                              transition: color .12s, border-color .12s;
+                            }
+                            button.copy:hover { color: var(--code-ink); border-color: rgba(216, 230, 224, .4); }
+                            button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
 
-                    /* ---------- Callouts & tables ---------- */
+                            /* ---------- Callouts & tables ---------- */
 
-                    .callout {
-                      margin: 16px 0 20px;
-                      padding: 14px 18px 14px 16px;
-                      border-left: 3px solid var(--accent);
-                      background: var(--accent-wash);
-                      border-radius: 0 var(--radius) var(--radius) 0;
-                      font-size: 15px;
-                    }
-                    .callout > p:last-child { margin-bottom: 0; }
-                    .callout .callout-tag {
-                      display: inline-block;
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 10.5px;
-                      font-weight: 600;
-                      text-transform: uppercase;
-                      letter-spacing: .12em;
-                      color: var(--accent-deep);
-                      margin-bottom: 4px;
-                    }
-                    .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
-                    .callout.warn .callout-tag { color: var(--amber); }
+                            .callout {
+                              margin: 16px 0 20px;
+                              padding: 14px 18px 14px 16px;
+                              border-left: 3px solid var(--accent);
+                              background: var(--accent-wash);
+                              border-radius: 0 var(--radius) var(--radius) 0;
+                              font-size: 15px;
+                            }
+                            .callout > p:last-child { margin-bottom: 0; }
+                            .callout .callout-tag {
+                              display: inline-block;
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 10.5px;
+                              font-weight: 600;
+                              text-transform: uppercase;
+                              letter-spacing: .12em;
+                              color: var(--accent-deep);
+                              margin-bottom: 4px;
+                            }
+                            .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
+                            .callout.warn .callout-tag { color: var(--amber); }
 
-                    .table-wrap { overflow-x: auto; margin: 14px 0 20px; }
-                    table {
-                      width: 100%;
-                      border-collapse: collapse;
-                      font-size: 14px;
-                      background: #fbf9f4;
-                      border: 1px solid var(--line);
-                      border-radius: 8px;
-                      overflow: hidden;
-                    }
-                    th {
-                      font-family: 'IBM Plex Mono', monospace;
-                      font-size: 11px;
-                      font-weight: 600;
-                      text-transform: uppercase;
-                      letter-spacing: .1em;
-                      text-align: left;
-                      color: var(--ink-faint);
-                      background: var(--paper-deep);
-                      padding: 9px 14px;
-                      border-bottom: 1px solid var(--line);
-                    }
-                    td {
-                      padding: 9px 14px;
-                      border-bottom: 1px solid var(--line);
-                      vertical-align: top;
-                    }
-                    tr:last-child td { border-bottom: none; }
-                    td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
+                            .table-wrap { overflow-x: auto; margin: 14px 0 20px; }
+                            table {
+                              width: 100%;
+                              border-collapse: collapse;
+                              font-size: 14px;
+                              background: #fbf9f4;
+                              border: 1px solid var(--line);
+                              border-radius: 8px;
+                              overflow: hidden;
+                            }
+                            th {
+                              font-family: 'IBM Plex Mono', monospace;
+                              font-size: 11px;
+                              font-weight: 600;
+                              text-transform: uppercase;
+                              letter-spacing: .1em;
+                              text-align: left;
+                              color: var(--ink-faint);
+                              background: var(--paper-deep);
+                              padding: 9px 14px;
+                              border-bottom: 1px solid var(--line);
+                            }
+                            td {
+                              padding: 9px 14px;
+                              border-bottom: 1px solid var(--line);
+                              vertical-align: top;
+                            }
+                            tr:last-child td { border-bottom: none; }
+                            td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
 
-                    footer {
-                      border-top: 1px solid var(--line);
-                      margin-top: 80px;
-                      padding-top: 28px;
-                      font-size: 14px;
-                      color: var(--ink-faint);
-                      display: flex;
-                      justify-content: space-between;
-                      flex-wrap: wrap;
-                      gap: 12px;
-                    }
-                    footer a { color: var(--ink-soft); }
+                            footer {
+                              border-top: 1px solid var(--line);
+                              margin-top: 80px;
+                              padding-top: 28px;
+                              font-size: 14px;
+                              color: var(--ink-faint);
+                              display: flex;
+                              justify-content: space-between;
+                              flex-wrap: wrap;
+                              gap: 12px;
+                            }
+                            footer a { color: var(--ink-soft); }
 
-                    @media (max-width: 980px) {
-                      .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29, 26, 19, .4); }
-                      body.nav-open .sidebar { transform: none; }
-                      .nav-toggle { display: block; }
-                      main { margin-left: 0; padding: 0 22px 90px; }
-                      .page-head { padding-top: 70px; }
-                    }
+                            @media (max-width: 980px) {
+                              .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29, 26, 19, .4); }
+                              body.nav-open .sidebar { transform: none; }
+                              .nav-toggle { display: block; }
+                              main { margin-left: 0; padding: 0 22px 90px; }
+                              .page-head { padding-top: 70px; }
+                            }
 </style>
 </head>
 <body>
@@ -446,8 +446,7 @@
     <a href="#removecomponent">removeComponent</a>
     <a href="#getcomponent">getComponent</a>
     <a href="#hascomponent">hasComponent</a>
-    <a href="#setcomponent">setComponent</a>
-    <a href="#replacecomponent">replaceComponent</a>
+    <a href="#patchcomponent">patchComponent</a>
   </div>
 
   <div class="nav-group">
@@ -475,6 +474,7 @@
   <div class="nav-group">
     <span>World · queries</span>
     <a href="#query">query</a>
+    <a href="#disposequery">disposeQuery</a>
     <a href="#querytagged">queryTagged</a>
     <a href="#querychanged">queryChanged</a>
     <a href="#queryadded">queryAdded</a>
@@ -643,8 +643,17 @@
     </p>
 
     <h3 id="createworld">createWorld<a class="anchor" href="#createworld">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>createWorld(): World</code></pre></figure>
+<figure class="code sig" data-lang="ts"><pre><code>createWorld(options?: CreateWorldOptions): World</code></pre></figure>
     <p>Creates an independent world — entities, component/tag/relation stores, resources, query caches, and subscriptions are all per-world.</p>
+    <p>
+      <code>{ freeze: true }</code> is the dev-mode ownership enforcement: the world
+      deep-freezes exactly what it clones — plain objects and arrays at any depth, never
+      class instances — wherever cloned data enters a store (<code>addComponent</code>,
+      <code>patchComponent</code>, resource instantiation, <code>setResource</code>). With
+      freeze on, in-place mutation of a read throws in strict mode instead of silently
+      bypassing change tracking. Clone and freeze are two enforcements of the same boundary.
+      Default off: zero overhead.
+    </p>
 
     <h3 id="tickworld">tickWorld<a class="anchor" href="#tickworld">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>tickWorld(world: World, fn?: (world: World) =&gt; void): void</code></pre></figure>
@@ -697,7 +706,7 @@
     </p>
     <ul>
       <li><strong>Throws</strong> if <code>id</code> is not a positive integer, is already alive, or is below the internal counter — ids are never reused, so restore must create entities in <strong>ascending id order</strong>.</li>
-      <li>Restores into a fresh world only; it cannot resurrect a destroyed id in a live one. For undoable deletion prefer a tombstone tag (see the <a href="index.html#restore">guide</a>).</li>
+      <li>Restores into a fresh world only; it cannot resurrect a destroyed id in a live one. For undoable deletion prefer a tombstone tag (see <a href="index.html#document-vs-interaction">document vs. interaction state</a> in the guide).</li>
     </ul>
 <figure class="code" data-lang="ts"><pre><code>for (const id of [...snapshot.entities].sort((a, b) =&gt; a - b)) {
   world.createEntityWithId(id);
@@ -722,7 +731,12 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
       listeners (data still readable) → query caches drop the id → relation sweep
       (<code>onRelationRemoved</code> per edge, policy effects collected) → per-component
       <code>onComponentRemoved</code> + buffers → per-tag <code>onTagRemoved</code> + buffers →
-      deferred <code>onTargetDestroy</code> effects apply (cascades, tags). See the
+      deferred <code>onTargetDestroy</code> effects apply (cascades, tags). Handlers fired
+      during the sweep may read freely, but every mutating World method throws until the
+      sweep completes: <em>cannot mutate the world from a handler during entity teardown —
+      react via the removed buffers or an onTargetDestroy policy instead</em>. The guard
+      lifts before the deferred policy effects apply (those are the world's own mutations),
+      so cascades and <code>{ tag }</code> policies work unchanged. See the
       <a href="index.html#destroy-semantics">guide</a> for the full contract.
     </p>
 
@@ -738,53 +752,54 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
     <h3 id="addcomponent">addComponent<a class="anchor" href="#addcomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>addComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data?: Partial&lt;T&gt;): void</code></pre></figure>
     <p>
-      Attach-or-replace. <code>data</code> is optional and partial — shallow-merged over the
-      type's defaults; plain objects and arrays are deep-cloned at any depth (class instances
-      kept by reference), so two entities never share nested state. On first attach, observers
-      fire with <code>prev === undefined</code> and the id lands in <code>queryAdded</code> +
-      <code>queryChanged</code>. On an entity that already has the component, the value is
-      replaced and observers fire with <code>prev =</code> the old value, landing in
-      <code>queryChanged</code> only — so <code>prev === undefined</code> reliably means
-      "first attach". Throws if the entity is not alive.
+      Attach-or-replace (upsert). <code>data</code> is optional and partial — shallow-merged
+      over the type's defaults; plain objects and arrays are deep-cloned at any depth (class
+      instances kept by reference), so two entities never share nested state. On first
+      attach, observers fire with <code>prev === undefined</code>; on an entity that already
+      has the component, the value is replaced and observers fire with <code>prev =</code>
+      the old value — so <code>prev === undefined</code> reliably means "first attach".
+      Buffers record the <a href="index.html#net-cancellation">net transition</a> since the
+      last <code>clearDirty()</code>: absent then → <code>queryAdded</code>, present then →
+      <code>queryChanged</code>. Throws if the entity is not alive. A full-value replace is
+      just <code>addComponent</code> with the complete value.
     </p>
 
     <h3 id="removecomponent">removeComponent<a class="anchor" href="#removecomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>removeComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;): void</code></pre></figure>
     <p>
       Detaches a component. Fires <a href="#oncomponentremoved"><code>onComponentRemoved</code></a>
-      <em>before</em> the data is deleted (so <code>prev</code> is readable) and lands in the
-      <code>queryRemoved</code> buffer. No-op if absent.
+      <em>before</em> the data is deleted (so <code>prev</code> is readable). Buffers record
+      the net transition: a component present at the last <code>clearDirty()</code> lands in
+      <code>queryRemoved</code>; one added earlier this tick nets to absent→absent and lands
+      nowhere. No-op if absent.
     </p>
 
     <h3 id="getcomponent">getComponent<a class="anchor" href="#getcomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>getComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;): Readonly&lt;T&gt; | undefined</code></pre></figure>
-    <p>Current value, typed read-only, or <code>undefined</code> if not present. The returned object is the live store value — mutating it in place is invisible to the world; write through <a href="#setcomponent"><code>setComponent</code></a> or <a href="#replacecomponent"><code>replaceComponent</code></a>.</p>
+    <p>Current value, typed read-only, or <code>undefined</code> if not present. The returned object is the live store value — mutating it in place is invisible to the world (and throws under <code>createWorld({ freeze: true })</code>); write through <a href="#patchcomponent"><code>patchComponent</code></a> or <a href="#addcomponent"><code>addComponent</code></a>.</p>
 
     <h3 id="hascomponent">hasComponent<a class="anchor" href="#hascomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>hasComponent(entity: EntityId, type: ComponentType): boolean</code></pre></figure>
     <p>Presence check.</p>
 
-    <h3 id="setcomponent">setComponent<a class="anchor" href="#setcomponent">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>setComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
+    <h3 id="patchcomponent">patchComponent<a class="anchor" href="#patchcomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>patchComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
     <p>
-      Shallow-merges a partial update over the current value — one level deep: nested objects
-      in <code>data</code> replace, they don't merge into. Incoming plain data is defensively
-      cloned (caller-held aliases can't mutate world state later). Fires
-      <code>onComponentChanged</code> with the previous value and lands in the
-      <code>queryChanged</code> buffer. <strong>Silent no-op</strong> if the entity doesn't
-      have the component (or is dead) — use <code>addComponent</code> to attach.
+      Strict shallow-merge update of an <em>existing</em> component — one level deep: nested
+      objects in <code>data</code> replace, they don't merge into. Incoming plain data is
+      defensively cloned (caller-held aliases can't mutate world state later), and the stored
+      object is replaced on write, never mutated in place. Fires
+      <code>onComponentChanged</code> with the previous value; the entity lands in
+      <code>queryChanged</code> (or stays in <code>queryAdded</code> if it was attached this
+      tick). Non-creating by design — absence is never silent:
     </p>
+<figure class="code" data-lang="ts"><pre><code>// dead entity:
+//   patchComponent(Position): entity 42 does not exist or has been destroyed
+// alive, but the component was never attached:
+//   patchComponent(Position): entity 42 has no Position — use addComponent to attach
 
-    <h3 id="replacecomponent">replaceComponent<a class="anchor" href="#replacecomponent">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>replaceComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: T): void</code></pre></figure>
-    <p>
-      Full-value upsert: stores a defensive clone of <code>data</code> (over defaults),
-      replacing whatever was there. Emits the true <code>prev</code> (<code>undefined</code>
-      if absent); buffers: <code>queryAdded</code> + <code>queryChanged</code> when attaching,
-      <code>queryChanged</code> only when replacing. Throws if the entity is not alive.
-      The unambiguous alternative to <code>setComponent</code>'s shallow merge when nested
-      data is involved.
-    </p>
+// the idiomatic guard for writes that may race a destroy:
+if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code></pre></figure>
   </section>
 
   <!-- ============================ TAGS ============================ -->
@@ -793,11 +808,11 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 
     <h3 id="addtag">addTag<a class="anchor" href="#addtag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>addTag(entity: EntityId, type: TagType): void</code></pre></figure>
-    <p>Adds a tag. Fires <a href="#ontagadded"><code>onTagAdded</code></a>; lands in the <code>queryAddedTag</code> buffer. No-op if already present.</p>
+    <p>Adds a tag. Fires <a href="#ontagadded"><code>onTagAdded</code></a>; lands in <code>queryAddedTag</code> when the tag was absent at the last <code>clearDirty()</code> (re-adding a tag held at tick start is a vacuous present→present — no buffer). No-op if already present.</p>
 
     <h3 id="removetag">removeTag<a class="anchor" href="#removetag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>removeTag(entity: EntityId, type: TagType): void</code></pre></figure>
-    <p>Removes a tag. Fires <a href="#ontagremoved"><code>onTagRemoved</code></a>; lands in the <code>queryRemovedTag</code> buffer. No-op if absent.</p>
+    <p>Removes a tag. Fires <a href="#ontagremoved"><code>onTagRemoved</code></a>; lands in <code>queryRemovedTag</code> when the tag was present at the last <code>clearDirty()</code> (add-then-remove within one tick nets to nothing). No-op if absent.</p>
 
     <h3 id="hastag">hasTag<a class="anchor" href="#hastag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>hasTag(entity: EntityId, type: TagType): boolean</code></pre></figure>
@@ -814,8 +829,8 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
     <ul>
       <li><strong>Throws</strong> if source <em>or</em> target is not alive — a born-dangling edge is impossible.</li>
       <li><strong>No-op</strong> if the exact edge already exists.</li>
-      <li><strong>Exclusivity replaces:</strong> if a bound would be violated, the existing edge is removed first — removed-then-added events fire, mirroring <code>setComponent</code> overwrite semantics.</li>
-      <li>Lands in the <code>queryRelationAdded</code> buffer (net-cancelling) and fires <a href="#onrelationadded"><code>onRelationAdded</code></a>.</li>
+      <li><strong>Exclusivity replaces:</strong> if a bound would be violated, the existing edge is removed first — removed-then-added events fire, mirroring <code>addComponent</code> overwrite semantics.</li>
+      <li>Lands in <code>queryRelationAdded</code> when the edge was absent at the last <code>clearDirty()</code> — re-relating an edge unrelated earlier this tick is a vacuous present→present, no buffer — and fires <a href="#onrelationadded"><code>onRelationAdded</code></a>.</li>
     </ul>
 
     <h3 id="unrelate">unrelate<a class="anchor" href="#unrelate">#</a></h3>
@@ -823,8 +838,9 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
     <p>
       Removes the edge to <code>target</code> — or, with <code>target</code> omitted,
       <strong>all</strong> of source's outgoing edges for this relation. No-op if absent.
-      Lands in <code>queryRelationRemoved</code> (net-cancelling) and fires
-      <a href="#onrelationremoved"><code>onRelationRemoved</code></a> per edge.
+      Lands in <code>queryRelationRemoved</code> when the edge existed at the last
+      <code>clearDirty()</code> (relate-then-unrelate within one tick nets to nothing) and
+      fires <a href="#onrelationremoved"><code>onRelationRemoved</code></a> per edge.
     </p>
 
     <h3 id="gettargets">getTargets<a class="anchor" href="#gettargets">#</a></h3>
@@ -836,8 +852,8 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
     <p>Source's single target — convenience for <code>sourceExclusive</code> relations.</p>
 
     <h3 id="getsources">getSources<a class="anchor" href="#getsources">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>getSources(type: RelationType, target: EntityId): EntityId[]</code></pre></figure>
-    <p>The sources pointing at <code>target</code> — the always-coherent inverse index, maintained by the store, never by you. <code>[]</code> if none.</p>
+<figure class="code sig" data-lang="ts"><pre><code>getSources(target: EntityId, type: RelationType): EntityId[]</code></pre></figure>
+    <p>The sources pointing at <code>target</code> — the always-coherent inverse index, maintained by the store, never by you. <code>[]</code> if none. Entity first, like every per-entity read: <code>getSources(parent, ChildOf)</code> reads "who points at <code>parent</code>?".</p>
   </section>
 
   <!-- ============================ RESOURCES ============================ -->
@@ -850,7 +866,7 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 
     <h3 id="setresource">setResource<a class="anchor" href="#setresource">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>setResource&lt;T&gt;(type: ResourceType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
-    <p>Shallow-merges a partial update over the singleton. Incoming plain data is defensively cloned, same as <code>setComponent</code>.</p>
+    <p>Shallow-merges a partial update over the singleton. Incoming plain data is defensively cloned, same as <code>patchComponent</code>, and the stored value is replaced on write, never mutated in place.</p>
   </section>
 
   <!-- ============================ QUERIES ============================ -->
@@ -860,9 +876,11 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
       <code>query()</code> results are cached per type-combination and maintained incrementally
       as components, tags, and entities change — repeat calls do no scanning. The per-tick
       buffers (<code>queryChanged</code> / <code>queryAdded</code> / <code>queryRemoved</code>
-      and their tag/relation twins) accumulate until <a href="#cleardirty"><code>clearDirty</code></a>
-      and are <strong>net-cancelling</strong>: an add and remove of the same thing within one
-      tick appears in neither buffer.
+      and their tag/relation twins) classify each touched entity by its <strong>net transition
+      since the last <a href="#cleardirty"><code>clearDirty</code></a></strong>:
+      absent→present = added, present→present with ≥ 1 write = changed, present→absent =
+      removed, absent→absent = nothing. The buffers partition — they are disjoint by
+      definition. See <a href="index.html#net-cancellation">the partition rule</a>.
     </p>
 
     <h3 id="query">query<a class="anchor" href="#query">#</a></h3>
@@ -870,8 +888,20 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
     <p>
       Entities matching <em>all</em> positive components/tags and <em>none</em> of the
       <a href="#not"><code>Not()</code></a> terms. With no arguments, returns all live
-      entities. Throws if all terms are negated — a pure-negative query would scan every
-      entity; keep at least one positive term.
+      entities (a copy of the maintained alive set — cheap). Throws if all terms are negated:
+      a pure-negative query would need its own cached set re-evaluated on every mutation of
+      the negated types and on every entity create — that standing maintenance cost, not the
+      one-off scan, is what the throw refuses. Keep at least one positive term.
+    </p>
+
+    <h3 id="disposequery">disposeQuery<a class="anchor" href="#disposequery">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>disposeQuery(...types: (ComponentType | TagType | NotTerm)[]): void</code></pre></figure>
+    <p>
+      Drops the cache entry and reverse-index registrations for this exact query signature
+      (order-insensitive, like <code>query</code>). No-op if the signature was never queried.
+      A later <code>query</code> with the same signature rebuilds the entry with one scan
+      over the smallest candidate store — <strong>that rebuild is the only full-scan path in
+      the library</strong> — and is incrementally maintained again afterwards.
     </p>
 
     <h3 id="querytagged">queryTagged<a class="anchor" href="#querytagged">#</a></h3>
@@ -880,29 +910,29 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 
     <h3 id="querychanged">queryChanged<a class="anchor" href="#querychanged">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryChanged(type: ComponentType): EntityId[]</code></pre></figure>
-    <p>Entities whose component was written this tick — <strong>adds included</strong>: a newly added component appears in both <code>queryAdded</code> and <code>queryChanged</code>, so consumers handling both must dedupe.</p>
+    <p>Entities whose net transition is <strong>present→present with ≥ 1 write</strong> — they had the component at the last <code>clearDirty()</code> and still do, and it was written. A fresh attach is <em>never</em> here (it's in <code>queryAdded</code>); remove-then-re-add of a pre-existing component <em>is</em>.</p>
 
     <h3 id="queryadded">queryAdded<a class="anchor" href="#queryadded">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryAdded(type: ComponentType): EntityId[]</code></pre></figure>
-    <p>Entities that received the component this tick. Net-cancels with <code>removeComponent</code> in the same tick.</p>
+    <p>Entities whose net transition is <strong>absent→present</strong>. Disjoint from <code>queryChanged</code> and <code>queryRemoved</code>; add-then-remove within one tick lands in no buffer.</p>
 
     <h3 id="queryremoved">queryRemoved<a class="anchor" href="#queryremoved">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryRemoved(type: ComponentType): EntityId[]</code></pre></figure>
     <p>
-      Entities that lost the component this tick — via <code>removeComponent</code>
-      <em>or</em> <code>destroyEntity</code>. The single channel for "this entity no longer
-      has C"; consumers managing external resources need no separate destroy bookkeeping.
-      The buffer holds ids only — to read the dying value, use
+      Entities whose net transition is <strong>present→absent</strong> — via
+      <code>removeComponent</code> <em>or</em> <code>destroyEntity</code>. The single channel
+      for "this entity no longer has C"; consumers managing external resources need no
+      separate destroy bookkeeping. The buffer holds ids only — to read the dying value, use
       <a href="#oncomponentremoved"><code>onComponentRemoved</code></a>.
     </p>
 
     <h3 id="queryaddedtag">queryAddedTag<a class="anchor" href="#queryaddedtag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryAddedTag(type: TagType): EntityId[]</code></pre></figure>
-    <p>Entities that gained the tag this tick. Net-cancels with <code>removeTag</code>.</p>
+    <p>Entities whose net transition for the tag is absent→present. Tags have no changed buffer: remove-then-re-add of a tag held at tick start is vacuous and lands nowhere.</p>
 
     <h3 id="queryremovedtag">queryRemovedTag<a class="anchor" href="#queryremovedtag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryRemovedTag(type: TagType): EntityId[]</code></pre></figure>
-    <p>Entities that lost the tag this tick — via <code>removeTag</code> or <code>destroyEntity</code>. Net-cancels with <code>addTag</code>.</p>
+    <p>Entities whose net transition for the tag is present→absent — via <code>removeTag</code> or <code>destroyEntity</code>. Add-then-remove within one tick lands in no buffer.</p>
 
     <h3 id="queryrelation">queryRelation<a class="anchor" href="#queryrelation">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryRelation(type: RelationType): RelationEdge[]</code></pre></figure>
@@ -910,11 +940,11 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 
     <h3 id="queryrelationadded">queryRelationAdded<a class="anchor" href="#queryrelationadded">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryRelationAdded(type: RelationType): RelationEdge[]</code></pre></figure>
-    <p>Edges added this tick. Net-cancels with <code>unrelate</code> of the same edge.</p>
+    <p>Edges whose net transition is absent→present. Edges have no changed buffer: unrelate-then-re-relate of a pre-existing edge is vacuous and lands nowhere.</p>
 
     <h3 id="queryrelationremoved">queryRelationRemoved<a class="anchor" href="#queryrelationremoved">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryRelationRemoved(type: RelationType): RelationEdge[]</code></pre></figure>
-    <p>Edges removed this tick — via <code>unrelate</code>, exclusivity replacement, or <code>destroyEntity</code> of either endpoint. Net-cancels with <code>relate</code> of the same edge.</p>
+    <p>Edges whose net transition is present→absent — via <code>unrelate</code>, exclusivity replacement, or <code>destroyEntity</code> of either endpoint. Relate-then-unrelate within one tick lands in no buffer.</p>
 
     <h3 id="querychangedresources">queryChangedResources<a class="anchor" href="#querychangedresources">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryChangedResources(): ResourceType[]</code></pre></figure>
@@ -970,9 +1000,9 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
     <p>
       Fires when an edge is removed — via <code>unrelate</code>, exclusivity replacement, or
       <code>destroyEntity</code> of either endpoint. During a destroy the dying entity's
-      components and tags are still readable from the handler, but handlers must not mutate
-      the world mid-destroy: read freely, react from a system over
-      <code>queryRelationRemoved</code> instead.
+      components and tags are still readable from the handler, but mutating the world
+      mid-sweep throws: read freely, react from a system over
+      <code>queryRelationRemoved</code> or an <code>onTargetDestroy</code> policy instead.
     </p>
 
     <h3 id="onresourcechanged">onResourceChanged<a class="anchor" href="#onresourcechanged">#</a></h3>
@@ -1063,7 +1093,11 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
   <!-- ============================ FRAME ============================ -->
   <section id="world-frame">
     <h2>World · frame lifecycle<a class="anchor" href="#world-frame">#</a></h2>
-    <p>The end-of-frame protocol, called in this order after your systems run:</p>
+    <p>
+      The tick is one call — <a href="#tickworld"><code>tickWorld</code></a> runs your
+      systems and then these three methods in the right order. They stay public as the
+      escape hatch when you need to interleave something between the steps:
+    </p>
 
     <h3 id="emitframe">emitFrame<a class="anchor" href="#emitframe">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>emitFrame(): void</code></pre></figure>
@@ -1073,9 +1107,11 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
 <figure class="code sig" data-lang="ts"><pre><code>clearDirty(): void</code></pre></figure>
     <p>
       Resets all per-tick buffers — component <code>changed</code> / <code>added</code> /
-      <code>removed</code>, tag <code>added</code> / <code>removed</code>, and relation
-      <code>added</code> / <code>removed</code>. Buffers accumulate until <em>you</em> call
-      this; skipping frames simply batches more change.
+      <code>removed</code>, tag <code>added</code> / <code>removed</code>, relation
+      <code>added</code> / <code>removed</code> — and the presence baselines the
+      <a href="index.html#net-cancellation">partition rule</a> classifies net transitions
+      against. Buffers accumulate until <em>you</em> call this; skipping frames simply
+      batches more change.
     </p>
 
     <h3 id="incrementtick">incrementTick<a class="anchor" href="#incrementtick">#</a></h3>
@@ -1090,8 +1126,17 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
     <p>
       Orders systems by <code>after</code> / <code>before</code> constraints using a stable
       topological sort (Kahn's algorithm; registration order breaks ties). Cycles throw with
-      the names involved; constraints referencing unregistered names are tolerated and ignored.
+      the names involved. A constraint naming a system that was never registered throws at
+      the first <code>execute()</code> (or <code>getSystemNames()</code>) after any
+      register/remove, naming both parties — a typo must not silently reorder the pipeline.
+      Validation is deferred, so systems can be registered in any order. Optional-dependency
+      ordering across app configurations is what
+      <a href="#phasedscheduler">phases</a> are for.
     </p>
+<figure class="code" data-lang="ts"><pre><code>scheduler.register(defineSystem({ name: 'render', after: 'phsyics', execute: () =&gt; {} }));
+scheduler.execute(world);
+// Error: System 'render' declares after: 'phsyics',
+//        but no system named 'phsyics' is registered.</code></pre></figure>
 
     <h3 id="scheduler-register">register<a class="anchor" href="#scheduler-register">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>register(system: SystemDef): void</code></pre></figure>
@@ -1129,7 +1174,9 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
       implicit in phase order; <strong>cross-phase constraints that contradict phase order are
       rejected</strong> at first <code>execute()</code> with an error explaining the fix
       (redundant ones — an <code>after</code> pointing at an earlier phase — are tolerated,
-      since phase order already satisfies them). The constructor throws on an
+      since phase order already satisfies them). Constraints naming a system that is not
+      registered in <em>any</em> phase throw at first <code>execute()</code>, same as
+      <code>SystemScheduler</code>. The constructor throws on an
       empty or duplicate-containing <code>phases</code> array, or a <code>defaultPhase</code>
       not in it. Use <code>as const</code> on the phases literal for type-narrowed phase
       strings throughout. Also exposes <code>remove(name)</code>, <code>getSystemNames()</code>,
@@ -1334,7 +1381,10 @@ type RelationEdge               = readonly [EntityId, EntityId];
 type FrameHandler               = () =&gt; void;
 type Unsubscribe                = () =&gt; void;
 type QueryResult                = EntityId[];
-type ComponentInit              = [ComponentType&lt;unknown&gt;, unknown] | [TagType];</code></pre></figure>
+
+interface CreateWorldOptions {
+  freeze?: boolean;  // dev-mode: deep-freeze exactly what the world clones (default false)
+}</code></pre></figure>
   </section>
 
   <footer>
@@ -1351,99 +1401,99 @@ type ComponentInit              = [ComponentType&lt;unknown&gt;, unknown] | [Tag
 
 <script>
   // ---------- Tiny TS syntax highlighter ----------
-                    (() => {
-                      const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                      const re = new RegExp(
-                        [
-                          '(\\/\\/[^\\n]*)',
-                          "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)",
-                          '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this|get)\\b',
-                          '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',
-                          '([A-Za-z_$][\\w$]*)(?=\\s*\\()',
-                          '\\b([A-Z][\\w$]*)\\b',
-                        ].join('|'),
-                        'g'
-                      );
-                      document.querySelectorAll('figure.code code').forEach((el) => {
-                        if (el.closest('figure').dataset.lang === 'sh') {
-                          el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
-                          return;
-                        }
-                        const src = el.textContent;
-                        let out = '';
-                        let last = 0;
-                        let m = re.exec(src);
-                        while (m) {
-                          out += esc(src.slice(last, m.index));
-                          const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
-                          out += `<span class="${cls}">${esc(m[0])}</span>`;
-                          last = m.index + m[0].length;
-                          m = re.exec(src);
-                        }
-                        el.innerHTML = out + esc(src.slice(last));
-                      });
-                    })();
+                            (() => {
+                              const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                              const re = new RegExp(
+                                [
+                                  '(\\/\\/[^\\n]*)',
+                                  "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)",
+                                  '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this|get)\\b',
+                                  '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',
+                                  '([A-Za-z_$][\\w$]*)(?=\\s*\\()',
+                                  '\\b([A-Z][\\w$]*)\\b',
+                                ].join('|'),
+                                'g'
+                              );
+                              document.querySelectorAll('figure.code code').forEach((el) => {
+                                if (el.closest('figure').dataset.lang === 'sh') {
+                                  el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
+                                  return;
+                                }
+                                const src = el.textContent;
+                                let out = '';
+                                let last = 0;
+                                let m = re.exec(src);
+                                while (m) {
+                                  out += esc(src.slice(last, m.index));
+                                  const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
+                                  out += `<span class="${cls}">${esc(m[0])}</span>`;
+                                  last = m.index + m[0].length;
+                                  m = re.exec(src);
+                                }
+                                el.innerHTML = out + esc(src.slice(last));
+                              });
+                            })();
 
-                    // ---------- Copy buttons ----------
-                    document.querySelectorAll('figure.code').forEach((fig) => {
-                      const btn = document.createElement('button');
-                      btn.type = 'button';
-                      btn.className = 'copy';
-                      btn.textContent = 'copy';
-                      btn.addEventListener('click', async () => {
-                        try {
-                          await navigator.clipboard.writeText(fig.querySelector('code').textContent);
-                          btn.textContent = 'copied';
-                          btn.classList.add('done');
-                          setTimeout(() => {
-                            btn.textContent = 'copy';
-                            btn.classList.remove('done');
-                          }, 1400);
-                        } catch {
-                          /* clipboard unavailable (e.g. file://) — ignore */
-                        }
-                      });
-                      fig.appendChild(btn);
-                    });
+                            // ---------- Copy buttons ----------
+                            document.querySelectorAll('figure.code').forEach((fig) => {
+                              const btn = document.createElement('button');
+                              btn.type = 'button';
+                              btn.className = 'copy';
+                              btn.textContent = 'copy';
+                              btn.addEventListener('click', async () => {
+                                try {
+                                  await navigator.clipboard.writeText(fig.querySelector('code').textContent);
+                                  btn.textContent = 'copied';
+                                  btn.classList.add('done');
+                                  setTimeout(() => {
+                                    btn.textContent = 'copy';
+                                    btn.classList.remove('done');
+                                  }, 1400);
+                                } catch {
+                                  /* clipboard unavailable (e.g. file://) — ignore */
+                                }
+                              });
+                              fig.appendChild(btn);
+                            });
 
-                    // ---------- Scrollspy (h3-level) ----------
-                    (() => {
-                      const heads = Array.from(document.querySelectorAll('main h3[id], main h2[id]'));
-                      const links = new Map(
-                        heads.map((h) => [h.id, document.querySelector(`.sidebar a[href="#${h.id}"]`)])
-                      );
-                      let active = null;
-                      function onScroll() {
-                        let current = heads[0];
-                        for (const h of heads) {
-                          if (h.getBoundingClientRect().top < 140) current = h;
-                        }
-                        if (current === active) return;
-                        active = current;
-                        links.forEach((l) => {
-                          l?.classList.remove('active');
-                        });
-                        const link = links.get(current.id);
-                        if (link) {
-                          link.classList.add('active');
-                          const r = link.getBoundingClientRect();
-                          if (r.top < 0 || r.bottom > window.innerHeight) {
-                            link.scrollIntoView({ block: 'center' });
-                          }
-                        }
-                      }
-                      document.addEventListener('scroll', onScroll, { passive: true });
-                      onScroll();
-                    })();
+                            // ---------- Scrollspy (h3-level) ----------
+                            (() => {
+                              const heads = Array.from(document.querySelectorAll('main h3[id], main h2[id]'));
+                              const links = new Map(
+                                heads.map((h) => [h.id, document.querySelector(`.sidebar a[href="#${h.id}"]`)])
+                              );
+                              let active = null;
+                              function onScroll() {
+                                let current = heads[0];
+                                for (const h of heads) {
+                                  if (h.getBoundingClientRect().top < 140) current = h;
+                                }
+                                if (current === active) return;
+                                active = current;
+                                links.forEach((l) => {
+                                  l?.classList.remove('active');
+                                });
+                                const link = links.get(current.id);
+                                if (link) {
+                                  link.classList.add('active');
+                                  const r = link.getBoundingClientRect();
+                                  if (r.top < 0 || r.bottom > window.innerHeight) {
+                                    link.scrollIntoView({ block: 'center' });
+                                  }
+                                }
+                              }
+                              document.addEventListener('scroll', onScroll, { passive: true });
+                              onScroll();
+                            })();
 
-                    // ---------- Mobile nav ----------
-                    (() => {
-                      const toggle = document.getElementById('navToggle');
-                      toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
-                      document.querySelectorAll('.sidebar a').forEach((a) => {
-                        a.addEventListener('click', () => document.body.classList.remove('nav-open'));
-                      });
-                    })();
+                            // ---------- Mobile nav ----------
+                            (() => {
+                              const toggle = document.getElementById('navToggle');
+                              toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+                              document.querySelectorAll('.sidebar a').forEach((a) => {
+                                a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+                              });
+                            })();
 </script>
 
 </body>
