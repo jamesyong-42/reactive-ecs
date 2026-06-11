@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.13.0...reactive-ecs-v0.13.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* small-findings pass — frozen defaults, private scheduler flag, guard uniformity ([0cc0245](https://github.com/jamesyong-42/reactive-ecs/commit/0cc02459ac4e4ecb7f6ee266506f3d659b555e80))
+* small-findings pass — frozen defaults, private scheduler flag, guard uniformity ([e25b169](https://github.com/jamesyong-42/reactive-ecs/commit/e25b169409b90e10eb50aba376b616d7a18d8f42))
+
 ## [0.13.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.12.1...reactive-ecs-v0.13.0) (2026-06-11)
 
 
