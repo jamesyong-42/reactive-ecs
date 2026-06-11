@@ -26,6 +26,12 @@ interface ComponentStore<T = unknown> {
 	dirty: Set<EntityId>;
 	added: Set<EntityId>;
 	removed: Set<EntityId>;
+	/**
+	 * Presence at FIRST touch this tick, recorded on the first mutation of
+	 * (store, entity) since the last clearDirty(). The reference point for
+	 * classifying the net transition into exactly one per-tick buffer.
+	 */
+	baseline: Map<EntityId, boolean>;
 	handlers: Map<EntityId | '*', Set<ComponentChangedHandler<T>>>;
 	removedHandlers: Map<EntityId | '*', Set<ComponentRemovedHandler<T>>>;
 }
@@ -37,6 +43,8 @@ interface TagStore {
 	entities: Set<EntityId>;
 	added: Set<EntityId>;
 	removed: Set<EntityId>;
+	/** Presence at first touch this tick — see ComponentStore.baseline. */
+	baseline: Map<EntityId, boolean>;
 	addedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<TagChangedHandler>>;
 }
@@ -49,10 +57,12 @@ interface RelationStore {
 	forward: Map<EntityId, Set<EntityId>>;
 	/** target → sources (targetExclusive ⇒ size ≤ 1) */
 	inverse: Map<EntityId, Set<EntityId>>;
-	/** Edge keys added this tick */
+	/** Edge keys whose net transition this tick is absent→present */
 	added: Set<string>;
-	/** Edge keys removed this tick (including destroy-driven removals) */
+	/** Edge keys whose net transition this tick is present→absent (including destroy-driven removals) */
 	removed: Set<string>;
+	/** Edge presence at first touch this tick — see ComponentStore.baseline. */
+	baseline: Map<string, boolean>;
 	addedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
 	removedHandlers: Map<EntityId | '*', Set<RelationHandler>>;
 	/** Per-target handler maps — the wildcard stays in the source-keyed maps. */
@@ -173,6 +183,42 @@ function clonePartial<T>(data: Partial<T>): Partial<T> {
 		(out as Record<string, unknown>)[key] = clonePlainData(out[key]);
 	}
 	return out;
+}
+
+/**
+ * Classify a key's NET transition since the last clearDirty() into exactly
+ * one per-tick buffer. `baseline` records presence at the FIRST touch this
+ * tick; each subsequent mutation re-derives the net transition against it:
+ *
+ *   absent→present  = added;   present→present (≥1 write) = changed
+ *   present→absent  = removed; absent→absent              = nothing
+ *
+ * `changed` is null for stores without a changed buffer (tags, relation
+ * edges) — there, present→present is vacuous and lands nowhere.
+ */
+function classifyTransition<K>(
+	baseline: Map<K, boolean>,
+	added: Set<K>,
+	changed: Set<K> | null,
+	removed: Set<K>,
+	key: K,
+	presentBefore: boolean,
+	presentNow: boolean,
+): void {
+	let base = baseline.get(key);
+	if (base === undefined) {
+		base = presentBefore;
+		baseline.set(key, base);
+	}
+	added.delete(key);
+	changed?.delete(key);
+	removed.delete(key);
+	if (presentNow) {
+		if (base) changed?.add(key);
+		else added.add(key);
+	} else if (base) {
+		removed.add(key);
+	}
 }
 
 export function createWorld(): World {
@@ -335,6 +381,7 @@ export function createWorld(): World {
 			dirty: new Set(),
 			added: new Set(),
 			removed: new Set(),
+			baseline: new Map(),
 			handlers: new Map(),
 			removedHandlers: new Map(),
 		};
@@ -359,6 +406,7 @@ export function createWorld(): World {
 			entities: new Set(),
 			added: new Set(),
 			removed: new Set(),
+			baseline: new Map(),
 			addedHandlers: new Map(),
 			removedHandlers: new Map(),
 		};
@@ -383,6 +431,7 @@ export function createWorld(): World {
 			inverse: new Map(),
 			added: new Set(),
 			removed: new Set(),
+			baseline: new Map(),
 			addedHandlers: new Map(),
 			removedHandlers: new Map(),
 			addedTargetHandlers: new Map(),
@@ -505,9 +554,10 @@ export function createWorld(): World {
 	}
 
 	/**
-	 * Remove a single edge from both indexes, populate the `removed` buffer
-	 * (net-cancelling a same-tick add), and emit onRelationRemoved. Shared by
-	 * unrelate, exclusivity replacement, and the destroy sweep.
+	 * Remove a single edge from both indexes, classify the edge's net
+	 * transition into the per-tick buffers, and emit onRelationRemoved.
+	 * Shared by unrelate, exclusivity replacement, and the destroy sweep.
+	 * Callers guarantee the edge exists.
 	 */
 	function removeRelationEdge(store: RelationStore, source: EntityId, target: EntityId) {
 		const targets = store.forward.get(source);
@@ -521,9 +571,7 @@ export function createWorld(): World {
 			if (sources.size === 0) store.inverse.delete(target);
 		}
 		const key = edgeKey(source, target);
-		store.removed.add(key);
-		// Net-cancellation with queryRelationAdded in the same tick.
-		store.added.delete(key);
+		classifyTransition(store.baseline, store.added, null, store.removed, key, true, false);
 		emitRelationRemoved(store, source, target);
 	}
 
@@ -636,28 +684,35 @@ export function createWorld(): World {
 				store.removedTargetHandlers.delete(id);
 			}
 			// Remove all components — fire onComponentRemoved per owned component
-			// and populate the per-tick `removed` buffer so queryRemoved sees the id.
+			// and classify the net transition: a component present at the last
+			// clearDirty() lands in `removed`; one created-and-destroyed this tick
+			// (absent→absent) lands nowhere.
 			for (const store of components.values()) {
 				if (store.data.has(id)) {
 					const prev = store.data.get(id);
 					emitComponentRemoved(store, id, prev);
-					store.removed.add(id);
+					store.data.delete(id);
+					classifyTransition(
+						store.baseline,
+						store.added,
+						store.dirty,
+						store.removed,
+						id,
+						true,
+						false,
+					);
 				}
-				store.data.delete(id);
-				store.dirty.delete(id);
-				store.added.delete(id);
 				store.handlers.delete(id);
 				store.removedHandlers.delete(id);
 			}
-			// Remove all tags — fire onTagRemoved per owned tag and populate
-			// the per-tick `removed` buffer.
+			// Remove all tags — fire onTagRemoved per owned tag; same net
+			// classification as components (minus a changed buffer).
 			for (const store of tags.values()) {
 				if (store.entities.has(id)) {
 					emitTagRemoved(store, id);
-					store.removed.add(id);
+					store.entities.delete(id);
+					classifyTransition(store.baseline, store.added, null, store.removed, id, true, false);
 				}
-				store.entities.delete(id);
-				store.added.delete(id);
 				store.addedHandlers.delete(id);
 				store.removedHandlers.delete(id);
 			}
@@ -688,18 +743,20 @@ export function createWorld(): World {
 				);
 			}
 			const store = getComponentStore(type);
-			// Attach-or-replace: prev distinguishes the two for observers, and the
-			// membership buffers only record a true first attach.
+			// Attach-or-replace: prev distinguishes the two for observers; the
+			// buffers record the NET transition since the last clearDirty().
 			const prev = store.data.get(entity);
 			const merged = instantiateDefaults(type.defaults, data);
 			store.data.set(entity, merged);
-			store.dirty.add(entity);
-			if (prev === undefined) {
-				store.added.add(entity);
-				// Net-cancellation with queryRemoved: re-adding within the same tick
-				// undoes a prior remove from the buffer.
-				store.removed.delete(entity);
-			}
+			classifyTransition(
+				store.baseline,
+				store.added,
+				store.dirty,
+				store.removed,
+				entity,
+				prev !== undefined,
+				true,
+			);
 			// Update cached queries that include this component
 			updateCachesForEntity(type.name, entity);
 			emitComponentChanged(store, entity, prev, merged);
@@ -712,11 +769,17 @@ export function createWorld(): World {
 				// Fire onComponentRemoved BEFORE data is deleted so `prev` is
 				// readable from the store too if the handler wants it.
 				emitComponentRemoved(store, entity, prev);
-				store.removed.add(entity);
+				store.data.delete(entity);
+				classifyTransition(
+					store.baseline,
+					store.added,
+					store.dirty,
+					store.removed,
+					entity,
+					true,
+					false,
+				);
 			}
-			store.data.delete(entity);
-			store.dirty.delete(entity);
-			store.added.delete(entity);
 			// Update cached queries — entity may no longer match
 			updateCachesForEntity(type.name, entity);
 		},
@@ -756,11 +819,27 @@ export function createWorld(): World {
 				// stored nested values are only ever replaced, never mutated.
 				const prev = { ...existing };
 				Object.assign(existing as Record<string, unknown>, incoming);
-				store.dirty.add(entity);
+				classifyTransition(
+					store.baseline,
+					store.added,
+					store.dirty,
+					store.removed,
+					entity,
+					true,
+					true,
+				);
 				emitComponentChanged(store, entity, prev, existing);
 			} else {
 				Object.assign(existing as Record<string, unknown>, incoming);
-				store.dirty.add(entity);
+				classifyTransition(
+					store.baseline,
+					store.added,
+					store.dirty,
+					store.removed,
+					entity,
+					true,
+					true,
+				);
 			}
 		},
 
@@ -775,9 +854,10 @@ export function createWorld(): World {
 			const store = getTagStore(type);
 			if (store.entities.has(entity)) return;
 			store.entities.add(entity);
-			store.added.add(entity);
-			// Net-cancellation with queryRemovedTag in the same tick.
-			store.removed.delete(entity);
+			// Net classification: a tag present at the last clearDirty() that was
+			// removed and re-added this tick is a vacuous present→present — it
+			// lands in no buffer (tags have no changed buffer).
+			classifyTransition(store.baseline, store.added, null, store.removed, entity, false, true);
 			// Update cached queries that include this tag
 			updateCachesForEntity(type.name, entity);
 			emitTagAdded(store, entity);
@@ -787,9 +867,7 @@ export function createWorld(): World {
 			const store = getTagStore(type);
 			if (!store.entities.has(entity)) return;
 			store.entities.delete(entity);
-			store.removed.add(entity);
-			// Net-cancellation with queryAddedTag in the same tick.
-			store.added.delete(entity);
+			classifyTransition(store.baseline, store.added, null, store.removed, entity, true, false);
 			// Update cached queries — entity may no longer match
 			updateCachesForEntity(type.name, entity);
 			emitTagRemoved(store, entity);
@@ -843,9 +921,10 @@ export function createWorld(): World {
 			}
 			sources.add(source);
 			const key = edgeKey(source, target);
-			store.added.add(key);
-			// Net-cancellation with queryRelationRemoved in the same tick.
-			store.removed.delete(key);
+			// Net classification: an edge present at the last clearDirty() that
+			// was unrelated and re-related this tick is a vacuous present→present
+			// — it lands in no buffer (edges have no changed buffer).
+			classifyTransition(store.baseline, store.added, null, store.removed, key, false, true);
 			emitRelationAdded(store, source, target);
 		},
 
@@ -1182,14 +1261,17 @@ export function createWorld(): World {
 				store.dirty.clear();
 				store.added.clear();
 				store.removed.clear();
+				store.baseline.clear();
 			}
 			for (const store of tags.values()) {
 				store.added.clear();
 				store.removed.clear();
+				store.baseline.clear();
 			}
 			for (const store of relations.values()) {
 				store.added.clear();
 				store.removed.clear();
+				store.baseline.clear();
 			}
 			changedResources.clear();
 		},

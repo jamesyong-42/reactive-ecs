@@ -69,7 +69,7 @@ describe('World', () => {
 			expect(world.queryAdded(Position)).toEqual([]);
 		});
 
-		it('remove-then-re-add in the same tick still lands in queryAdded', () => {
+		it('remove-then-re-add in the same tick is a net present→present — queryChanged only', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
@@ -80,9 +80,11 @@ describe('World', () => {
 			world.removeComponent(e, Position);
 			world.addComponent(e, Position, { x: 5 });
 
-			// The component was absent at add time — unchanged first-attach path.
+			// Events are per-mutation: the component was absent at add time.
 			expect(handler).toHaveBeenCalledWith(e, undefined, { x: 5, y: 0 });
-			expect(world.queryAdded(Position)).toEqual([e]);
+			// Buffers are net: present at the last clearDirty() and present now.
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
 			expect(world.queryRemoved(Position)).toEqual([]);
 		});
 
@@ -273,15 +275,16 @@ describe('World', () => {
 			expect(result).toEqual([e1]);
 		});
 
-		it('queryChanged returns dirty entities', () => {
+		it('queryChanged returns written entities — fresh adds land in queryAdded only', () => {
 			const world = createWorld();
 			const e1 = world.createEntity();
 			const e2 = world.createEntity();
 			world.addComponent(e1, Position, { x: 0, y: 0 });
 			world.addComponent(e2, Position, { x: 1, y: 1 });
 
-			// Both are dirty after add
-			expect(world.queryChanged(Position)).toHaveLength(2);
+			// A fresh attach is absent→present: added only, never changed.
+			expect(world.queryChanged(Position)).toHaveLength(0);
+			expect(world.queryAdded(Position)).toHaveLength(2);
 
 			// Clear dirty
 			world.clearDirty();
@@ -329,29 +332,31 @@ describe('World', () => {
 			expect(world.queryRemoved(Position)).toHaveLength(0);
 		});
 
-		it('queryRemoved net-cancels with addComponent in the same tick', () => {
+		it('remove-then-add of a component present at tick start nets to queryChanged', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
 			world.clearDirty();
 
-			// remove then add → the entity should be in `added` but NOT in `removed`
+			// remove then add → net present→present: `changed` only
 			world.removeComponent(e, Position);
 			expect(world.queryRemoved(Position)).toEqual([e]);
 			world.addComponent(e, Position, { x: 9, y: 9 });
 			expect(world.queryRemoved(Position)).toEqual([]);
-			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryChanged(Position)).toEqual([e]);
 		});
 
-		it('queryAdded net-cancels with removeComponent in the same tick', () => {
+		it('add-then-remove in the same tick is a net absent→absent — no buffer', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			// add then remove (no prior state) → added empty, removed has the entity
+			// add then remove (no prior state) → all three buffers empty
 			world.addComponent(e, Position, { x: 0, y: 0 });
 			expect(world.queryAdded(Position)).toEqual([e]);
 			world.removeComponent(e, Position);
 			expect(world.queryAdded(Position)).toEqual([]);
-			expect(world.queryRemoved(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
 		});
 
 		it('queryRemoved includes entities torn down by destroyEntity', () => {
@@ -379,14 +384,14 @@ describe('World', () => {
 			expect(world.queryAddedTag(Selected)).toHaveLength(0);
 		});
 
-		it('queryAddedTag net-cancels with removeTag in the same tick', () => {
+		it('addTag-then-removeTag in the same tick is a net absent→absent — no buffer', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addTag(e, Selected);
 			expect(world.queryAddedTag(Selected)).toEqual([e]);
 			world.removeTag(e, Selected);
 			expect(world.queryAddedTag(Selected)).toEqual([]);
-			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+			expect(world.queryRemovedTag(Selected)).toEqual([]);
 		});
 
 		it('queryRemovedTag returns entities that lost a tag this tick', () => {
@@ -398,7 +403,7 @@ describe('World', () => {
 			expect(world.queryRemovedTag(Selected)).toEqual([e]);
 		});
 
-		it('queryRemovedTag net-cancels with addTag in the same tick', () => {
+		it('removeTag-then-addTag of a tag held at tick start is vacuous — no buffer', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addTag(e, Selected);
@@ -406,8 +411,9 @@ describe('World', () => {
 			world.removeTag(e, Selected);
 			expect(world.queryRemovedTag(Selected)).toEqual([e]);
 			world.addTag(e, Selected);
+			// Net present→present and tags have no changed buffer — nothing.
 			expect(world.queryRemovedTag(Selected)).toEqual([]);
-			expect(world.queryAddedTag(Selected)).toEqual([e]);
+			expect(world.queryAddedTag(Selected)).toEqual([]);
 		});
 
 		it('queryRemovedTag includes entities torn down by destroyEntity', () => {
@@ -436,6 +442,99 @@ describe('World', () => {
 			// no Position attached
 			world.removeComponent(e, Position);
 			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+	});
+
+	describe('per-tick buffer partition', () => {
+		// The three buffers partition entities by NET transition since the last
+		// clearDirty(): absent→present = added; present→present with ≥1 write =
+		// changed; present→absent = removed; absent→absent = nothing.
+
+		it('add + patch in the same tick → added only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.patchComponent(e, Position, { y: 2 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+
+		it('patch only → changed only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.patchComponent(e, Position, { x: 2 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+
+		it('re-add (replace) of a component present at tick start → changed only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.addComponent(e, Position, { x: 2 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+		});
+
+		it('destroy of a pre-existing component/tag owner → removed only', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.addTag(e, Selected);
+			world.clearDirty();
+			world.destroyEntity(e);
+			expect(world.queryRemoved(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryRemovedTag(Selected)).toEqual([e]);
+			expect(world.queryAddedTag(Selected)).toEqual([]);
+		});
+
+		it('create + add + destroy in the same tick → no buffer at all', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.patchComponent(e, Position, { x: 2 });
+			world.addTag(e, Selected);
+			world.destroyEntity(e);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryChanged(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+			expect(world.queryAddedTag(Selected)).toEqual([]);
+			expect(world.queryRemovedTag(Selected)).toEqual([]);
+		});
+
+		it('patch after destroy-survivor remove still classifies against tick start', () => {
+			// remove → re-add → patch, all same tick, component present at start:
+			// the entity stays a net present→present write — changed only.
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.removeComponent(e, Position);
+			world.addComponent(e, Position, { x: 5 });
+			world.patchComponent(e, Position, { y: 9 });
+			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryAdded(Position)).toEqual([]);
+			expect(world.queryRemoved(Position)).toEqual([]);
+		});
+
+		it('the partition resets at clearDirty — next tick classifies against the new baseline', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 1 });
+			world.clearDirty();
+			world.removeComponent(e, Position);
+			world.clearDirty();
+			// Present→absent happened LAST tick; this tick the add is a true attach.
+			world.addComponent(e, Position, { x: 2 });
+			expect(world.queryAdded(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
 		});
 	});
 

@@ -219,12 +219,14 @@ export interface World {
 	// Component access
 
 	/**
-	 * Attaches a component to an entity — attach-or-replace. The value is
-	 * `data` merged over the type's defaults; partial initialization is safe,
-	 * and omitted data attaches pure defaults. When the entity already has the
-	 * component, the existing value is replaced: observers receive the existing
-	 * value as `prev` and the entity lands in the `queryChanged` buffer only —
-	 * `prev === undefined` in observers reliably means first attach.
+	 * Attaches a component to an entity — attach-or-replace (upsert). The
+	 * value is `data` merged over the type's defaults; partial initialization
+	 * is safe, and omitted data attaches pure defaults. When the entity
+	 * already has the component, the existing value is replaced: observers
+	 * receive the existing value as `prev` — `prev === undefined` in observers
+	 * reliably means first attach. Buffers record the NET transition since the
+	 * last clearDirty(): absent then → `queryAdded`, present then →
+	 * `queryChanged`.
 	 */
 	addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>): void;
 	/** Removes a component from an entity. */
@@ -241,7 +243,10 @@ export interface World {
 	 * Strict shallow-merge update of an existing component: one level deep,
 	 * nested objects in `data` replace wholesale. Incoming plain data is
 	 * defensively cloned; observers receive a top-level snapshot of the prior
-	 * value as `prev`, and the entity lands in the `queryChanged` buffer.
+	 * value as `prev`. The entity lands in the buffer matching its net
+	 * transition: `queryChanged` when the component was present at the last
+	 * `clearDirty()`, while a component attached this tick stays in
+	 * `queryAdded`.
 	 * Non-creating by design — absence is never silent: throws if the entity
 	 * is dead, and throws if the entity is alive but lacks the component (use
 	 * `addComponent` to attach). For writes that may race a destroy (async
@@ -285,39 +290,57 @@ export interface World {
 
 	/** Returns entity IDs matching all positive types and none of the Not() types. */
 	query(...types: (ComponentType | TagType | NotTerm)[]): QueryResult;
-	/** Returns entities whose component changed this tick. */
+	/**
+	 * Returns entities whose NET transition for this component since the last
+	 * `clearDirty()` is present→present with at least one write. The three
+	 * per-tick buffers (`queryAdded` / `queryChanged` / `queryRemoved`)
+	 * partition touched entities by net transition and are disjoint by
+	 * definition — a fresh attach lands in `queryAdded` only, never here.
+	 */
 	queryChanged(type: ComponentType): QueryResult;
-	/** Returns entities that received this component this tick. */
+	/**
+	 * Returns entities whose net transition for this component since the last
+	 * `clearDirty()` is absent→present. Disjoint from `queryChanged` and
+	 * `queryRemoved`; an add followed by a remove in the same tick
+	 * (absent→absent) lands in no buffer.
+	 */
 	queryAdded(type: ComponentType): QueryResult;
 	/**
-	 * Returns entities that lost this component this tick — via `removeComponent`
-	 * or `destroyEntity`. Mirror of `queryAdded`. Net-cancels with `addComponent`
-	 * in the same tick.
+	 * Returns entities whose net transition for this component since the last
+	 * `clearDirty()` is present→absent — via `removeComponent` or
+	 * `destroyEntity`. A remove followed by a re-add in the same tick is
+	 * present→present and lands in `queryChanged` instead.
 	 */
 	queryRemoved(type: ComponentType): QueryResult;
 	/** Returns all entities with a specific tag. */
 	queryTagged(type: TagType): QueryResult;
 	/**
-	 * Returns entities that gained this tag this tick. Mirror of `queryAdded`
-	 * for tags. Net-cancels with `removeTag` in the same tick.
+	 * Returns entities whose net transition for this tag since the last
+	 * `clearDirty()` is absent→present. Tags have no changed buffer:
+	 * remove-then-re-add of a tag held at the last `clearDirty()` is a
+	 * vacuous present→present and lands in no buffer.
 	 */
 	queryAddedTag(type: TagType): QueryResult;
 	/**
-	 * Returns entities that lost this tag this tick — via `removeTag` or
-	 * `destroyEntity`. Net-cancels with `addTag` in the same tick.
+	 * Returns entities whose net transition for this tag since the last
+	 * `clearDirty()` is present→absent — via `removeTag` or `destroyEntity`.
+	 * Add-then-remove in the same tick (absent→absent) lands in no buffer.
 	 */
 	queryRemovedTag(type: TagType): QueryResult;
 	/** Returns all live edges of a relation as `[source, target]` pairs. */
 	queryRelation(type: RelationType): RelationEdge[];
 	/**
-	 * Returns edges added this tick. Mirror of `queryAdded` for relations.
-	 * Net-cancels with `unrelate` of the same edge in the same tick.
+	 * Returns edges whose net transition since the last `clearDirty()` is
+	 * absent→present. Edges have no changed buffer: unrelate-then-re-relate of
+	 * an edge present at the last `clearDirty()` is a vacuous present→present
+	 * and lands in no buffer.
 	 */
 	queryRelationAdded(type: RelationType): RelationEdge[];
 	/**
-	 * Returns edges removed this tick — via `unrelate`, exclusivity
-	 * replacement, or `destroyEntity` of either endpoint. Net-cancels with
-	 * `relate` of the same edge in the same tick.
+	 * Returns edges whose net transition since the last `clearDirty()` is
+	 * present→absent — via `unrelate`, exclusivity replacement, or
+	 * `destroyEntity` of either endpoint. Relate-then-unrelate in the same
+	 * tick (absent→absent) lands in no buffer.
 	 */
 	queryRelationRemoved(type: RelationType): RelationEdge[];
 	/**
@@ -416,7 +439,10 @@ export interface World {
 
 	// Frame lifecycle (used by engine after tick)
 
-	/** Clears per-frame dirty tracking state. */
+	/**
+	 * Clears the per-tick buffers and the transition baselines they classify
+	 * against — the partition point for the added/changed/removed buffers.
+	 */
 	clearDirty(): void;
 	/** Increments the tick counter. */
 	incrementTick(): void;

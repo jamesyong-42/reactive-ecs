@@ -224,31 +224,47 @@ describe('Relations', () => {
 			expect(world.queryRelationRemoved(Likes)).toEqual([]);
 		});
 
-		it('queryRelationRemoved net-cancels with relate in the same tick', () => {
+		it('unrelate-then-relate of an edge present at tick start is vacuous — no buffer', () => {
 			const world = createWorld();
 			const a = world.createEntity();
 			const b = world.createEntity();
 			world.relate(a, Likes, b);
 			world.clearDirty();
 
-			// unrelate then relate → the edge is in `added` but NOT in `removed`
+			// unrelate then relate → net present→present; edges have no changed
+			// buffer, so the round trip lands nowhere.
 			world.unrelate(a, Likes, b);
 			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
 			world.relate(a, Likes, b);
 			expect(world.queryRelationRemoved(Likes)).toEqual([]);
-			expect(world.queryRelationAdded(Likes)).toEqual([[a, b]]);
+			expect(world.queryRelationAdded(Likes)).toEqual([]);
 		});
 
-		it('queryRelationAdded net-cancels with unrelate in the same tick', () => {
+		it('relate-then-unrelate in the same tick is a net absent→absent — no buffer', () => {
 			const world = createWorld();
 			const a = world.createEntity();
 			const b = world.createEntity();
-			// relate then unrelate (no prior state) → added empty, removed has the edge
+			// relate then unrelate (no prior state) → both buffers empty
 			world.relate(a, Likes, b);
 			expect(world.queryRelationAdded(Likes)).toEqual([[a, b]]);
 			world.unrelate(a, Likes, b);
 			expect(world.queryRelationAdded(Likes)).toEqual([]);
+			expect(world.queryRelationRemoved(Likes)).toEqual([]);
+		});
+
+		it('destroyEntity of an endpoint nets to removed for pre-existing edges, nothing for same-tick edges', () => {
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+			const c = world.createEntity();
+			world.relate(a, Likes, b); // pre-existing edge
+			world.clearDirty();
+			world.relate(c, Likes, b); // created this tick
+
+			world.destroyEntity(b);
+			// a→b was present at tick start → removed; c→b is absent→absent → nothing.
 			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
+			expect(world.queryRelationAdded(Likes)).toEqual([]);
 		});
 	});
 
