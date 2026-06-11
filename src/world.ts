@@ -954,7 +954,7 @@ export function createWorld(): World {
 			return undefined;
 		},
 
-		getSources(type: RelationType, target: EntityId): EntityId[] {
+		getSources(target: EntityId, type: RelationType): EntityId[] {
 			const store = getRelationStore(type);
 			const sources = store.inverse.get(target);
 			return sources ? [...sources] : [];

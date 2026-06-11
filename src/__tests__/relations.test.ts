@@ -28,8 +28,8 @@ describe('Relations', () => {
 
 			expect(world.getTargets(a, Likes).sort()).toEqual([b, c].sort());
 			expect(world.getTarget(c, Likes)).toBe(b);
-			expect(world.getSources(Likes, b).sort()).toEqual([a, c].sort());
-			expect(world.getSources(Likes, c)).toEqual([a]);
+			expect(world.getSources(b, Likes).sort()).toEqual([a, c].sort());
+			expect(world.getSources(c, Likes)).toEqual([a]);
 		});
 
 		it('returns empty/undefined for entities with no edges', () => {
@@ -37,7 +37,7 @@ describe('Relations', () => {
 			const e = world.createEntity();
 			expect(world.getTargets(e, Likes)).toEqual([]);
 			expect(world.getTarget(e, Likes)).toBeUndefined();
-			expect(world.getSources(Likes, e)).toEqual([]);
+			expect(world.getSources(e, Likes)).toEqual([]);
 		});
 
 		it('maintains the inverse on unrelate', () => {
@@ -47,7 +47,7 @@ describe('Relations', () => {
 			world.relate(a, Likes, b);
 			world.unrelate(a, Likes, b);
 			expect(world.getTargets(a, Likes)).toEqual([]);
-			expect(world.getSources(Likes, b)).toEqual([]);
+			expect(world.getSources(b, Likes)).toEqual([]);
 		});
 
 		it('relate of an existing edge is a no-op — no duplicate events or buffer entries', () => {
@@ -84,8 +84,8 @@ describe('Relations', () => {
 
 			world.unrelate(a, Likes);
 			expect(world.getTargets(a, Likes)).toEqual([]);
-			expect(world.getSources(Likes, b)).toEqual([]);
-			expect(world.getSources(Likes, c)).toEqual([]);
+			expect(world.getSources(b, Likes)).toEqual([]);
+			expect(world.getSources(c, Likes)).toEqual([]);
 			expect(world.queryRelationRemoved(Likes).sort()).toEqual(
 				[
 					[a, b],
@@ -137,7 +137,7 @@ describe('Relations', () => {
 			world.relate(child, ChildOf, p2);
 			expect(order).toEqual([`removed:${child}->${p1}`, `added:${child}->${p2}`]);
 			expect(world.getTargets(child, ChildOf)).toEqual([p2]);
-			expect(world.getSources(ChildOf, p1)).toEqual([]);
+			expect(world.getSources(p1, ChildOf)).toEqual([]);
 			// Buffers reflect both sides of the replacement.
 			expect(world.queryRelationRemoved(ChildOf)).toEqual([[child, p1]]);
 			expect(world.queryRelationAdded(ChildOf)).toEqual([[child, p2]]);
@@ -157,7 +157,7 @@ describe('Relations', () => {
 
 			world.relate(o2, Owns, item);
 			expect(order).toEqual([`removed:${o1}->${item}`, `added:${o2}->${item}`]);
-			expect(world.getSources(Owns, item)).toEqual([o2]);
+			expect(world.getSources(item, Owns)).toEqual([o2]);
 			expect(world.getTargets(o1, Owns)).toEqual([]);
 			expect(world.queryRelationRemoved(Owns)).toEqual([[o1, item]]);
 			expect(world.queryRelationAdded(Owns)).toEqual([[o2, item]]);
@@ -174,11 +174,11 @@ describe('Relations', () => {
 			// A second pointer cannot seize the widget — the first edge is replaced.
 			world.relate(pointer2, Dragging, widget1);
 			expect(world.getTargets(pointer1, Dragging)).toEqual([]);
-			expect(world.getSources(Dragging, widget1)).toEqual([pointer2]);
+			expect(world.getSources(widget1, Dragging)).toEqual([pointer2]);
 
 			// The pointer cannot drag two widgets either.
 			world.relate(pointer2, Dragging, widget2);
-			expect(world.getSources(Dragging, widget1)).toEqual([]);
+			expect(world.getSources(widget1, Dragging)).toEqual([]);
 			expect(world.getTargets(pointer2, Dragging)).toEqual([widget2]);
 		});
 	});
@@ -453,7 +453,7 @@ describe('Relations', () => {
 			world.destroyEntity(a);
 			expect(removed).toHaveBeenCalledWith(a, b);
 			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
-			expect(world.getSources(Likes, b)).toEqual([]);
+			expect(world.getSources(b, Likes)).toEqual([]);
 		});
 
 		it("target death with 'clear' drops the edge and leaves the source alive", () => {

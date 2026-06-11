@@ -283,8 +283,12 @@ export interface World {
 	getTargets(source: EntityId, type: RelationType): EntityId[];
 	/** Returns source's single target — convenience for sourceExclusive relations. */
 	getTarget(source: EntityId, type: RelationType): EntityId | undefined;
-	/** Returns the sources pointing at `target` — the always-coherent inverse. `[]` if none. */
-	getSources(type: RelationType, target: EntityId): EntityId[];
+	/**
+	 * Returns the sources pointing at `target` — the always-coherent inverse.
+	 * `[]` if none. Entity-first like every per-entity read/write:
+	 * `(entity, type, ...)`.
+	 */
+	getSources(target: EntityId, type: RelationType): EntityId[];
 
 	// Queries
 
