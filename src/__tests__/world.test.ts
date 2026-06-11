@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { defineComponent, defineResource, defineTag, Not } from '../define.js';
+import { defineComponent, defineRelation, defineResource, defineTag, Not } from '../define.js';
 import { createWorld } from '../world.js';
 
 const Position = defineComponent('Position', { x: 0, y: 0 });
@@ -985,6 +985,101 @@ describe('World', () => {
 
 			world.getResource(A);
 			expect(() => world.getResource(B)).toThrow(/Resource name collision/i);
+		});
+	});
+
+	describe('mutation guard during the destroy sweep', () => {
+		const GUARD = /cannot mutate the world from a handler during entity teardown/;
+
+		it('a handler mutating during destroy throws — addComponent / patchComponent / destroyEntity / relate', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			const other = world.createEntity();
+			world.addComponent(e, Position, { x: 1, y: 1 });
+			world.addComponent(other, Position, { x: 2, y: 2 });
+
+			let checked = false;
+			world.onComponentRemoved(Position, (id) => {
+				if (id !== e) return;
+				expect(() => world.addComponent(other, Velocity, { dx: 1 })).toThrow(GUARD);
+				expect(() => world.patchComponent(other, Position, { x: 9 })).toThrow(GUARD);
+				expect(() => world.destroyEntity(other)).toThrow(GUARD);
+				expect(() => world.relate(other, defineRelation('GuardRel'), other)).toThrow(GUARD);
+				checked = true;
+			});
+
+			world.destroyEntity(e);
+			expect(checked).toBe(true);
+			// The world is intact after the rejected mutations.
+			expect(world.entityExists(other)).toBe(true);
+			expect(world.getComponent(other, Position)).toEqual({ x: 2, y: 2 });
+		});
+
+		it('onEntityDestroyed and onTagRemoved are inside the guard too', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addTag(e, Selected);
+
+			let checks = 0;
+			world.onEntityDestroyed(() => {
+				expect(() => world.createEntity()).toThrow(GUARD);
+				expect(() => world.setResource(Camera, { x: 1 })).toThrow(GUARD);
+				checks++;
+			});
+			world.onTagRemoved(Selected, () => {
+				expect(() => world.addTag(e, Visible)).toThrow(GUARD);
+				expect(() => world.removeTag(e, Selected)).toThrow(GUARD);
+				checks++;
+			});
+
+			world.destroyEntity(e);
+			expect(checks).toBe(2);
+		});
+
+		it('handler mutations OUTSIDE a destroy still work', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.onComponentChanged(Position, (id) => {
+				// Observe-and-mutate outside teardown is legal.
+				world.addTag(id, Selected);
+			});
+			world.addComponent(e, Position, { x: 1, y: 1 });
+			expect(world.hasTag(e, Selected)).toBe(true);
+			// And a later removeComponent outside destroy works as before.
+			world.removeComponent(e, Position);
+			expect(world.hasComponent(e, Position)).toBe(false);
+		});
+
+		it('onTargetDestroy policy effects still apply after the sweep — cascade and { tag }', () => {
+			const Cancelled = defineTag('GuardCancelled');
+			const CascadeRel = defineRelation('GuardCascade', { onTargetDestroy: 'cascade' });
+			const TagRel = defineRelation('GuardTag', { onTargetDestroy: { tag: Cancelled } });
+			const world = createWorld();
+			const chrome = world.createEntity();
+			const watcher = world.createEntity();
+			const target = world.createEntity();
+			world.relate(chrome, CascadeRel, target);
+			world.relate(watcher, TagRel, target);
+
+			// The deferred effects are the world's own mutations — legal.
+			world.destroyEntity(target);
+			expect(world.entityExists(chrome)).toBe(false);
+			expect(world.hasTag(watcher, Cancelled)).toBe(true);
+		});
+
+		it('nested cascade destroys still work — the guard lifts between sweeps', () => {
+			const ChainRel = defineRelation('GuardChain', { onTargetDestroy: 'cascade' });
+			const world = createWorld();
+			const a = world.createEntity();
+			const b = world.createEntity();
+			const c = world.createEntity();
+			world.relate(a, ChainRel, b);
+			world.relate(b, ChainRel, c);
+
+			world.destroyEntity(c);
+			expect(world.entityExists(a)).toBe(false);
+			expect(world.entityExists(b)).toBe(false);
+			expect(world.entityExists(c)).toBe(false);
 		});
 	});
 

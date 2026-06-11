@@ -228,7 +228,24 @@ export function createWorld(): World {
 	// withOrigin(), read by handlers via world.mutationOrigin. `undefined`
 	// (no window) is the unforgeable "local" origin.
 	let mutationOrigin: string | symbol | undefined;
+	// True while destroyEntity runs its teardown sweep. Handlers fired during
+	// the sweep (onEntityDestroyed, onComponentRemoved, onTagRemoved,
+	// onRelationRemoved) observe a half-destroyed entity — mutating from there
+	// is rejected. The flag lifts BEFORE deferred onTargetDestroy policy
+	// effects apply: those are mutations the world itself performs. Scope is
+	// the destroy sweep only — no general reentrancy lock.
+	let tearingDown = false;
 	const alive = new Set<EntityId>();
+
+	/** Reject mutation while a destroy sweep is in progress. */
+	function assertNotTearingDown() {
+		if (tearingDown) {
+			throw new Error(
+				'cannot mutate the world from a handler during entity teardown — ' +
+					'react via the removed buffers or an onTargetDestroy policy instead',
+			);
+		}
+	}
 
 	// Component storage: one Map per component type
 	const components = new Map<string, ComponentStore>();
@@ -607,6 +624,7 @@ export function createWorld(): World {
 		// === Entity lifecycle ===
 
 		createEntity(): EntityId {
+			assertNotTearingDown();
 			const id = nextEntityId++;
 			alive.add(id);
 			for (const listener of createListeners) listener(id);
@@ -614,6 +632,7 @@ export function createWorld(): World {
 		},
 
 		createEntityWithId(id: EntityId): EntityId {
+			assertNotTearingDown();
 			if (!Number.isInteger(id) || id < 1) {
 				throw new Error(`createEntityWithId(${id}): id must be a positive integer`);
 			}
@@ -642,13 +661,8 @@ export function createWorld(): World {
 		},
 
 		destroyEntity(id: EntityId) {
+			assertNotTearingDown();
 			if (!alive.has(id)) return;
-			// Notify destroy listeners BEFORE removing components/tags
-			// so callbacks can still read the entity's data
-			for (const listener of destroyListeners) listener(id);
-			alive.delete(id);
-			// Remove from all cached queries
-			removeCachesForEntity(id);
 			// Relation sweep — BEFORE component/tag teardown so onRelationRemoved
 			// handlers can still read the dying entity's data. Policy effects are
 			// collected here and applied only after teardown completes: mutating
@@ -657,64 +671,79 @@ export function createWorld(): World {
 				| { kind: 'destroy'; source: EntityId }
 				| { kind: 'tag'; source: EntityId; tag: TagType }
 			)[] = [];
-			for (const store of relations.values()) {
-				// id as source — outgoing edges simply vanish, symmetric to
-				// component teardown. No policy applies; the source is gone.
-				const targets = store.forward.get(id);
-				if (targets) {
-					for (const target of [...targets]) removeRelationEdge(store, id, target);
-				}
-				// id as target — each incoming edge is removed AND the relation's
-				// onTargetDestroy policy contributes a deferred effect per source.
-				const sources = store.inverse.get(id);
-				if (sources) {
-					const policy = store.type.options.onTargetDestroy;
-					for (const source of [...sources]) {
-						removeRelationEdge(store, source, id);
-						if (policy === 'cascade') {
-							deferredEffects.push({ kind: 'destroy', source });
-						} else if (policy !== 'clear') {
-							deferredEffects.push({ kind: 'tag', source, tag: policy.tag });
+			// The sweep begins: reject mutation from handlers until teardown
+			// completes (lifted before policy effects apply, in the finally).
+			tearingDown = true;
+			try {
+				// Notify destroy listeners BEFORE removing components/tags
+				// so callbacks can still read the entity's data
+				for (const listener of destroyListeners) listener(id);
+				alive.delete(id);
+				// Remove from all cached queries
+				removeCachesForEntity(id);
+				for (const store of relations.values()) {
+					// id as source — outgoing edges simply vanish, symmetric to
+					// component teardown. No policy applies; the source is gone.
+					const targets = store.forward.get(id);
+					if (targets) {
+						for (const target of [...targets]) removeRelationEdge(store, id, target);
+					}
+					// id as target — each incoming edge is removed AND the relation's
+					// onTargetDestroy policy contributes a deferred effect per source.
+					const sources = store.inverse.get(id);
+					if (sources) {
+						const policy = store.type.options.onTargetDestroy;
+						for (const source of [...sources]) {
+							removeRelationEdge(store, source, id);
+							if (policy === 'cascade') {
+								deferredEffects.push({ kind: 'destroy', source });
+							} else if (policy !== 'clear') {
+								deferredEffects.push({ kind: 'tag', source, tag: policy.tag });
+							}
 						}
 					}
+					store.addedHandlers.delete(id);
+					store.removedHandlers.delete(id);
+					store.addedTargetHandlers.delete(id);
+					store.removedTargetHandlers.delete(id);
 				}
-				store.addedHandlers.delete(id);
-				store.removedHandlers.delete(id);
-				store.addedTargetHandlers.delete(id);
-				store.removedTargetHandlers.delete(id);
-			}
-			// Remove all components — fire onComponentRemoved per owned component
-			// and classify the net transition: a component present at the last
-			// clearDirty() lands in `removed`; one created-and-destroyed this tick
-			// (absent→absent) lands nowhere.
-			for (const store of components.values()) {
-				if (store.data.has(id)) {
-					const prev = store.data.get(id);
-					emitComponentRemoved(store, id, prev);
-					store.data.delete(id);
-					classifyTransition(
-						store.baseline,
-						store.added,
-						store.dirty,
-						store.removed,
-						id,
-						true,
-						false,
-					);
+				// Remove all components — fire onComponentRemoved per owned component
+				// and classify the net transition: a component present at the last
+				// clearDirty() lands in `removed`; one created-and-destroyed this tick
+				// (absent→absent) lands nowhere.
+				for (const store of components.values()) {
+					if (store.data.has(id)) {
+						const prev = store.data.get(id);
+						emitComponentRemoved(store, id, prev);
+						store.data.delete(id);
+						classifyTransition(
+							store.baseline,
+							store.added,
+							store.dirty,
+							store.removed,
+							id,
+							true,
+							false,
+						);
+					}
+					store.handlers.delete(id);
+					store.removedHandlers.delete(id);
 				}
-				store.handlers.delete(id);
-				store.removedHandlers.delete(id);
-			}
-			// Remove all tags — fire onTagRemoved per owned tag; same net
-			// classification as components (minus a changed buffer).
-			for (const store of tags.values()) {
-				if (store.entities.has(id)) {
-					emitTagRemoved(store, id);
-					store.entities.delete(id);
-					classifyTransition(store.baseline, store.added, null, store.removed, id, true, false);
+				// Remove all tags — fire onTagRemoved per owned tag; same net
+				// classification as components (minus a changed buffer).
+				for (const store of tags.values()) {
+					if (store.entities.has(id)) {
+						emitTagRemoved(store, id);
+						store.entities.delete(id);
+						classifyTransition(store.baseline, store.added, null, store.removed, id, true, false);
+					}
+					store.addedHandlers.delete(id);
+					store.removedHandlers.delete(id);
 				}
-				store.addedHandlers.delete(id);
-				store.removedHandlers.delete(id);
+			} finally {
+				// Teardown is complete (or threw) — mutation is legal again. The
+				// deferred policy effects below are the world's own mutations.
+				tearingDown = false;
 			}
 			// Apply deferred relation policy effects — only now is mutation safe.
 			for (const effect of deferredEffects) {
@@ -737,6 +766,7 @@ export function createWorld(): World {
 		// === Component access ===
 
 		addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>) {
+			assertNotTearingDown();
 			if (!alive.has(entity)) {
 				throw new Error(
 					`addComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
@@ -763,6 +793,7 @@ export function createWorld(): World {
 		},
 
 		removeComponent<T>(entity: EntityId, type: ComponentType<T>) {
+			assertNotTearingDown();
 			const store = getComponentStore(type);
 			if (store.data.has(entity)) {
 				const prev = store.data.get(entity) as T;
@@ -796,6 +827,7 @@ export function createWorld(): World {
 
 		// Only allocate prev object when there are listeners
 		patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>) {
+			assertNotTearingDown();
 			if (!alive.has(entity)) {
 				throw new Error(
 					`patchComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
@@ -846,6 +878,7 @@ export function createWorld(): World {
 		// === Tag access ===
 
 		addTag(entity: EntityId, type: TagType) {
+			assertNotTearingDown();
 			if (!alive.has(entity)) {
 				throw new Error(
 					`addTag(${type.name}): entity ${entity} does not exist or has been destroyed`,
@@ -864,6 +897,7 @@ export function createWorld(): World {
 		},
 
 		removeTag(entity: EntityId, type: TagType) {
+			assertNotTearingDown();
 			const store = getTagStore(type);
 			if (!store.entities.has(entity)) return;
 			store.entities.delete(entity);
@@ -881,6 +915,7 @@ export function createWorld(): World {
 		// === Relation access ===
 
 		relate(source: EntityId, type: RelationType, target: EntityId) {
+			assertNotTearingDown();
 			if (!alive.has(source)) {
 				throw new Error(
 					`relate(${type.name}): source entity ${source} does not exist or has been destroyed`,
@@ -929,6 +964,7 @@ export function createWorld(): World {
 		},
 
 		unrelate(source: EntityId, type: RelationType, target?: EntityId) {
+			assertNotTearingDown();
 			const store = getRelationStore(type);
 			const targets = store.forward.get(source);
 			if (!targets) return;
@@ -1078,6 +1114,7 @@ export function createWorld(): World {
 
 		// Only allocate the prev snapshot when there are listeners
 		setResource<T>(type: ResourceType<T>, data: Partial<T>) {
+			assertNotTearingDown();
 			const store = getResourceStore(type);
 			changedResources.add(type.name);
 			// Clone incoming plain data — same aliasing guarantee as patchComponent.

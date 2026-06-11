@@ -139,7 +139,7 @@ export type ResourceChangedHandler<T = unknown> = (prev: Readonly<T>, next: Read
  * Fired synchronously when a relation edge is added or removed. Removal
  * handlers also fire for each edge torn down by `destroyEntity` of either
  * endpoint — during the destroy sweep the dying entity's components and tags
- * are still readable, but handlers must not mutate the world mid-destroy.
+ * are still readable, but mutating the world from a handler mid-sweep throws.
  */
 export type RelationHandler = (source: EntityId, target: EntityId) => void;
 
@@ -199,7 +199,10 @@ export interface World {
 	/**
 	 * Destroys an entity and removes all its components, tags, and relation
 	 * edges (as source or target — applying each relation's `onTargetDestroy`
-	 * policy after teardown completes).
+	 * policy after teardown completes). Handlers fired during the teardown
+	 * sweep may read the dying entity but not mutate the world — every
+	 * mutating method throws until the sweep completes. React via the removed
+	 * buffers or an `onTargetDestroy` policy instead.
 	 */
 	destroyEntity(id: EntityId): void;
 	/** Checks if an entity ID is still alive. */
@@ -411,8 +414,8 @@ export interface World {
 	 * `onRelationAdded`: bare `EntityId` = source, `{ target }` = edges into
 	 * that target, `{ source, target }` = the exact edge. Also fires for each
 	 * edge torn down by `destroyEntity` of either endpoint — the dying entity's
-	 * components and tags are still readable at fire-time, but handlers must
-	 * not mutate mid-destroy.
+	 * components and tags are still readable at fire-time, but mutating the
+	 * world mid-sweep throws.
 	 */
 	onRelationRemoved(
 		type: RelationType,
