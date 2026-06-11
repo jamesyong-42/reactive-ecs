@@ -71,6 +71,14 @@ export interface SystemDef {
 	 * cross-phase ordering.
 	 */
 	readonly phase?: string;
+	/**
+	 * Names of systems this one must run after / before. Validated lazily at
+	 * the first `execute()` (and re-validated after every register/remove), so
+	 * systems can be registered in any order — but a constraint naming a
+	 * system that is never registered throws, naming both parties. Silent
+	 * tolerance would let a typo quietly reorder the pipeline. Optional
+	 * cross-configuration ordering belongs to phases, not constraints.
+	 */
 	readonly after?: string | string[];
 	readonly before?: string | string[];
 	/**

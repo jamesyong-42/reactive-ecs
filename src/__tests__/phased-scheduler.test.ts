@@ -157,8 +157,7 @@ describe('PhasedScheduler', () => {
 			expect(() => scheduler.execute(world)).toThrow(/circular/i);
 		});
 
-		it('tolerates after/before referencing nonexistent systems (matches SystemScheduler)', () => {
-			const order: string[] = [];
+		it('throws at first execute when a constraint names an unregistered system (matches SystemScheduler)', () => {
 			const scheduler = new PhasedScheduler({ phases: TEST_PHASES });
 			const world = createWorld();
 
@@ -167,13 +166,58 @@ describe('PhasedScheduler', () => {
 					name: 'a',
 					phase: 'react',
 					after: 'nonexistent',
-					before: 'alsoMissing',
-					execute: () => order.push('a'),
+					execute: () => {},
 				}),
 			);
 
+			expect(() => scheduler.execute(world)).toThrow(
+				"System 'a' declares after: 'nonexistent', but no system named 'nonexistent' is registered.",
+			);
+		});
+
+		it('throws at first execute when before names an unregistered system', () => {
+			const scheduler = new PhasedScheduler({ phases: TEST_PHASES });
+			const world = createWorld();
+
+			scheduler.register(
+				defineSystem({ name: 'a', phase: 'react', before: 'missing', execute: () => {} }),
+			);
+
+			expect(() => scheduler.execute(world)).toThrow(
+				"System 'a' declares before: 'missing', but no system named 'missing' is registered.",
+			);
+		});
+
+		it('register-in-any-order still works across phases — validation is deferred', () => {
+			const order: string[] = [];
+			const scheduler = new PhasedScheduler({ phases: TEST_PHASES });
+			const world = createWorld();
+
+			scheduler.register(
+				defineSystem({ name: 'b', phase: 'react', after: 'a', execute: () => order.push('b') }),
+			);
+			scheduler.register(
+				defineSystem({ name: 'a', phase: 'react', execute: () => order.push('a') }),
+			);
+
 			expect(() => scheduler.execute(world)).not.toThrow();
-			expect(order).toEqual(['a']);
+			expect(order).toEqual(['a', 'b']);
+		});
+
+		it('removing a constraint target re-validates on the next execute', () => {
+			const scheduler = new PhasedScheduler({ phases: TEST_PHASES });
+			const world = createWorld();
+
+			scheduler.register(defineSystem({ name: 'a', phase: 'react', execute: () => {} }));
+			scheduler.register(
+				defineSystem({ name: 'b', phase: 'react', after: 'a', execute: () => {} }),
+			);
+			expect(() => scheduler.execute(world)).not.toThrow();
+
+			scheduler.remove('a');
+			expect(() => scheduler.execute(world)).toThrow(
+				"System 'b' declares after: 'a', but no system named 'a' is registered.",
+			);
 		});
 	});
 
