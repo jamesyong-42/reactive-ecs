@@ -9,6 +9,23 @@ import type {
 } from './types.js';
 
 /**
+ * Deep-freeze plain data — arrays and objects whose constructor is `Object`,
+ * recursively; class instances (and anything else) are left alone. Applied to
+ * `defaults` unconditionally: defaults are templates cloned per-attach, so a
+ * post-definition mutation would silently change every future attach. Same
+ * plain-data boundary as the world's clone (ownership rule).
+ */
+function freezePlainData(value: unknown): void {
+	if (Array.isArray(value)) {
+		for (const item of value) freezePlainData(item);
+		Object.freeze(value);
+	} else if (value !== null && typeof value === 'object' && value.constructor === Object) {
+		for (const key in value) freezePlainData((value as Record<string, unknown>)[key]);
+		Object.freeze(value);
+	}
+}
+
+/**
  * Defines a new ECS component type with a name and default values.
  * Components hold structured data attached to entities.
  */
@@ -16,6 +33,7 @@ export function defineComponent<T extends Record<string, unknown>>(
 	name: string,
 	defaults: T,
 ): ComponentType<T> {
+	freezePlainData(defaults);
 	return Object.freeze({ name, defaults, __kind: 'component' as const });
 }
 
@@ -60,6 +78,7 @@ export function defineResource<T extends Record<string, unknown>>(
 	name: string,
 	defaults: T,
 ): ResourceType<T> {
+	freezePlainData(defaults);
 	return Object.freeze({ name, defaults, __kind: 'resource' as const });
 }
 
