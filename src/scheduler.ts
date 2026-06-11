@@ -19,6 +19,15 @@ export interface SystemProfiler {
 }
 
 /**
+ * Module-private: per-phase buckets created by PhasedScheduler, where a
+ * constraint may legally point at a system in another phase. These buckets
+ * skip unknown-target validation (PhasedScheduler validates against its full
+ * registry instead). Not expressible from outside this module — consumers
+ * cannot disable the validation.
+ */
+const tolerantBuckets = new WeakSet<SystemScheduler>();
+
+/**
  * Manages system registration and ordered execution.
  * Systems declare after/before constraints and are topologically sorted.
  */
@@ -26,14 +35,6 @@ export class SystemScheduler {
 	private systems: SystemDef[] = [];
 	private sorted: SystemDef[] | null = null;
 	profiler: SystemProfiler | null = null;
-	/**
-	 * @internal When true, constraints naming systems not registered in THIS
-	 * scheduler are skipped instead of throwing — set by PhasedScheduler on its
-	 * per-phase buckets, where a constraint may legally point at a system in
-	 * another phase. The PhasedScheduler validates unknown targets itself
-	 * against the full registry.
-	 */
-	tolerateUnknownConstraints = false;
 
 	register(system: SystemDef) {
 		// Replace if system with same name exists
@@ -93,7 +94,7 @@ export class SystemScheduler {
 			byName.set(s.name, s);
 		}
 
-		if (!this.tolerateUnknownConstraints) {
+		if (!tolerantBuckets.has(this)) {
 			for (const s of this.systems) {
 				for (const kind of ['after', 'before'] as const) {
 					const value = s[kind];
@@ -297,7 +298,7 @@ export class PhasedScheduler<P extends string = string> {
 			// Constraints may legally point at systems in other phases — the
 			// bucket can't see them, so unknown-target validation happens here
 			// in ensureValidated() against the full registry instead.
-			bucket.tolerateUnknownConstraints = true;
+			tolerantBuckets.add(bucket);
 			this.buckets.set(phase, bucket);
 		}
 		bucket.register(system);

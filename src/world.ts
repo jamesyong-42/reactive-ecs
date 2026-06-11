@@ -127,6 +127,12 @@ function subscribeRelationHandler(
 	const source = normalized?.source;
 	const target = normalized?.target;
 	if (source !== undefined && target !== undefined) {
+		// Exact-edge filters are keyed under the SOURCE. If the target dies
+		// while the source lives, this wrapper is never auto-cleaned (destroy
+		// cleans buckets keyed by the dying id) — it can no longer fire (ids
+		// never recycle, so no edge can point at the dead target again), but it
+		// is retained until the caller unsubscribes. Unsubscribe exact-edge
+		// filters explicitly.
 		const wrapped: RelationHandler = (s, t) => {
 			if (t === target) handler(s, t);
 		};
@@ -675,6 +681,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 		},
 
 		setNextEntityId(n: number): void {
+			assertNotTearingDown();
 			if (!Number.isInteger(n) || n < nextEntityId) {
 				throw new Error(
 					`setNextEntityId(${n}): counter only moves forward (currently ${nextEntityId})`,
@@ -848,7 +855,6 @@ export function createWorld(options?: CreateWorldOptions): World {
 			return store.data.has(entity);
 		},
 
-		// Only allocate prev object when there are listeners
 		patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>) {
 			assertNotTearingDown();
 			if (!alive.has(entity)) {
