@@ -10,447 +10,447 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Schibsted+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
 <style>
   :root {
-                                    --paper: #f7f4ed;
-                                    --paper-deep: #efeadf;
-                                    --ink: #1d1a13;
-                                    --ink-soft: #4f4a3d;
-                                    --ink-faint: #8a8371;
-                                    --line: #ded7c6;
-                                    --accent: #0d7a68;
-                                    --accent-deep: #0a5d50;
-                                    --accent-wash: #e2efeb;
-                                    --amber: #b4690e;
-                                    --amber-wash: #f6ecdb;
-                                    --code-bg: #142420;
-                                    --code-ink: #d8e6e0;
-                                    --code-cmt: #6f8d83;
-                                    --code-str: #c9b97a;
-                                    --code-kw: #7fc8b4;
-                                    --code-fn: #e3c98f;
-                                    --code-typ: #a9c9e8;
-                                    --code-num: #d8a0a0;
-                                    --sidebar-w: 272px;
-                                    --content-w: 736px;
-                                    --radius: 6px;
-                                  }
+                                      --paper: #f7f4ed;
+                                      --paper-deep: #efeadf;
+                                      --ink: #1d1a13;
+                                      --ink-soft: #4f4a3d;
+                                      --ink-faint: #8a8371;
+                                      --line: #ded7c6;
+                                      --accent: #0d7a68;
+                                      --accent-deep: #0a5d50;
+                                      --accent-wash: #e2efeb;
+                                      --amber: #b4690e;
+                                      --amber-wash: #f6ecdb;
+                                      --code-bg: #142420;
+                                      --code-ink: #d8e6e0;
+                                      --code-cmt: #6f8d83;
+                                      --code-str: #c9b97a;
+                                      --code-kw: #7fc8b4;
+                                      --code-fn: #e3c98f;
+                                      --code-typ: #a9c9e8;
+                                      --code-num: #d8a0a0;
+                                      --sidebar-w: 272px;
+                                      --content-w: 736px;
+                                      --radius: 6px;
+                                    }
 
-                                  * { box-sizing: border-box; }
+                                    * { box-sizing: border-box; }
 
-                                  html { scroll-behavior: smooth; }
+                                    html { scroll-behavior: smooth; }
 
-                                  body {
-                                    margin: 0;
-                                    background: var(--paper);
-                                    color: var(--ink);
-                                    font-family: 'Schibsted Grotesk', sans-serif;
-                                    font-size: 16.5px;
-                                    line-height: 1.65;
-                                    -webkit-font-smoothing: antialiased;
-                                    background-image:
-                                      radial-gradient(circle at 1px 1px, rgba(29,26,19,0.05) 1px, transparent 0);
-                                    background-size: 26px 26px;
-                                  }
+                                    body {
+                                      margin: 0;
+                                      background: var(--paper);
+                                      color: var(--ink);
+                                      font-family: 'Schibsted Grotesk', sans-serif;
+                                      font-size: 16.5px;
+                                      line-height: 1.65;
+                                      -webkit-font-smoothing: antialiased;
+                                      background-image:
+                                        radial-gradient(circle at 1px 1px, rgba(29,26,19,0.05) 1px, transparent 0);
+                                      background-size: 26px 26px;
+                                    }
 
-                                  ::selection { background: var(--accent); color: #fff; }
+                                    ::selection { background: var(--accent); color: #fff; }
 
-                                  /* ---------- Sidebar ---------- */
+                                    /* ---------- Sidebar ---------- */
 
-                                  .sidebar {
-                                    position: fixed;
-                                    top: 0; left: 0; bottom: 0;
-                                    width: var(--sidebar-w);
-                                    padding: 32px 28px 48px;
-                                    overflow-y: auto;
-                                    border-right: 1px solid var(--line);
-                                    background: var(--paper);
-                                    z-index: 40;
-                                    scrollbar-width: thin;
-                                  }
+                                    .sidebar {
+                                      position: fixed;
+                                      top: 0; left: 0; bottom: 0;
+                                      width: var(--sidebar-w);
+                                      padding: 32px 28px 48px;
+                                      overflow-y: auto;
+                                      border-right: 1px solid var(--line);
+                                      background: var(--paper);
+                                      z-index: 40;
+                                      scrollbar-width: thin;
+                                    }
 
-                                  .brand {
-                                    display: flex;
-                                    align-items: center;
-                                    gap: 12px;
-                                    text-decoration: none;
-                                    color: var(--ink);
-                                    margin-bottom: 6px;
-                                  }
-                                  .brand .pulse-mini {
-                                    position: relative;
-                                    width: 10px; height: 10px;
-                                    border-radius: 50%;
-                                    background: var(--accent);
-                                    flex: none;
-                                  }
-                                  .brand .pulse-mini::after {
-                                    content: '';
-                                    position: absolute; inset: 0;
-                                    border-radius: 50%;
-                                    border: 1.5px solid var(--accent);
-                                    animation: ripple 2.6s cubic-bezier(.2,.6,.3,1) infinite;
-                                  }
-                                  .brand b {
-                                    font-family: 'Fraunces', serif;
-                                    font-weight: 600;
-                                    font-size: 19px;
-                                    letter-spacing: -0.01em;
-                                  }
-                                  .brand-version {
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 11px;
-                                    color: var(--ink-faint);
-                                    margin: 0 0 22px 22px;
-                                  }
+                                    .brand {
+                                      display: flex;
+                                      align-items: center;
+                                      gap: 12px;
+                                      text-decoration: none;
+                                      color: var(--ink);
+                                      margin-bottom: 6px;
+                                    }
+                                    .brand .pulse-mini {
+                                      position: relative;
+                                      width: 10px; height: 10px;
+                                      border-radius: 50%;
+                                      background: var(--accent);
+                                      flex: none;
+                                    }
+                                    .brand .pulse-mini::after {
+                                      content: '';
+                                      position: absolute; inset: 0;
+                                      border-radius: 50%;
+                                      border: 1.5px solid var(--accent);
+                                      animation: ripple 2.6s cubic-bezier(.2,.6,.3,1) infinite;
+                                    }
+                                    .brand b {
+                                      font-family: 'Fraunces', serif;
+                                      font-weight: 600;
+                                      font-size: 19px;
+                                      letter-spacing: -0.01em;
+                                    }
+                                    .brand-version {
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 11px;
+                                      color: var(--ink-faint);
+                                      margin: 0 0 22px 22px;
+                                    }
 
-                                  .nav-group { margin-bottom: 22px; }
-                                  .nav-group > span {
-                                    display: block;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 10.5px;
-                                    font-weight: 600;
-                                    text-transform: uppercase;
-                                    letter-spacing: 0.14em;
-                                    color: var(--ink-faint);
-                                    margin-bottom: 8px;
-                                  }
-                                  .nav-group a {
-                                    display: block;
-                                    padding: 4px 10px;
-                                    margin-left: -10px;
-                                    font-size: 14.5px;
-                                    color: var(--ink-soft);
-                                    text-decoration: none;
-                                    border-left: 2px solid transparent;
-                                    border-radius: 0 var(--radius) var(--radius) 0;
-                                    transition: color .12s, background .12s;
-                                  }
-                                  .nav-group a.sub { padding-left: 24px; font-size: 13.5px; }
-                                  .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
-                                  .nav-group a.active {
-                                    color: var(--accent-deep);
-                                    border-left-color: var(--accent);
-                                    background: var(--accent-wash);
-                                    font-weight: 600;
-                                  }
+                                    .nav-group { margin-bottom: 22px; }
+                                    .nav-group > span {
+                                      display: block;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 10.5px;
+                                      font-weight: 600;
+                                      text-transform: uppercase;
+                                      letter-spacing: 0.14em;
+                                      color: var(--ink-faint);
+                                      margin-bottom: 8px;
+                                    }
+                                    .nav-group a {
+                                      display: block;
+                                      padding: 4px 10px;
+                                      margin-left: -10px;
+                                      font-size: 14.5px;
+                                      color: var(--ink-soft);
+                                      text-decoration: none;
+                                      border-left: 2px solid transparent;
+                                      border-radius: 0 var(--radius) var(--radius) 0;
+                                      transition: color .12s, background .12s;
+                                    }
+                                    .nav-group a.sub { padding-left: 24px; font-size: 13.5px; }
+                                    .nav-group a:hover { color: var(--ink); background: var(--paper-deep); }
+                                    .nav-group a.active {
+                                      color: var(--accent-deep);
+                                      border-left-color: var(--accent);
+                                      background: var(--accent-wash);
+                                      font-weight: 600;
+                                    }
 
-                                  .sidebar-foot {
-                                    margin-top: 30px;
-                                    padding-top: 18px;
-                                    border-top: 1px solid var(--line);
-                                    font-size: 13px;
-                                  }
-                                  .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
-                                  .sidebar-foot a:hover { color: var(--accent-deep); }
+                                    .sidebar-foot {
+                                      margin-top: 30px;
+                                      padding-top: 18px;
+                                      border-top: 1px solid var(--line);
+                                      font-size: 13px;
+                                    }
+                                    .sidebar-foot a { color: var(--ink-soft); text-decoration: none; display: block; padding: 2px 0; }
+                                    .sidebar-foot a:hover { color: var(--accent-deep); }
 
-                                  .nav-toggle {
-                                    display: none;
-                                    position: fixed;
-                                    top: 14px; left: 14px;
-                                    z-index: 60;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 12px;
-                                    padding: 7px 12px;
-                                    background: var(--ink);
-                                    color: var(--paper);
-                                    border: none;
-                                    border-radius: var(--radius);
-                                    cursor: pointer;
-                                  }
+                                    .nav-toggle {
+                                      display: none;
+                                      position: fixed;
+                                      top: 14px; left: 14px;
+                                      z-index: 60;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 12px;
+                                      padding: 7px 12px;
+                                      background: var(--ink);
+                                      color: var(--paper);
+                                      border: none;
+                                      border-radius: var(--radius);
+                                      cursor: pointer;
+                                    }
 
-                                  /* ---------- Main column ---------- */
+                                    /* ---------- Main column ---------- */
 
-                                  main {
-                                    margin-left: var(--sidebar-w);
-                                    padding: 0 48px 120px;
-                                  }
-                                  .measure { max-width: var(--content-w); margin: 0 auto; }
+                                    main {
+                                      margin-left: var(--sidebar-w);
+                                      padding: 0 48px 120px;
+                                    }
+                                    .measure { max-width: var(--content-w); margin: 0 auto; }
 
-                                  /* ---------- Hero ---------- */
+                                    /* ---------- Hero ---------- */
 
-                                  .hero {
-                                    padding: 96px 0 64px;
-                                    border-bottom: 1px solid var(--line);
-                                    margin-bottom: 56px;
-                                    position: relative;
-                                  }
-                                  .hero-kicker {
-                                    display: inline-flex;
-                                    align-items: center;
-                                    gap: 14px;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 12px;
-                                    letter-spacing: 0.12em;
-                                    text-transform: uppercase;
-                                    color: var(--accent-deep);
-                                    margin-bottom: 26px;
-                                    animation: rise .7s cubic-bezier(.2,.7,.3,1) both;
-                                  }
-                                  .pulse {
-                                    position: relative;
-                                    width: 12px; height: 12px;
-                                    border-radius: 50%;
-                                    background: var(--accent);
-                                    flex: none;
-                                  }
-                                  .pulse::before, .pulse::after {
-                                    content: '';
-                                    position: absolute; inset: 0;
-                                    border-radius: 50%;
-                                    border: 1.5px solid var(--accent);
-                                    animation: ripple 2.8s cubic-bezier(.2,.6,.3,1) infinite;
-                                  }
-                                  .pulse::after { animation-delay: 1.4s; }
-                                  @keyframes ripple {
-                                    from { transform: scale(1); opacity: .8; }
-                                    to   { transform: scale(6.5); opacity: 0; }
-                                  }
+                                    .hero {
+                                      padding: 96px 0 64px;
+                                      border-bottom: 1px solid var(--line);
+                                      margin-bottom: 56px;
+                                      position: relative;
+                                    }
+                                    .hero-kicker {
+                                      display: inline-flex;
+                                      align-items: center;
+                                      gap: 14px;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 12px;
+                                      letter-spacing: 0.12em;
+                                      text-transform: uppercase;
+                                      color: var(--accent-deep);
+                                      margin-bottom: 26px;
+                                      animation: rise .7s cubic-bezier(.2,.7,.3,1) both;
+                                    }
+                                    .pulse {
+                                      position: relative;
+                                      width: 12px; height: 12px;
+                                      border-radius: 50%;
+                                      background: var(--accent);
+                                      flex: none;
+                                    }
+                                    .pulse::before, .pulse::after {
+                                      content: '';
+                                      position: absolute; inset: 0;
+                                      border-radius: 50%;
+                                      border: 1.5px solid var(--accent);
+                                      animation: ripple 2.8s cubic-bezier(.2,.6,.3,1) infinite;
+                                    }
+                                    .pulse::after { animation-delay: 1.4s; }
+                                    @keyframes ripple {
+                                      from { transform: scale(1); opacity: .8; }
+                                      to   { transform: scale(6.5); opacity: 0; }
+                                    }
 
-                                  .hero h1 {
-                                    font-family: 'Fraunces', serif;
-                                    font-size: clamp(44px, 6vw, 64px);
-                                    font-weight: 600;
-                                    letter-spacing: -0.025em;
-                                    line-height: 1.04;
-                                    margin: 0 0 24px;
-                                    animation: rise .7s .08s cubic-bezier(.2,.7,.3,1) both;
-                                  }
-                                  .hero h1 em {
-                                    font-style: italic;
-                                    font-weight: 500;
-                                    color: var(--accent-deep);
-                                  }
-                                  .hero p.lede {
-                                    font-size: 19px;
-                                    line-height: 1.6;
-                                    color: var(--ink-soft);
-                                    max-width: 620px;
-                                    margin: 0 0 34px;
-                                    animation: rise .7s .16s cubic-bezier(.2,.7,.3,1) both;
-                                  }
-                                  .hero-meta {
-                                    display: flex;
-                                    flex-wrap: wrap;
-                                    gap: 10px;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 12px;
-                                    color: var(--ink-soft);
-                                    animation: rise .7s .24s cubic-bezier(.2,.7,.3,1) both;
-                                  }
-                                  .hero-meta span {
-                                    border: 1px solid var(--line);
-                                    background: var(--paper-deep);
-                                    border-radius: 100px;
-                                    padding: 4px 12px;
-                                  }
-                                  @keyframes rise {
-                                    from { opacity: 0; transform: translateY(14px); }
-                                    to   { opacity: 1; transform: none; }
-                                  }
+                                    .hero h1 {
+                                      font-family: 'Fraunces', serif;
+                                      font-size: clamp(44px, 6vw, 64px);
+                                      font-weight: 600;
+                                      letter-spacing: -0.025em;
+                                      line-height: 1.04;
+                                      margin: 0 0 24px;
+                                      animation: rise .7s .08s cubic-bezier(.2,.7,.3,1) both;
+                                    }
+                                    .hero h1 em {
+                                      font-style: italic;
+                                      font-weight: 500;
+                                      color: var(--accent-deep);
+                                    }
+                                    .hero p.lede {
+                                      font-size: 19px;
+                                      line-height: 1.6;
+                                      color: var(--ink-soft);
+                                      max-width: 620px;
+                                      margin: 0 0 34px;
+                                      animation: rise .7s .16s cubic-bezier(.2,.7,.3,1) both;
+                                    }
+                                    .hero-meta {
+                                      display: flex;
+                                      flex-wrap: wrap;
+                                      gap: 10px;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 12px;
+                                      color: var(--ink-soft);
+                                      animation: rise .7s .24s cubic-bezier(.2,.7,.3,1) both;
+                                    }
+                                    .hero-meta span {
+                                      border: 1px solid var(--line);
+                                      background: var(--paper-deep);
+                                      border-radius: 100px;
+                                      padding: 4px 12px;
+                                    }
+                                    @keyframes rise {
+                                      from { opacity: 0; transform: translateY(14px); }
+                                      to   { opacity: 1; transform: none; }
+                                    }
 
-                                  /* ---------- Typography ---------- */
+                                    /* ---------- Typography ---------- */
 
-                                  section { margin-bottom: 72px; }
+                                    section { margin-bottom: 72px; }
 
-                                  h2 {
-                                    font-family: 'Fraunces', serif;
-                                    font-size: 32px;
-                                    font-weight: 600;
-                                    letter-spacing: -0.015em;
-                                    line-height: 1.15;
-                                    margin: 0 0 8px;
-                                    padding-top: 18px;
-                                    scroll-margin-top: 28px;
-                                  }
-                                  h2::before {
-                                    content: '';
-                                    display: block;
-                                    width: 34px; height: 3px;
-                                    background: var(--accent);
-                                    margin-bottom: 22px;
-                                  }
-                                  h3 {
-                                    font-family: 'Fraunces', serif;
-                                    font-size: 21.5px;
-                                    font-weight: 600;
-                                    margin: 40px 0 10px;
-                                    scroll-margin-top: 28px;
-                                  }
-                                  h4 {
-                                    font-size: 16px;
-                                    font-weight: 700;
-                                    margin: 28px 0 8px;
-                                  }
+                                    h2 {
+                                      font-family: 'Fraunces', serif;
+                                      font-size: 32px;
+                                      font-weight: 600;
+                                      letter-spacing: -0.015em;
+                                      line-height: 1.15;
+                                      margin: 0 0 8px;
+                                      padding-top: 18px;
+                                      scroll-margin-top: 28px;
+                                    }
+                                    h2::before {
+                                      content: '';
+                                      display: block;
+                                      width: 34px; height: 3px;
+                                      background: var(--accent);
+                                      margin-bottom: 22px;
+                                    }
+                                    h3 {
+                                      font-family: 'Fraunces', serif;
+                                      font-size: 21.5px;
+                                      font-weight: 600;
+                                      margin: 40px 0 10px;
+                                      scroll-margin-top: 28px;
+                                    }
+                                    h4 {
+                                      font-size: 16px;
+                                      font-weight: 700;
+                                      margin: 28px 0 8px;
+                                    }
 
-                                  p { margin: 0 0 16px; }
-                                  p, li { color: var(--ink); }
-                                  strong { font-weight: 650; }
-                                  a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13,122,104,.35); text-underline-offset: 2px; }
-                                  a:hover { text-decoration-color: var(--accent); }
+                                    p { margin: 0 0 16px; }
+                                    p, li { color: var(--ink); }
+                                    strong { font-weight: 650; }
+                                    a { color: var(--accent-deep); text-decoration: underline; text-decoration-color: rgba(13,122,104,.35); text-underline-offset: 2px; }
+                                    a:hover { text-decoration-color: var(--accent); }
 
-                                  ul, ol { padding-left: 22px; margin: 0 0 16px; }
-                                  li { margin-bottom: 6px; }
+                                    ul, ol { padding-left: 22px; margin: 0 0 16px; }
+                                    li { margin-bottom: 6px; }
 
-                                  code {
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 0.86em;
-                                    background: var(--paper-deep);
-                                    border: 1px solid var(--line);
-                                    border-radius: 4px;
-                                    padding: 1px 5px;
-                                    white-space: nowrap;
-                                  }
+                                    code {
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 0.86em;
+                                      background: var(--paper-deep);
+                                      border: 1px solid var(--line);
+                                      border-radius: 4px;
+                                      padding: 1px 5px;
+                                      white-space: nowrap;
+                                    }
 
-                                  .anchor {
-                                    margin-left: 8px;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 0.65em;
-                                    color: var(--ink-faint);
-                                    text-decoration: none;
-                                    opacity: 0;
-                                    transition: opacity .12s;
-                                  }
-                                  h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+                                    .anchor {
+                                      margin-left: 8px;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 0.65em;
+                                      color: var(--ink-faint);
+                                      text-decoration: none;
+                                      opacity: 0;
+                                      transition: opacity .12s;
+                                    }
+                                    h2:hover .anchor, h3:hover .anchor { opacity: 1; }
 
-                                  /* ---------- Code blocks ---------- */
+                                    /* ---------- Code blocks ---------- */
 
-                                  figure.code {
-                                    position: relative;
-                                    margin: 20px 0 24px;
-                                    border-radius: 8px;
-                                    background: var(--code-bg);
-                                    box-shadow: 0 1px 0 rgba(29,26,19,.18), 0 12px 28px -18px rgba(20,36,32,.55);
-                                    overflow: hidden;
-                                  }
-                                  figure.code::before {
-                                    content: attr(data-lang);
-                                    position: absolute;
-                                    top: 9px; right: 64px;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 10.5px;
-                                    letter-spacing: .1em;
-                                    text-transform: uppercase;
-                                    color: var(--code-cmt);
-                                  }
-                                  figure.code pre {
-                                    margin: 0;
-                                    padding: 20px 24px;
-                                    overflow-x: auto;
-                                  }
-                                  figure.code code {
-                                    background: none;
-                                    border: none;
-                                    padding: 0;
-                                    white-space: pre;
-                                    font-size: 13.5px;
-                                    line-height: 1.62;
-                                    color: var(--code-ink);
-                                  }
-                                  .tok-cmt { color: var(--code-cmt); font-style: italic; }
-                                  .tok-str { color: var(--code-str); }
-                                  .tok-kw  { color: var(--code-kw); }
-                                  .tok-fn  { color: var(--code-fn); }
-                                  .tok-typ { color: var(--code-typ); }
-                                  .tok-num { color: var(--code-num); }
+                                    figure.code {
+                                      position: relative;
+                                      margin: 20px 0 24px;
+                                      border-radius: 8px;
+                                      background: var(--code-bg);
+                                      box-shadow: 0 1px 0 rgba(29,26,19,.18), 0 12px 28px -18px rgba(20,36,32,.55);
+                                      overflow: hidden;
+                                    }
+                                    figure.code::before {
+                                      content: attr(data-lang);
+                                      position: absolute;
+                                      top: 9px; right: 64px;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 10.5px;
+                                      letter-spacing: .1em;
+                                      text-transform: uppercase;
+                                      color: var(--code-cmt);
+                                    }
+                                    figure.code pre {
+                                      margin: 0;
+                                      padding: 20px 24px;
+                                      overflow-x: auto;
+                                    }
+                                    figure.code code {
+                                      background: none;
+                                      border: none;
+                                      padding: 0;
+                                      white-space: pre;
+                                      font-size: 13.5px;
+                                      line-height: 1.62;
+                                      color: var(--code-ink);
+                                    }
+                                    .tok-cmt { color: var(--code-cmt); font-style: italic; }
+                                    .tok-str { color: var(--code-str); }
+                                    .tok-kw  { color: var(--code-kw); }
+                                    .tok-fn  { color: var(--code-fn); }
+                                    .tok-typ { color: var(--code-typ); }
+                                    .tok-num { color: var(--code-num); }
 
-                                  button.copy {
-                                    position: absolute;
-                                    top: 8px; right: 8px;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 10.5px;
-                                    letter-spacing: .06em;
-                                    text-transform: uppercase;
-                                    color: var(--code-cmt);
-                                    background: rgba(255,255,255,.04);
-                                    border: 1px solid rgba(216,230,224,.18);
-                                    border-radius: 4px;
-                                    padding: 4px 9px;
-                                    cursor: pointer;
-                                    transition: color .12s, border-color .12s;
-                                  }
-                                  button.copy:hover { color: var(--code-ink); border-color: rgba(216,230,224,.4); }
-                                  button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
+                                    button.copy {
+                                      position: absolute;
+                                      top: 8px; right: 8px;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 10.5px;
+                                      letter-spacing: .06em;
+                                      text-transform: uppercase;
+                                      color: var(--code-cmt);
+                                      background: rgba(255,255,255,.04);
+                                      border: 1px solid rgba(216,230,224,.18);
+                                      border-radius: 4px;
+                                      padding: 4px 9px;
+                                      cursor: pointer;
+                                      transition: color .12s, border-color .12s;
+                                    }
+                                    button.copy:hover { color: var(--code-ink); border-color: rgba(216,230,224,.4); }
+                                    button.copy.done { color: var(--code-kw); border-color: var(--code-kw); }
 
-                                  /* ---------- Callouts ---------- */
+                                    /* ---------- Callouts ---------- */
 
-                                  .callout {
-                                    margin: 20px 0 24px;
-                                    padding: 14px 18px 14px 16px;
-                                    border-left: 3px solid var(--accent);
-                                    background: var(--accent-wash);
-                                    border-radius: 0 var(--radius) var(--radius) 0;
-                                    font-size: 15px;
-                                  }
-                                  .callout > p:last-child { margin-bottom: 0; }
-                                  .callout .callout-tag {
-                                    display: inline-block;
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 10.5px;
-                                    font-weight: 600;
-                                    text-transform: uppercase;
-                                    letter-spacing: .12em;
-                                    color: var(--accent-deep);
-                                    margin-bottom: 4px;
-                                  }
-                                  .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
-                                  .callout.warn .callout-tag { color: var(--amber); }
+                                    .callout {
+                                      margin: 20px 0 24px;
+                                      padding: 14px 18px 14px 16px;
+                                      border-left: 3px solid var(--accent);
+                                      background: var(--accent-wash);
+                                      border-radius: 0 var(--radius) var(--radius) 0;
+                                      font-size: 15px;
+                                    }
+                                    .callout > p:last-child { margin-bottom: 0; }
+                                    .callout .callout-tag {
+                                      display: inline-block;
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 10.5px;
+                                      font-weight: 600;
+                                      text-transform: uppercase;
+                                      letter-spacing: .12em;
+                                      color: var(--accent-deep);
+                                      margin-bottom: 4px;
+                                    }
+                                    .callout.warn { border-left-color: var(--amber); background: var(--amber-wash); }
+                                    .callout.warn .callout-tag { color: var(--amber); }
 
-                                  /* ---------- Tables ---------- */
+                                    /* ---------- Tables ---------- */
 
-                                  .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
-                                  table {
-                                    width: 100%;
-                                    border-collapse: collapse;
-                                    font-size: 14px;
-                                    background: #fbf9f4;
-                                    border: 1px solid var(--line);
-                                    border-radius: 8px;
-                                    overflow: hidden;
-                                  }
-                                  th {
-                                    font-family: 'IBM Plex Mono', monospace;
-                                    font-size: 11px;
-                                    font-weight: 600;
-                                    text-transform: uppercase;
-                                    letter-spacing: .1em;
-                                    text-align: left;
-                                    color: var(--ink-faint);
-                                    background: var(--paper-deep);
-                                    padding: 10px 14px;
-                                    border-bottom: 1px solid var(--line);
-                                  }
-                                  td {
-                                    padding: 10px 14px;
-                                    border-bottom: 1px solid var(--line);
-                                    vertical-align: top;
-                                  }
-                                  tr:last-child td { border-bottom: none; }
-                                  td code { white-space: nowrap; }
-                                  td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
+                                    .table-wrap { overflow-x: auto; margin: 20px 0 24px; }
+                                    table {
+                                      width: 100%;
+                                      border-collapse: collapse;
+                                      font-size: 14px;
+                                      background: #fbf9f4;
+                                      border: 1px solid var(--line);
+                                      border-radius: 8px;
+                                      overflow: hidden;
+                                    }
+                                    th {
+                                      font-family: 'IBM Plex Mono', monospace;
+                                      font-size: 11px;
+                                      font-weight: 600;
+                                      text-transform: uppercase;
+                                      letter-spacing: .1em;
+                                      text-align: left;
+                                      color: var(--ink-faint);
+                                      background: var(--paper-deep);
+                                      padding: 10px 14px;
+                                      border-bottom: 1px solid var(--line);
+                                    }
+                                    td {
+                                      padding: 10px 14px;
+                                      border-bottom: 1px solid var(--line);
+                                      vertical-align: top;
+                                    }
+                                    tr:last-child td { border-bottom: none; }
+                                    td code { white-space: nowrap; }
+                                    td:first-child code { background: transparent; border: none; padding: 0; color: var(--accent-deep); font-weight: 500; }
 
-                                  /* ---------- Hr / footer ---------- */
+                                    /* ---------- Hr / footer ---------- */
 
-                                  footer {
-                                    border-top: 1px solid var(--line);
-                                    margin-top: 80px;
-                                    padding-top: 28px;
-                                    font-size: 14px;
-                                    color: var(--ink-faint);
-                                    display: flex;
-                                    justify-content: space-between;
-                                    flex-wrap: wrap;
-                                    gap: 12px;
-                                  }
-                                  footer a { color: var(--ink-soft); }
+                                    footer {
+                                      border-top: 1px solid var(--line);
+                                      margin-top: 80px;
+                                      padding-top: 28px;
+                                      font-size: 14px;
+                                      color: var(--ink-faint);
+                                      display: flex;
+                                      justify-content: space-between;
+                                      flex-wrap: wrap;
+                                      gap: 12px;
+                                    }
+                                    footer a { color: var(--ink-soft); }
 
-                                  /* ---------- Responsive ---------- */
+                                    /* ---------- Responsive ---------- */
 
-                                  @media (max-width: 980px) {
-                                    .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29,26,19,.4); }
-                                    body.nav-open .sidebar { transform: none; }
-                                    .nav-toggle { display: block; }
-                                    main { margin-left: 0; padding: 0 22px 90px; }
-                                    .hero { padding-top: 84px; }
-                                  }
+                                    @media (max-width: 980px) {
+                                      .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: 14px 0 40px -20px rgba(29,26,19,.4); }
+                                      body.nav-open .sidebar { transform: none; }
+                                      .nav-toggle { display: block; }
+                                      main { margin-left: 0; padding: 0 22px 90px; }
+                                      .hero { padding-top: 84px; }
+                                    }
 </style>
 </head>
 <body>
@@ -467,6 +467,7 @@
   <div class="nav-group">
     <span>Start</span>
     <a href="#introduction">Introduction</a>
+    <a href="#design-principles">Design principles</a>
     <a href="#installation">Installation</a>
     <a href="#quick-start">Quick start</a>
   </div>
@@ -492,6 +493,7 @@
     <a href="#events">Events</a>
     <a href="#origin-tagging">Origin tagging</a>
     <a href="#destroy-semantics">Destroy semantics</a>
+    <a href="#document-vs-interaction">Document vs. interaction</a>
     <a href="#driving-ui">Driving a UI</a>
   </div>
 
@@ -555,7 +557,7 @@
     </p>
     <p>reactive-ecs makes the opposite trade. The library owns component storage, and because it owns the store, it can make guarantees a bring-your-own-storage toolkit cannot:</p>
     <ul>
-      <li><strong>Every write through the world API emits.</strong> <code>addComponent</code> / <code>setComponent</code> / <code>removeComponent</code> all notify observers — no <code>set()</code> ceremony to forget. The flip side of the contract: reads hand you the stored object, so treat it as read-only and write through the API.</li>
+      <li><strong>Every write through the world API emits.</strong> <code>addComponent</code> / <code>patchComponent</code> / <code>removeComponent</code> all notify observers — no <code>set()</code> ceremony to forget. The flip side of the contract: reads hand you the stored object, so treat it as read-only and write through the API.</li>
       <li><strong>Subscriptions can target a single entity.</strong> <code>onComponentChanged(Position, handler, entityId)</code> is exactly the shape a <code>useComponent()</code> hook needs.</li>
       <li><strong>Removal is observable with the data still readable.</strong> <code>onComponentRemoved</code> fires <em>before</em> deletion, so handlers can release GPU buffers, DOM nodes, or subscriptions keyed by the dying value.</li>
       <li><strong>Entity ids never lie.</strong> Ids are monotonic and never reused — <code>entityExists(staleId)</code> is <code>false</code> forever.</li>
@@ -571,6 +573,19 @@
         the plumbing, this is for you. See <a href="#non-goals">non-goals</a> for the full list of trade-offs.
       </p>
     </div>
+  </section>
+
+  <!-- ================================ DESIGN PRINCIPLES ================================ -->
+  <section id="design-principles">
+    <h2>Design principles<a class="anchor" href="#design-principles">#</a></h2>
+    <p>Every API decision in this library answers to five rules:</p>
+    <ol>
+      <li><strong>Absence is never silent.</strong> Reads return <code>undefined</code>; non-creating writes against absence throw.</li>
+      <li><strong>One ownership rule.</strong> Plain data crossing the API boundary is owned by the world: cloned in, frozen in dev, replaced never mutated. Class instances stay the caller's, by reference.</li>
+      <li><strong>Events are the journal; buffers are the partition.</strong> Events are lossless, synchronous, per-mutation. Buffers classify the net transition since the last <code>clearDirty()</code> and are disjoint by definition.</li>
+      <li><strong>Entity first.</strong> Every per-entity read/write is <code>(entity, type, ...)</code>.</li>
+      <li><strong>The tick is one call.</strong> <code>tickWorld</code> is the door; <code>emitFrame</code> / <code>clearDirty</code> / <code>incrementTick</code> are the escape hatch.</li>
+    </ol>
   </section>
 
   <!-- ================================ INSTALL ================================ -->
@@ -595,6 +610,7 @@ pnpm add @jamesyong42/reactive-ecs</code></pre></figure>
   defineSystem,
   defineTag,
   SystemScheduler,
+  tickWorld,
 } from '@jamesyong42/reactive-ecs';
 
 // 1. Define types
@@ -618,23 +634,20 @@ const movement = defineSystem({
     for (const id of w.query(Position, Velocity)) {
       const p = w.getComponent(id, Position)!;
       const v = w.getComponent(id, Velocity)!;
-      w.setComponent(id, Position, { x: p.x + v.dx, y: p.y + v.dy });
+      w.patchComponent(id, Position, { x: p.x + v.dx, y: p.y + v.dy });
     }
   },
 });
 
-// 4. Schedule &amp; tick
+// 4. Schedule &amp; tick — tickWorld is the door
 const scheduler = new SystemScheduler();
 scheduler.register(movement);
 
 function tick() {
-  scheduler.execute(world);
-  world.emitFrame();
-  world.clearDirty();
-  world.incrementTick();
+  tickWorld(world, (w) =&gt; scheduler.execute(w));
 }</code></pre></figure>
     <p>
-      The four calls in <code>tick()</code> are the whole frame protocol — run systems,
+      <code>tickWorld</code> is the whole frame protocol in one call — run systems,
       notify frame subscribers, reset per-tick change buffers, advance the tick counter.
       Drive it from <code>requestAnimationFrame</code>, a <code>setInterval</code>, or
       only when something actually changed; the library has no opinion.
@@ -657,20 +670,21 @@ world.currentTick;  // number — incremented by incrementTick()
 world.entityCount;  // number of live entities</code></pre></figure>
 
     <h3 id="frame-lifecycle">Frame lifecycle<a class="anchor" href="#frame-lifecycle">#</a></h3>
-    <p>Three methods make up the end-of-frame protocol. Call them in this order after your systems run:</p>
+    <p>
+      The tick is one call: <code>tickWorld(world, (w) =&gt; scheduler.execute(w))</code> runs
+      your callback, then <code>emitFrame()</code>, <code>clearDirty()</code>,
+      <code>incrementTick()</code> — in that order, so <code>onFrame</code> subscribers still
+      see this tick's buffers and tick number.
+    </p>
+    <p>The three calls it encodes are public — the escape hatch when you need to interleave something between the steps:</p>
     <div class="table-wrap"><table>
       <thead><tr><th>Method</th><th>What it does</th></tr></thead>
       <tbody>
         <tr><td><code>emitFrame()</code></td><td>Fires every <code>onFrame</code> subscriber. The end-of-tick hook — flush batched UI updates here.</td></tr>
-        <tr><td><code>clearDirty()</code></td><td>Resets the per-tick buffers behind <code>queryChanged</code> / <code>queryAdded</code> / <code>queryRemoved</code> / <code>queryAddedTag</code> / <code>queryRemovedTag</code>.</td></tr>
+        <tr><td><code>clearDirty()</code></td><td>Resets the per-tick buffers behind <code>queryChanged</code> / <code>queryAdded</code> / <code>queryRemoved</code> / <code>queryAddedTag</code> / <code>queryRemovedTag</code> — and the baselines the <a href="#change-tracking">partition</a> classifies against.</td></tr>
         <tr><td><code>incrementTick()</code></td><td>Advances <code>currentTick</code> by one.</td></tr>
       </tbody>
     </table></div>
-    <p>
-      Or let the helper encode the order:
-      <code>tickWorld(world, (w) =&gt; scheduler.execute(w))</code> runs your callback and then
-      the three calls above — equivalent, harder to get wrong.
-    </p>
     <div class="callout">
       <span class="callout-tag">Note</span>
       <p>
@@ -730,19 +744,27 @@ const Path = defineComponent('Path', {
 });</code></pre></figure>
 
     <h3 id="component-access">Reading and writing<a class="anchor" href="#component-access">#</a></h3>
-<figure class="code" data-lang="ts"><pre><code>world.addComponent(e, Position, { x: 10, y: 20 }); // attach (merged over defaults)
+<figure class="code" data-lang="ts"><pre><code>world.addComponent(e, Position, { x: 10, y: 20 }); // upsert (merged over defaults)
 world.hasComponent(e, Position);                   // true
 world.getComponent(e, Position);                   // { x: 10, y: 20 } | undefined
 
-world.setComponent(e, Position, { x: 15 });        // shallow-merge partial update
+world.patchComponent(e, Position, { x: 15 });      // strict shallow-merge update
 world.getComponent(e, Position);                   // { x: 15, y: 20 }
 
 world.removeComponent(e, Position);                // detach (fires onComponentRemoved)</code></pre></figure>
     <ul>
-      <li><strong>Defaults merge on add.</strong> <code>addComponent</code> shallow-merges your data over the defined defaults, so partial initialization is safe.</li>
-      <li><strong>Defensive clone on add.</strong> Plain objects and arrays in the initial data are deep-cloned at any depth, so two entities never share nested state by accident. Class instances are kept by reference, deliberately: the library never clones what it can't reconstruct. (Initial data must be acyclic.)</li>
-      <li><strong>Shallow merge on set.</strong> <code>setComponent</code> takes a <code>Partial&lt;T&gt;</code> and merges it over the current value — <em>one level deep</em> — and emits a change event. Incoming plain data is defensively cloned here too, so a reference you keep to the data you passed can never mutate world state behind the API.</li>
+      <li><strong><code>addComponent</code> is the upsert.</strong> It shallow-merges your data over the defined defaults (partial initialization is safe) and attach-or-replaces: re-adding replaces the value, with the existing value as <code>prev</code> in observers.</li>
+      <li><strong>Defensive clone on every write.</strong> Plain objects and arrays in incoming data are deep-cloned at any depth, so two entities never share nested state by accident and a reference you keep to data you passed can never mutate world state behind the API. Class instances are kept by reference, deliberately: the library never clones what it can't reconstruct. (Data must be acyclic.)</li>
+      <li><strong><code>patchComponent</code> is the strict update.</strong> It takes a <code>Partial&lt;T&gt;</code> and merges it over the current value — <em>one level deep</em> — and emits a change event. It never creates: absence is never silent, so it throws rather than no-op when the target is missing.</li>
     </ul>
+    <p>The two error messages are the migration guide:</p>
+<figure class="code" data-lang="ts"><pre><code>// dead entity:
+//   patchComponent(Position): entity 42 does not exist or has been destroyed
+// alive, but the component was never attached:
+//   patchComponent(Position): entity 42 has no Position — use addComponent to attach
+
+// the idiomatic guard for writes that may race a destroy (async callbacks, timers):
+if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code></pre></figure>
     <p>
       One level deep means nested objects are replaced wholesale, not merged into — and
       <code>Partial&lt;T&gt;</code> is partial at the <em>top</em> level only, so a nested
@@ -754,20 +776,19 @@ world.removeComponent(e, Position);                // detach (fires onComponentR
 });
 
 // nested objects replace wholesale — there is no deep merge
-world.setComponent(e, Transform, { position: { x: 10, y: 0 } });
+world.patchComponent(e, Transform, { position: { x: 10, y: 0 } });
 // → { position: { x: 10, y: 0 }, rotation: 0 }
 
 // to update one nested field, spread the current value:
 const t = world.getComponent(e, Transform)!;
-world.setComponent(e, Transform, { position: { ...t.position, x: 10 } });</code></pre></figure>
+world.patchComponent(e, Transform, { position: { ...t.position, x: 10 } });</code></pre></figure>
 
     <h3 id="op-semantics">Operation semantics<a class="anchor" href="#op-semantics">#</a></h3>
     <div class="table-wrap"><table>
       <thead><tr><th>Operation</th><th>If present</th><th>If missing</th><th>If entity dead</th></tr></thead>
       <tbody>
-        <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev =</code> the old value, id lands in <code>queryChanged</code> (not <code>queryAdded</code>)</td><td>attaches (<code>data</code> optional/partial — merged over defaults)</td><td>throws</td></tr>
-        <tr><td><code>replaceComponent</code></td><td>replaces the full value + emits true <code>prev</code></td><td>attaches</td><td>throws</td></tr>
-        <tr><td><code>setComponent</code></td><td>shallow-merges + emits</td><td><strong>silent no-op</strong></td><td>silent no-op</td></tr>
+        <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev =</code> the old value; the buffers record the net transition (<code>queryChanged</code> if present at tick start)</td><td>attaches (<code>data</code> optional/partial — merged over defaults)</td><td>throws</td></tr>
+        <tr><td><code>patchComponent</code></td><td>shallow-merges + emits</td><td><strong>throws</strong> — use <code>addComponent</code> to attach</td><td>throws</td></tr>
         <tr><td><code>removeComponent</code></td><td>removes (event fires first)</td><td>no-op</td><td>no-op</td></tr>
         <tr><td><code>addTag</code></td><td>no-op</td><td>adds</td><td>throws</td></tr>
         <tr><td><code>removeTag</code></td><td>removes</td><td>no-op</td><td>no-op</td></tr>
@@ -775,24 +796,26 @@ world.setComponent(e, Transform, { position: { ...t.position, x: 10 } });</code>
       </tbody>
     </table></div>
     <p>
-      Two rows worth memorizing: <code>setComponent</code> on an entity that doesn't have the
-      component does nothing — use <code>addComponent</code> to attach — and because
-      re-adding reports the true previous value, <code>prev === undefined</code> in
-      <code>onComponentChanged</code> reliably means "first attach".
+      Two facts worth memorizing: <code>patchComponent</code> against absence throws — its
+      error message names the fix — and because re-adding reports the true previous value,
+      <code>prev === undefined</code> in <code>onComponentChanged</code> reliably means
+      "first attach". A full-value replace is just <code>addComponent</code> with the
+      complete value.
     </p>
     <div class="callout">
       <span class="callout-tag">The contract</span>
       <p>
-        All writes go through <code>addComponent</code> / <code>setComponent</code> /
-        <code>replaceComponent</code> / <code>removeComponent</code>, which is what lets the
-        library guarantee that every change is queryable via
-        <a href="#change-tracking">change tracking</a> and observable via
-        <a href="#events">events</a>. Every write path defensively clones incoming plain
-        data, so a reference you hold to data you passed in can never mutate world state
-        behind the API. The other direction is convention: don't mutate the object returned
-        by <code>getComponent</code> in place — the world can't see that. The
-        <code>Readonly</code> typing on reads and event payloads enforces this at the top
-        level at compile time; it's friction, not runtime immutability.
+        All writes go through <code>addComponent</code> / <code>patchComponent</code> /
+        <code>removeComponent</code>, which is what lets the library guarantee that every
+        change is queryable via <a href="#change-tracking">change tracking</a> and observable
+        via <a href="#events">events</a>. One ownership rule covers both directions: plain
+        data crossing the API boundary is owned by the world — cloned on the way in, and
+        stored values are replaced on write, never mutated in place. Don't mutate the object
+        returned by <code>getComponent</code> — the <code>Readonly</code> typing enforces
+        that at compile time, and <code>createWorld({ freeze: true })</code> enforces it at
+        runtime in development by deep-freezing exactly what the world clones (plain
+        objects/arrays at any depth; never class instances). Clone and freeze are two
+        enforcements of the same boundary.
       </p>
     </div>
   </section>
@@ -834,8 +857,12 @@ world.removeTag(e, Selected);  // fires onTagRemoved</code></pre></figure>
 world.relate(child, ChildOf, parent);  // throws if either endpoint is dead
 world.getTargets(child, ChildOf);      // [parent]
 world.getTarget(child, ChildOf);       // parent — convenience for sourceExclusive
-world.getSources(ChildOf, parent);     // all children — the always-coherent inverse
+world.getSources(parent, ChildOf);     // all children — the always-coherent inverse
 world.unrelate(child, ChildOf);        // target omitted → all outgoing edges</code></pre></figure>
+    <p>
+      Entity first, like every per-entity call: <code>getSources(parent, ChildOf)</code>
+      reads "who points at <code>parent</code>?".
+    </p>
     <p>
       The inverse index is maintained by the store, never by you — no more materialized
       children arrays kept in sync by hand. The litmus for when to use a relation instead
@@ -843,7 +870,7 @@ world.unrelate(child, ChildOf);        // target omitted → all outgoing edges<
     </p>
     <ul>
       <li><strong>Born-dangling edges are impossible</strong> — <code>relate</code> throws if either endpoint is not alive.</li>
-      <li><strong>Exclusivity replaces.</strong> On a <code>sourceExclusive</code> relation, relating to a new target unrelates the old one first — observable as removed-then-added, mirroring <code>setComponent</code> overwrite semantics.</li>
+      <li><strong>Exclusivity replaces.</strong> On a <code>sourceExclusive</code> relation, relating to a new target unrelates the old one first — observable as removed-then-added, mirroring <code>addComponent</code> overwrite semantics.</li>
       <li><strong>Re-relating an existing edge is a no-op</strong>, mirroring <code>addTag</code>.</li>
     </ul>
 
@@ -876,8 +903,8 @@ world.unrelate(child, ChildOf);        // target omitted → all outgoing edges<
     <h3 id="relation-reactivity">Relation reactivity<a class="anchor" href="#relation-reactivity">#</a></h3>
 <figure class="code" data-lang="ts"><pre><code>// Per-tick batches — mirror queryAdded / queryRemoved; cleared by clearDirty()
 world.queryRelation(ChildOf);         // all live edges: [source, target][]
-world.queryRelationAdded(ChildOf);    // edges added this tick
-world.queryRelationRemoved(ChildOf);  // edges removed this tick — INCLUDING destroys
+world.queryRelationAdded(ChildOf);    // net absent→present this tick
+world.queryRelationRemoved(ChildOf);  // net present→absent — INCLUDING destroys
 
 // Synchronous observers — filter by source (bare id) or target ({ target })
 world.onRelationAdded(ChildOf, handler, { target: parent }); // watch a parent's children
@@ -886,9 +913,10 @@ world.onRelationRemoved(ChildOf, (source, target) =&gt; {
   // fires during destroy too — the dying entity's components are still readable here
 }, sourceId);</code></pre></figure>
     <p>
-      <a href="#net-cancellation">Net-cancellation</a> applies as everywhere else: opposing
-      mutations of the same edge in one tick cancel the opposite buffer, and the last
-      transition's buffer keeps the edge.
+      The <a href="#net-cancellation">partition rule</a> applies per edge: the buffers
+      classify each edge's net transition since the last <code>clearDirty()</code>. Edges
+      have no changed buffer, so unrelate-then-re-relate of a pre-existing edge is a vacuous
+      present→present and lands in no buffer.
     </p>
   </section>
 
@@ -950,14 +978,27 @@ for (const id of world.query(Position, Not(Velocity), Not(Hidden))) {
       <span class="callout-tag">Note</span>
       <p>
         A query needs at least one positive term (a component or a tag — relations and
-        resources are not query terms) — a query of only <code>Not()</code> terms would have
-        to scan every entity, so it throws instead. There is deliberately no <code>Or</code>
-        operator: union two queries in user code if you need one. One cache exists per exact
-        term signature (<code>query(A, Not(B))</code> and <code>query(A, B)</code> are
-        separate caches) and is retained for the world's lifetime — fine for the stable
-        query sets real apps have, but don't generate query signatures dynamically.
+        resources are not query terms). The reason a pure-<code>Not()</code> query throws is
+        maintenance, not the one-off scan: a no-arg <code>query()</code> is cheap because it
+        copies the maintained alive set, but a pure-negative query would need its own cached
+        set re-evaluated on every mutation of the negated types <em>and on every entity
+        create</em>. It's that standing cost the throw refuses. There is deliberately no
+        <code>Or</code> operator: union two queries in user code if you need one.
       </p>
     </div>
+    <h3 id="dispose-query">Disposing a cache entry<a class="anchor" href="#dispose-query">#</a></h3>
+    <p>
+      One cache exists per exact term signature (<code>query(A, Not(B))</code> and
+      <code>query(A, B)</code> are separate caches). Entries live until you drop them:
+      <code>disposeQuery(...types)</code> removes the cache entry and its reverse-index
+      registrations for that exact signature (order-insensitive, like <code>query</code>).
+      Re-querying rebuilds the entry with one scan over the smallest candidate store —
+      <strong>that rebuild is the only full-scan path in the library</strong> — and resumes
+      incremental maintenance.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>world.query(Position, Not(Velocity));   // builds + caches
+world.disposeQuery(Position, Not(Velocity)); // drops the entry
+world.query(Position, Not(Velocity));   // one scan, cached + maintained again</code></pre></figure>
   </section>
 
   <!-- ================================ CHANGE TRACKING ================================ -->
@@ -965,72 +1006,62 @@ for (const id of world.query(Position, Not(Velocity), Not(Hidden))) {
     <h2>Change tracking<a class="anchor" href="#change-tracking">#</a></h2>
     <p>
       Beyond "who has X right now," the world answers "whose X changed <em>this tick</em>."
-      Five batch queries read the per-tick buffers, which reset when you call
-      <code>clearDirty()</code>:
+      The per-tick buffers reset when you call <code>clearDirty()</code> — and what they
+      hold is governed by one invariant, the <a href="#net-cancellation">partition rule</a>:
+      each buffer classifies an entity's <strong>net transition since the last
+      <code>clearDirty()</code></strong>, and the three buffers are disjoint by definition.
     </p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Query</th><th>Returns entities that…</th></tr></thead>
+      <thead><tr><th>Query</th><th>Net transition since <code>clearDirty()</code></th></tr></thead>
       <tbody>
-        <tr><td><code>queryAdded(C)</code></td><td>received component <code>C</code> this tick.</td></tr>
-        <tr><td><code>queryChanged(C)</code></td><td>had <code>C</code> written this tick (add or set).</td></tr>
-        <tr><td><code>queryRemoved(C)</code></td><td>lost <code>C</code> this tick — via <code>removeComponent</code> <em>or</em> <code>destroyEntity</code>.</td></tr>
-        <tr><td><code>queryAddedTag(T)</code></td><td>gained tag <code>T</code> this tick.</td></tr>
-        <tr><td><code>queryRemovedTag(T)</code></td><td>lost tag <code>T</code> this tick — via <code>removeTag</code> <em>or</em> <code>destroyEntity</code>.</td></tr>
+        <tr><td><code>queryAdded(C)</code></td><td>absent → present.</td></tr>
+        <tr><td><code>queryChanged(C)</code></td><td>present → present with ≥ 1 write. A fresh attach is <em>never</em> here.</td></tr>
+        <tr><td><code>queryRemoved(C)</code></td><td>present → absent — via <code>removeComponent</code> <em>or</em> <code>destroyEntity</code>.</td></tr>
+        <tr><td><code>queryAddedTag(T)</code> / <code>queryRemovedTag(T)</code></td><td>same partition for tags — no changed buffer; present → present is vacuous.</td></tr>
+        <tr><td><code>queryRelationAdded(R)</code> / <code>queryRelationRemoved(R)</code></td><td>same partition per edge — no changed buffer.</td></tr>
         <tr><td><code>queryChangedResources()</code></td><td>resource types written via <code>setResource</code> this tick (first-changed order).</td></tr>
       </tbody>
     </table></div>
-    <div class="callout">
-      <span class="callout-tag">queryChanged includes adds</span>
-      <p>
-        A newly added component counts as "written this tick", so it appears in
-        <strong>both</strong> <code>queryAdded</code> and <code>queryChanged</code>.
-        Consumers handling both must dedupe, as the example below does.
-      </p>
-    </div>
-    <p>The canonical consumer is a system that maintains derived state — for example, keeping a spatial index in sync:</p>
+    <p>The canonical consumer is a system that maintains derived state — because the buffers are disjoint, there is nothing to dedupe:</p>
 <figure class="code" data-lang="ts"><pre><code>const spatialIndexSync = defineSystem({
   name: 'spatialIndexSync',
   execute: (w) =&gt; {
-    const added = new Set(w.queryAdded(Position));
-    for (const id of added) index.insert(id, w.getComponent(id, Position)!);
-    for (const id of w.queryChanged(Position)) {
-      if (!added.has(id)) index.update(id, w.getComponent(id, Position)!);
-    }
+    for (const id of w.queryAdded(Position))   index.insert(id, w.getComponent(id, Position)!);
+    for (const id of w.queryChanged(Position)) index.update(id, w.getComponent(id, Position)!);
     for (const id of w.queryRemoved(Position)) index.remove(id);
   },
 });</code></pre></figure>
-    <h3 id="net-cancellation">Net-cancellation<a class="anchor" href="#net-cancellation">#</a></h3>
+    <h3 id="net-cancellation">The partition rule<a class="anchor" href="#net-cancellation">#</a></h3>
     <p>
-      Opposing mutations in the same tick cancel <em>the opposite buffer</em>: a remove
-      clears the entity from <code>queryAdded</code> (and <code>queryChanged</code>); an add
-      clears it from <code>queryRemoved</code>. The last transition wins, and its own buffer
-      keeps the entry. The invariant the buffers guarantee is therefore about <em>current</em>
-      state: an id in <code>queryAdded</code> has the component <em>now</em>; an id in
-      <code>queryRemoved</code> does not. The same rule holds for tags and relation edges.
+      Within a tick, only the net transition matters to the buffers. absent→present is
+      <code>queryAdded</code> only; present→present with at least one write is
+      <code>queryChanged</code> only; present→absent is <code>queryRemoved</code> only;
+      absent→absent lands nowhere. Consequences:
     </p>
+    <ul>
+      <li>A fresh attach is in <code>queryAdded</code> only — "new" and "updated" never alias.</li>
+      <li>Remove-then-re-add of a component that existed at tick start nets to <code>queryChanged</code> — the world holds it before and after.</li>
+      <li>Add-then-remove (or create + add + destroy) within one tick lands in no buffer.</li>
+      <li><code>destroyEntity</code> participates: pre-existing components/tags/edges land in the removed buffers; same-tick ephemera land nowhere.</li>
+    </ul>
 <figure class="code" data-lang="ts"><pre><code>// within one tick, component absent at the last clearDirty():
-world.addComponent(e, Position, { x: 1 });  // event fires (prev = undefined)
-world.setComponent(e, Position, { x: 2 });  // event fires (prev = {x:1})
-world.removeComponent(e, Position);         // event fires (prev = {x:2})
+world.addComponent(e, Position, { x: 1 });   // event fires (prev = undefined)
+world.patchComponent(e, Position, { x: 2 }); // event fires (prev = {x:1})
+world.removeComponent(e, Position);          // event fires (prev = {x:2})
 
-world.queryAdded(Position);   // [] — the remove cancelled it
-world.queryChanged(Position); // [] — the remove cleared the dirty entry too
-world.queryRemoved(Position); // [e] — the LAST transition survives</code></pre></figure>
-    <p>
-      Note the consequence: relative to the start of the tick, that <code>[e]</code> is a
-      removal of something the consumer never saw added. Make removal handling idempotent
-      (removing an id that was never inserted is a no-op) and this is a non-issue — which
-      the spatial-index example above already is.
-    </p>
+world.queryAdded(Position);   // [] — net absent→absent
+world.queryChanged(Position); // []
+world.queryRemoved(Position); // [] — it wasn't present at the last clearDirty()</code></pre></figure>
     <div class="callout">
       <span class="callout-tag">Events vs buffers</span>
       <p>
-        This is the conceptual split to internalize: <strong>events are lossless and
-        synchronous</strong> — every mutation fires, in order, as it happens.
-        <strong>Per-tick buffers are coalesced</strong> — opposing mutations cancel, and
-        what remains is consistent with where the world is now. Use events for journals,
-        sync, and per-entity UI; use buffers for derived-state systems that only care
-        where things ended up.
+        This is the conceptual split to internalize: <strong>events are the journal</strong> —
+        lossless, synchronous, per-mutation, every intermediate state observable in order.
+        <strong>Buffers are the partition</strong> — each touched entity classified into
+        exactly one buffer by its net transition. Use events for journals, sync, and
+        per-entity UI; use buffers for derived-state systems that only care where things
+        ended up. <strong>Buffers belong to the tick pipeline; anything on its own cadence
+        subscribes to events.</strong>
       </p>
     </div>
     <div class="callout">
@@ -1098,7 +1129,7 @@ const UNDO = Symbol('undo-replay');
 
 // The sync adapter applies a remote batch without re-broadcasting it:
 world.withOrigin(REMOTE, () =&gt; {
-  world.setComponent(id, Position, { x: 10 });
+  world.patchComponent(id, Position, { x: 10 });
 });
 
 // The broadcaster skips remote echoes and undo replays:
@@ -1153,18 +1184,51 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
       </p>
     </div>
     <div class="callout warn">
-      <span class="callout-tag">Don't mutate mid-destroy</span>
+      <span class="callout-tag">Mutation is rejected mid-destroy</span>
       <p>
         Handlers fired <em>during</em> a destroy (<code>onEntityDestroyed</code>,
         <code>onComponentRemoved</code>, <code>onTagRemoved</code>,
         <code>onRelationRemoved</code> in steps 1–5) run while the world is mid-teardown:
-        <strong>read freely, but do not mutate the world from them</strong> — create, destroy,
-        relate, or add/remove anything. Mutate from a system reacting to the removed buffers
-        on the next pass instead, or use a relation's <code>onTargetDestroy</code> policy,
-        which the world applies for you at the safe point (step 6). The same handlers are
-        safe to mutate from when fired by ordinary removals outside a destroy.
+        <strong>read freely, but mutating the world from them throws</strong> —
+        <em>cannot mutate the world from a handler during entity teardown — react via the
+        removed buffers or an onTargetDestroy policy instead</em>. React from a system
+        reading the removed buffers on the next pass, or use a relation's
+        <code>onTargetDestroy</code> policy, which the world applies for you at the safe
+        point (step 6). The guard covers only the destroy sweep — the same handlers can
+        mutate freely when fired by ordinary removals outside a destroy.
       </p>
     </div>
+  </section>
+
+  <!-- ================================ DOCUMENT VS INTERACTION ================================ -->
+  <section id="document-vs-interaction">
+    <h2>Document vs. interaction state<a class="anchor" href="#document-vs-interaction">#</a></h2>
+    <p>
+      In an editor-shaped app the world holds two kinds of entities, and they want different
+      deletion semantics. This is architecture, not a workaround:
+    </p>
+    <ul>
+      <li><strong>Interaction entities</strong> — gesture recognizers, pointers, selection chrome, drag ghosts. They churn, lose arbitrations, and die. Delete them with <code>destroyEntity</code> and let <code>cascade</code> / <code>{ tag }</code> policies tear down their dependents. Their ids appearing in saved data would be a bug.</li>
+      <li><strong>Document entities</strong> — shapes, layers, notes: anything inside the undo horizon. "Deleting" one must be reversible, and ids are never reused, so <code>destroyEntity</code> is the wrong verb while undo can still resurrect it. Use a <strong>tombstone tag</strong> and exclude it from document queries.</li>
+    </ul>
+<figure class="code" data-lang="ts"><pre><code>const Tombstoned = defineTag('Tombstoned');
+
+// "delete" — fully reversible, id and data intact
+world.addTag(shape, Tombstoned);
+// undo
+world.removeTag(shape, Tombstoned);
+
+// document queries exclude the dead by construction
+world.query(Shape, Not(Tombstoned));
+
+// renderers react to the tag like any other state
+world.onTagAdded(Tombstoned, (id) =&gt; hideSprite(id));
+world.onTagRemoved(Tombstoned, (id) =&gt; showSprite(id));</code></pre></figure>
+    <p>
+      <code>destroyEntity</code> for a document entity then means exactly one thing:
+      <strong>eviction past the undo horizon</strong> — the moment the app guarantees no undo
+      stack, clipboard, or collaborator can ever reference that id again.
+    </p>
   </section>
 
   <!-- ================================ DRIVING UI ================================ -->
@@ -1232,9 +1296,22 @@ scheduler.remove('render');
 scheduler.size;                // 1</code></pre></figure>
     <ul>
       <li><strong>Re-registering a name replaces the system</strong> — handy for hot-reload.</li>
-      <li><strong>Unknown constraint targets are tolerated</strong> — <code>after: 'notRegistered'</code> is ignored rather than an error, so systems can be registered in any order.</li>
+      <li><strong>Unknown constraint targets throw at first execute</strong>, naming both parties — a typo must not silently reorder the pipeline. Validation is deferred to <code>execute()</code> (and re-runs after every register/remove), so systems can still be registered in any order.</li>
       <li><strong>Cycles throw</strong> with the names involved.</li>
     </ul>
+<figure class="code" data-lang="ts"><pre><code>scheduler.register(defineSystem({ name: 'render', after: 'phsyics', execute: () =&gt; {} }));
+scheduler.execute(world);
+// Error: System 'render' declares after: 'phsyics',
+//        but no system named 'phsyics' is registered.</code></pre></figure>
+    <div class="callout">
+      <span class="callout-tag">Optional dependencies</span>
+      <p>
+        There is deliberately no "ignore if missing" escape: optional-dependency ordering
+        across app configurations is what <a href="#phased-scheduler">phases</a> are for —
+        <code>phase: 'derive'</code> says "after all simulation, whatever simulation is
+        installed" without naming any particular system.
+      </p>
+    </div>
   </section>
 
   <!-- ================================ PHASED SCHEDULER ================================ -->
@@ -1283,6 +1360,7 @@ scheduler.execute(world); // runs phase by phase, topo-sorted within each</code>
       <li><strong>Within a phase</strong>, <code>after</code> / <code>before</code> topo-sort exactly as in <code>SystemScheduler</code> (it runs one internally per phase).</li>
       <li><strong>Across phases</strong>, ordering is implicit in phase order — earlier phase always runs first.</li>
       <li><strong>Cross-phase constraints that contradict phase order are rejected</strong> at first <code>execute()</code> with an error that explains the fix. Redundant ones — an <code>after</code> pointing at an <em>earlier</em> phase — are tolerated, since phase order already satisfies them.</li>
+      <li><strong>Unknown constraint targets throw at first <code>execute()</code></strong>, naming both parties — same rule as <code>SystemScheduler</code>, validated against the full cross-phase registry.</li>
       <li><strong>Phase membership is validated at register time:</strong> an unknown phase throws immediately.</li>
       <li><strong>Re-registering into a different phase moves the system</strong> — it never runs twice.</li>
     </ul>
@@ -1430,7 +1508,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         live one — that would break <code>entityExists(staleId) === false</code> forever.
         For undoable deletion in an editor, prefer a tombstone tag over
         <code>destroyEntity</code>, and reserve destruction for entities past the undo
-        horizon.
+        horizon — see <a href="#document-vs-interaction">document vs. interaction state</a>.
       </p>
     </div>
   </section>
@@ -1453,7 +1531,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>Not(type)</code></td><td><code>NotTerm</code></td><td>Negated query term — see <a href="#not">Not()</a>.</td></tr>
         <tr><td><code>defineResource(name, defaults)</code></td><td><code>ResourceType&lt;T&gt;</code></td><td>World-level singleton.</td></tr>
         <tr><td><code>defineSystem(def)</code></td><td><code>SystemDef</code></td><td><code>{ name, execute, phase?, after?, before?, runIf? }</code>.</td></tr>
-        <tr><td><code>createWorld()</code></td><td><code>World</code></td><td>New independent world.</td></tr>
+        <tr><td><code>createWorld(options?)</code></td><td><code>World</code></td><td>New independent world. <code>{ freeze?: boolean }</code> — dev-mode deep-freeze of everything the world clones.</td></tr>
         <tr><td><code>tickWorld(world, fn?)</code></td><td><code>void</code></td><td>Runs <code>fn</code>, then <code>emitFrame</code> / <code>clearDirty</code> / <code>incrementTick</code>.</td></tr>
       </tbody>
     </table></div>
@@ -1469,17 +1547,16 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>entityExists(id)</code></td><td><code>true</code> while alive; <code>false</code> forever after destroy.</td></tr>
         <tr><td><code>createEntityWithId(id)</code></td><td>Create under a caller-chosen id — for restore; ascending order, throws on consumed ids.</td></tr>
         <tr><td><code>setNextEntityId(n)</code></td><td>Restore the id counter exactly (forward only).</td></tr>
-        <tr><td><code>addComponent(e, C, data)</code></td><td>Attach <code>C</code>; data merged over defaults, deep-cloned.</td></tr>
+        <tr><td><code>addComponent(e, C, data?)</code></td><td>Upsert — attach-or-replace; data merged over defaults, deep-cloned.</td></tr>
+        <tr><td><code>patchComponent(e, C, partial)</code></td><td>Strict shallow-merge update; throws on a dead entity or an absent component.</td></tr>
         <tr><td><code>removeComponent(e, C)</code></td><td>Detach <code>C</code>; fires <code>onComponentRemoved</code> first.</td></tr>
         <tr><td><code>getComponent(e, C)</code></td><td>Current value or <code>undefined</code>.</td></tr>
         <tr><td><code>hasComponent(e, C)</code></td><td>Presence check.</td></tr>
-        <tr><td><code>setComponent(e, C, partial)</code></td><td>Shallow-merge update; emits change event.</td></tr>
-        <tr><td><code>replaceComponent(e, C, data)</code></td><td>Full-value upsert; emits true <code>prev</code>.</td></tr>
         <tr><td><code>addTag(e, T)</code> / <code>removeTag(e, T)</code> / <code>hasTag(e, T)</code></td><td>Tag operations.</td></tr>
         <tr><td><code>getResource(R)</code></td><td>Read singleton (created lazily from defaults).</td></tr>
         <tr><td><code>setResource(R, partial)</code></td><td>Shallow-merge update.</td></tr>
         <tr><td><code>relate(s, R, t)</code> / <code>unrelate(s, R, t?)</code></td><td>Add / remove relation edges; omitted target removes all outgoing. See <a href="#relations">Relations</a>.</td></tr>
-        <tr><td><code>getTargets(s, R)</code> / <code>getTarget(s, R)</code> / <code>getSources(R, t)</code></td><td>Forward and inverse edge reads — the inverse is always coherent.</td></tr>
+        <tr><td><code>getTargets(s, R)</code> / <code>getTarget(s, R)</code> / <code>getSources(t, R)</code></td><td>Forward and inverse edge reads — entity first; the inverse is always coherent.</td></tr>
         <tr><td><code>withOrigin(origin, fn)</code></td><td>Tag all mutations inside <code>fn</code> — see <a href="#origin-tagging">Origin tagging</a>.</td></tr>
         <tr><td><code>mutationOrigin</code></td><td>Origin of the currently-executing mutation, or <code>undefined</code> (read-only).</td></tr>
       </tbody>
@@ -1490,10 +1567,11 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
       <thead><tr><th>Member</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td><code>query(...types)</code></td><td>Entities with all positive components/tags and none of the <code>Not()</code> terms. Cached, incrementally maintained.</td></tr>
-        <tr><td><code>queryRelation(R)</code> / <code>queryRelationAdded(R)</code> / <code>queryRelationRemoved(R)</code></td><td>Live / per-tick edge lists as <code>[source, target]</code> pairs; removed includes destroys, net-cancelling.</td></tr>
+        <tr><td><code>disposeQuery(...types)</code></td><td>Drop the cache entry for that exact signature; re-querying rebuilds with one scan.</td></tr>
+        <tr><td><code>queryRelation(R)</code> / <code>queryRelationAdded(R)</code> / <code>queryRelationRemoved(R)</code></td><td>Live edges / per-tick edge buffers as <code>[source, target]</code> pairs — the partition rule per edge; removed includes destroys.</td></tr>
         <tr><td><code>queryTagged(T)</code></td><td>Entities with tag <code>T</code>.</td></tr>
-        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code></td><td>Per-tick component buffers. Net-cancelling; removal includes <code>destroyEntity</code>.</td></tr>
-        <tr><td><code>queryAddedTag(T)</code> / <code>queryRemovedTag(T)</code></td><td>Per-tick tag buffers, same semantics.</td></tr>
+        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code></td><td>Per-tick buffers — disjoint, classified by net transition since <code>clearDirty()</code>; removal includes <code>destroyEntity</code>.</td></tr>
+        <tr><td><code>queryAddedTag(T)</code> / <code>queryRemovedTag(T)</code></td><td>Per-tick tag buffers, same partition (no changed buffer).</td></tr>
         <tr><td><code>queryChangedResources()</code></td><td>Resource types written this tick, first-changed order.</td></tr>
       </tbody>
     </table></div>
@@ -1502,7 +1580,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
     <div class="table-wrap"><table>
       <thead><tr><th>Member</th><th>Handler signature</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td><code>onComponentChanged(C, h, e?)</code></td><td><code>(id, prev, next)</code></td><td>Fires on add (<code>prev === undefined</code>) and set. Optional per-entity filter.</td></tr>
+        <tr><td><code>onComponentChanged(C, h, e?)</code></td><td><code>(id, prev, next)</code></td><td>Fires on add (<code>prev === undefined</code>) and patch. Optional per-entity filter.</td></tr>
         <tr><td><code>onComponentRemoved(C, h, e?)</code></td><td><code>(id, prev)</code></td><td>Fires before deletion; also during <code>destroyEntity</code>.</td></tr>
         <tr><td><code>onTagAdded(T, h, e?)</code></td><td><code>(id)</code></td><td>Optional per-entity filter.</td></tr>
         <tr><td><code>onTagRemoved(T, h, e?)</code></td><td><code>(id)</code></td><td>Also fires during <code>destroyEntity</code>.</td></tr>
@@ -1557,7 +1635,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
       <code>TagType</code>, <code>ResourceType&lt;T&gt;</code>, <code>RelationType</code>,
       <code>RelationOptions</code>, <code>RelationEdge</code>, <code>RelationHandler</code>,
       <code>NotTerm</code>, <code>SystemDef</code>,
-      <code>QueryResult</code>, <code>ComponentInit</code>,
+      <code>QueryResult</code>, <code>CreateWorldOptions</code>,
       <code>ComponentChangedHandler&lt;T&gt;</code>, <code>ComponentRemovedHandler&lt;T&gt;</code>,
       <code>TagChangedHandler</code>, <code>FrameHandler</code>, <code>Unsubscribe</code>,
       <code>SystemProfiler</code>, <code>PhasedSchedulerOptions&lt;P&gt;</code>.
@@ -1655,87 +1733,87 @@ const recorder = createLifecycleRecorder(world);
 
 <script>
   // ---------- Tiny TS syntax highlighter ----------
-                                  (() => {
-                                    const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                    const re = new RegExp(
-                                      [
-                                        '(\\/\\/[^\\n]*)',                                                  // 1 comment
-                                        "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string
-                                        '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this)\\b', // 3 keyword
-                                        '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',                                    // 4 number
-                                        '([A-Za-z_$][\\w$]*)(?=\\s*\\()',                                    // 5 call
-                                        '\\b([A-Z][\\w$]*)\\b',                                              // 6 type
-                                      ].join('|'),
-                                      'g'
-                                    );
-                                    document.querySelectorAll('figure.code code').forEach((el) => {
-                                      if (el.closest('figure').dataset.lang === 'sh') {
-                                        el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
-                                        return;
-                                      }
-                                      const src = el.textContent;
-                                      let out = '';
-                                      let last = 0;
-                                      let m = re.exec(src);
-                                      while (m) {
-                                        out += esc(src.slice(last, m.index));
-                                        const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
-                                        out += `<span class="${cls}">${esc(m[0])}</span>`;
-                                        last = m.index + m[0].length;
-                                        m = re.exec(src);
-                                      }
-                                      el.innerHTML = out + esc(src.slice(last));
-                                    });
-                                  })();
-
-                                  // ---------- Copy buttons ----------
-                                  document.querySelectorAll('figure.code').forEach((fig) => {
-                                    const btn = document.createElement('button');
-                                    btn.className = 'copy';
-                                    btn.textContent = 'copy';
-                                    btn.addEventListener('click', async () => {
-                                      try {
-                                        await navigator.clipboard.writeText(fig.querySelector('code').textContent);
-                                        btn.textContent = 'copied';
-                                        btn.classList.add('done');
-                                        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
-                                      } catch { /* clipboard unavailable (e.g. file://) — ignore */ }
-                                    });
-                                    fig.appendChild(btn);
-                                  });
-
-                                  // ---------- Scrollspy ----------
-                                  (() => {
-                                    const sections = Array.from(document.querySelectorAll('main section[id]'));
-                                    const links = new Map(
-                                      sections.map((s) => [s.id, document.querySelector(`.sidebar a[href="#${s.id}"]`)])
-                                    );
-                                    let active = null;
-                                    function onScroll() {
-                                      let current = sections[0];
-                                      for (const s of sections) {
-                                        if (s.getBoundingClientRect().top < 140) current = s;
-                                      }
-                                      if (current === active) return;
-                                      active = current;
-                                      links.forEach((l) => {
-                                        l?.classList.remove('active');
+                                    (() => {
+                                      const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                      const re = new RegExp(
+                                        [
+                                          '(\\/\\/[^\\n]*)',                                                  // 1 comment
+                                          "('(?:[^'\\\\\\n]|\\\\.)*'|\"(?:[^\"\\\\\\n]|\\\\.)*\"|`(?:[^`\\\\]|\\\\.)*`)", // 2 string
+                                          '\\b(const|let|var|function|return|for|of|in|if|else|new|import|from|export|type|interface|class|extends|implements|readonly|true|false|null|undefined|while|as|async|await|throw|this)\\b', // 3 keyword
+                                          '(\\b\\d[\\d_]*(?:\\.\\d+)?\\b)',                                    // 4 number
+                                          '([A-Za-z_$][\\w$]*)(?=\\s*\\()',                                    // 5 call
+                                          '\\b([A-Z][\\w$]*)\\b',                                              // 6 type
+                                        ].join('|'),
+                                        'g'
+                                      );
+                                      document.querySelectorAll('figure.code code').forEach((el) => {
+                                        if (el.closest('figure').dataset.lang === 'sh') {
+                                          el.innerHTML = esc(el.textContent).replace(/^(#.*)$/gm, '<span class="tok-cmt">$1</span>');
+                                          return;
+                                        }
+                                        const src = el.textContent;
+                                        let out = '';
+                                        let last = 0;
+                                        let m = re.exec(src);
+                                        while (m) {
+                                          out += esc(src.slice(last, m.index));
+                                          const cls = m[1] ? 'tok-cmt' : m[2] ? 'tok-str' : m[3] ? 'tok-kw' : m[4] ? 'tok-num' : m[5] ? 'tok-fn' : 'tok-typ';
+                                          out += `<span class="${cls}">${esc(m[0])}</span>`;
+                                          last = m.index + m[0].length;
+                                          m = re.exec(src);
+                                        }
+                                        el.innerHTML = out + esc(src.slice(last));
                                       });
-                                      const link = links.get(current.id);
-                                      if (link) link.classList.add('active');
-                                    }
-                                    document.addEventListener('scroll', onScroll, { passive: true });
-                                    onScroll();
-                                  })();
+                                    })();
 
-                                  // ---------- Mobile nav ----------
-                                  (() => {
-                                    const toggle = document.getElementById('navToggle');
-                                    toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
-                                    document.querySelectorAll('.sidebar a').forEach((a) => {
-                                      a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+                                    // ---------- Copy buttons ----------
+                                    document.querySelectorAll('figure.code').forEach((fig) => {
+                                      const btn = document.createElement('button');
+                                      btn.className = 'copy';
+                                      btn.textContent = 'copy';
+                                      btn.addEventListener('click', async () => {
+                                        try {
+                                          await navigator.clipboard.writeText(fig.querySelector('code').textContent);
+                                          btn.textContent = 'copied';
+                                          btn.classList.add('done');
+                                          setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('done'); }, 1400);
+                                        } catch { /* clipboard unavailable (e.g. file://) — ignore */ }
+                                      });
+                                      fig.appendChild(btn);
                                     });
-                                  })();
+
+                                    // ---------- Scrollspy ----------
+                                    (() => {
+                                      const sections = Array.from(document.querySelectorAll('main section[id]'));
+                                      const links = new Map(
+                                        sections.map((s) => [s.id, document.querySelector(`.sidebar a[href="#${s.id}"]`)])
+                                      );
+                                      let active = null;
+                                      function onScroll() {
+                                        let current = sections[0];
+                                        for (const s of sections) {
+                                          if (s.getBoundingClientRect().top < 140) current = s;
+                                        }
+                                        if (current === active) return;
+                                        active = current;
+                                        links.forEach((l) => {
+                                          l?.classList.remove('active');
+                                        });
+                                        const link = links.get(current.id);
+                                        if (link) link.classList.add('active');
+                                      }
+                                      document.addEventListener('scroll', onScroll, { passive: true });
+                                      onScroll();
+                                    })();
+
+                                    // ---------- Mobile nav ----------
+                                    (() => {
+                                      const toggle = document.getElementById('navToggle');
+                                      toggle.addEventListener('click', () => document.body.classList.toggle('nav-open'));
+                                      document.querySelectorAll('.sidebar a').forEach((a) => {
+                                        a.addEventListener('click', () => document.body.classList.remove('nav-open'));
+                                      });
+                                    })();
 </script>
 
 </body>
