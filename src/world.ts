@@ -2,6 +2,7 @@ import type {
 	ComponentChangedHandler,
 	ComponentRemovedHandler,
 	ComponentType,
+	CreateWorldOptions,
 	EntityId,
 	FrameHandler,
 	NotTerm,
@@ -221,9 +222,39 @@ function classifyTransition<K>(
 	}
 }
 
-export function createWorld(): World {
+/**
+ * Recursively deep-freeze plain data in place — the mirror of
+ * `clonePlainData`: arrays and objects whose constructor is `Object` are
+ * frozen at every depth; class instances (and anything else) are left
+ * untouched. Freezing exactly what the world clones makes clone and freeze
+ * two enforcements of the same ownership boundary.
+ */
+function deepFreezePlain(value: unknown): void {
+	if (Array.isArray(value)) {
+		Object.freeze(value);
+		for (const item of value) deepFreezePlain(item);
+		return;
+	}
+	if (value !== null && typeof value === 'object' && (value as object).constructor === Object) {
+		Object.freeze(value);
+		for (const key in value as Record<string, unknown>) {
+			deepFreezePlain((value as Record<string, unknown>)[key]);
+		}
+	}
+}
+
+export function createWorld(options?: CreateWorldOptions): World {
 	let nextEntityId = 1;
 	let currentTick = 0;
+	// Dev-mode ownership enforcement — freeze exactly what the world clones,
+	// wherever cloned data enters a store. See CreateWorldOptions.freeze.
+	const freezeEnabled = options?.freeze === true;
+
+	/** Deep-freeze plain data entering a store when `freeze` is on. */
+	function maybeFreeze<T>(value: T): T {
+		if (freezeEnabled) deepFreezePlain(value);
+		return value;
+	}
 	// Origin tag for the current synchronous mutation window — set by
 	// withOrigin(), read by handlers via world.mutationOrigin. `undefined`
 	// (no window) is the unforgeable "local" origin.
@@ -471,20 +502,12 @@ export function createWorld(): World {
 		}
 		const store: ResourceStore<T> = {
 			type,
-			value: instantiateDefaults(type.defaults),
+			value: maybeFreeze(instantiateDefaults(type.defaults)),
 			handlers: new Set(),
 		};
 		// Cast to the erased type held in the Map. Safe — see note on getComponentStore's return.
 		resources.set(type.name, store as ResourceStore);
 		return store;
-	}
-
-	function hasListeners<T>(store: ComponentStore<T>): boolean {
-		if (store.handlers.size === 0) return false;
-		for (const set of store.handlers.values()) {
-			if (set.size > 0) return true;
-		}
-		return false;
 	}
 
 	function emitComponentChanged<T>(
@@ -776,7 +799,7 @@ export function createWorld(): World {
 			// Attach-or-replace: prev distinguishes the two for observers; the
 			// buffers record the NET transition since the last clearDirty().
 			const prev = store.data.get(entity);
-			const merged = instantiateDefaults(type.defaults, data);
+			const merged = maybeFreeze(instantiateDefaults(type.defaults, data));
 			store.data.set(entity, merged);
 			classifyTransition(
 				store.baseline,
@@ -842,37 +865,26 @@ export function createWorld(): World {
 				);
 			}
 			// Clone incoming plain data so a caller-held alias can't mutate
-			// world state behind the API later.
+			// world state behind the API later, then REPLACE the stored object —
+			// stored values are never mutated in place (which also keeps frozen
+			// stores writable through the API). The displaced object becomes
+			// `prev`: it leaves the store at this write, so it never aliases the
+			// live value. Nested values the merge didn't replace are shared with
+			// `next`, which is safe: write paths clone incoming data and stored
+			// nested values are only ever replaced, never mutated.
 			const incoming = clonePartial(data);
-			if (hasListeners(store)) {
-				// Top-level snapshot — `prev` itself never aliases the live
-				// object. Nested values the merge didn't replace are shared with
-				// `next`, which is safe: write paths clone incoming data and
-				// stored nested values are only ever replaced, never mutated.
-				const prev = { ...existing };
-				Object.assign(existing as Record<string, unknown>, incoming);
-				classifyTransition(
-					store.baseline,
-					store.added,
-					store.dirty,
-					store.removed,
-					entity,
-					true,
-					true,
-				);
-				emitComponentChanged(store, entity, prev, existing);
-			} else {
-				Object.assign(existing as Record<string, unknown>, incoming);
-				classifyTransition(
-					store.baseline,
-					store.added,
-					store.dirty,
-					store.removed,
-					entity,
-					true,
-					true,
-				);
-			}
+			const next = maybeFreeze({ ...existing, ...incoming } as T);
+			store.data.set(entity, next);
+			classifyTransition(
+				store.baseline,
+				store.added,
+				store.dirty,
+				store.removed,
+				entity,
+				true,
+				true,
+			);
+			emitComponentChanged(store, entity, existing, next);
 		},
 
 		// === Tag access ===
@@ -1048,6 +1060,18 @@ export function createWorld(): World {
 			return [...cached];
 		},
 
+		disposeQuery(...types: (ComponentType | TagType | NotTerm)[]): void {
+			const key = getQueryKey(types);
+			queryCache.delete(key);
+			queryKeyTypes.delete(key);
+			// Drop reverse-index registrations so mutations stop maintaining the
+			// dead entry; empty buckets are removed entirely.
+			for (const [name, queryKeys] of typeToQueries) {
+				queryKeys.delete(key);
+				if (queryKeys.size === 0) typeToQueries.delete(name);
+			}
+		},
+
 		queryChanged(type: ComponentType): QueryResult {
 			const store = getComponentStore(type);
 			return [...store.dirty];
@@ -1112,23 +1136,19 @@ export function createWorld(): World {
 			return getResourceStore(type).value;
 		},
 
-		// Only allocate the prev snapshot when there are listeners
 		setResource<T>(type: ResourceType<T>, data: Partial<T>) {
 			assertNotTearingDown();
 			const store = getResourceStore(type);
 			changedResources.add(type.name);
-			// Clone incoming plain data — same aliasing guarantee as patchComponent.
+			// Clone incoming plain data — same aliasing guarantee as
+			// patchComponent — then REPLACE the stored value (never mutate in
+			// place). The displaced object becomes `prev`: it leaves the store at
+			// this write, so it never aliases the live value; untouched nested
+			// values are shared with `next` (safe — see patchComponent).
 			const incoming = clonePartial(data);
-			if (store.handlers.size > 0) {
-				// Top-level snapshot BEFORE the merge — `prev` itself never
-				// aliases the live value; untouched nested values are shared
-				// with `next` (safe — see patchComponent).
-				const prev = { ...store.value };
-				Object.assign(store.value as Record<string, unknown>, incoming);
-				emitResourceChanged(store, prev, store.value);
-			} else {
-				Object.assign(store.value as Record<string, unknown>, incoming);
-			}
+			const prev = store.value;
+			store.value = maybeFreeze({ ...prev, ...incoming } as T);
+			emitResourceChanged(store, prev, store.value);
 		},
 
 		// === Events ===

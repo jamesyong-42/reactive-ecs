@@ -99,8 +99,20 @@ export interface SystemDef {
 /** Query result — array of entity IDs */
 export type QueryResult = EntityId[];
 
-/** Component initializer for entity creation */
-export type ComponentInit = [ComponentType<unknown>, unknown] | [TagType];
+/** Options for createWorld(). */
+export interface CreateWorldOptions {
+	/**
+	 * Dev-mode option: deep-freeze exactly what the world clones — plain
+	 * objects and arrays at any depth, never class instances — wherever
+	 * cloned data enters a store (addComponent, patchComponent, resource
+	 * instantiation, setResource). Clone and freeze are two enforcements of
+	 * the same ownership boundary: plain data crossing the API is owned by
+	 * the world. With freeze on, in-place mutation of a read then throws in
+	 * strict mode instead of silently bypassing change tracking.
+	 * Default: false.
+	 */
+	readonly freeze?: boolean;
+}
 
 /**
  * Event handler types. Payloads are typed `Readonly` for the same reason
@@ -305,6 +317,15 @@ export interface World {
 
 	/** Returns entity IDs matching all positive types and none of the Not() types. */
 	query(...types: (ComponentType | TagType | NotTerm)[]): QueryResult;
+	/**
+	 * Drops the cache entry and reverse-index registrations for this exact
+	 * query signature (order-insensitive, like `query`). No-op if the
+	 * signature was never queried. A later `query` with the same signature
+	 * rebuilds the cache with one scan over the smallest candidate store —
+	 * that rebuild is the only full-scan path in the library; once rebuilt,
+	 * the entry is maintained incrementally again.
+	 */
+	disposeQuery(...types: (ComponentType | TagType | NotTerm)[]): void;
 	/**
 	 * Returns entities whose NET transition for this component since the last
 	 * `clearDirty()` is present→present with at least one write. The three

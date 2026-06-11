@@ -988,6 +988,143 @@ describe('World', () => {
 		});
 	});
 
+	describe('freeze option — dev-mode ownership enforcement', () => {
+		it('freeze on: mutating a component read throws in strict mode — top level and nested', () => {
+			const Box = defineComponent('FreezeBox', { v: 0, nested: { count: 0 }, list: [1] });
+			const world = createWorld({ freeze: true });
+			const e = world.createEntity();
+			world.addComponent(e, Box, { v: 1 });
+
+			const read = world.getComponent(e, Box) as {
+				v: number;
+				nested: { count: number };
+				list: number[];
+			};
+			expect(() => {
+				read.v = 99;
+			}).toThrow(TypeError);
+			expect(() => {
+				read.nested.count = 99;
+			}).toThrow(TypeError);
+			expect(() => read.list.push(2)).toThrow(TypeError);
+			// The store is untouched by the rejected writes.
+			expect(world.getComponent(e, Box)).toEqual({ v: 1, nested: { count: 0 }, list: [1] });
+		});
+
+		it('freeze on: patched values are frozen too — the API write path still works', () => {
+			const Box = defineComponent('FreezeBox2', { v: 0, nested: { count: 0 } });
+			const world = createWorld({ freeze: true });
+			const e = world.createEntity();
+			world.addComponent(e, Box);
+			world.patchComponent(e, Box, { nested: { count: 5 } });
+
+			const read = world.getComponent(e, Box) as { v: number; nested: { count: number } };
+			expect(read).toEqual({ v: 0, nested: { count: 5 } });
+			expect(() => {
+				read.nested.count = 9;
+			}).toThrow(TypeError);
+		});
+
+		it('freeze on: mutating a resource read throws — including nested plain objects', () => {
+			const Cfg = defineResource('FreezeCfg', { opts: { darkMode: false } });
+			const world = createWorld({ freeze: true });
+			world.setResource(Cfg, { opts: { darkMode: true } });
+
+			const read = world.getResource(Cfg) as { opts: { darkMode: boolean } };
+			expect(() => {
+				read.opts.darkMode = false;
+			}).toThrow(TypeError);
+			// Lazy default instantiation is frozen as well.
+			const Lazy = defineResource('FreezeLazy', { nested: { n: 0 } });
+			const lazyRead = world.getResource(Lazy) as { nested: { n: number } };
+			expect(() => {
+				lazyRead.nested.n = 1;
+			}).toThrow(TypeError);
+		});
+
+		it('freeze on: class instances in component data stay mutable — they remain the caller’s', () => {
+			class SpatialIndex {
+				count = 0;
+			}
+			const Indexed = defineComponent('FreezeIndexed', { index: null as SpatialIndex | null });
+			const world = createWorld({ freeze: true });
+			const e = world.createEntity();
+			const instance = new SpatialIndex();
+			world.addComponent(e, Indexed, { index: instance });
+
+			const read = world.getComponent(e, Indexed);
+			expect(read?.index).toBe(instance);
+			expect(Object.isFrozen(read?.index)).toBe(false);
+			if (read?.index) read.index.count = 7; // in-place mutation is legal
+			expect(instance.count).toBe(7);
+		});
+
+		it('default off: reads stay mutable in place (unchanged behavior)', () => {
+			const Box = defineComponent('NoFreezeBox', { nested: { count: 0 } });
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Box);
+			const read = world.getComponent(e, Box) as { nested: { count: number } };
+			expect(() => {
+				read.nested.count = 42;
+			}).not.toThrow();
+			expect(world.getComponent(e, Box)?.nested.count).toBe(42);
+		});
+	});
+
+	describe('disposeQuery', () => {
+		it('drops the cache entry; re-querying rebuilds correctly via one scan', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			world.addComponent(e1, Position, { x: 1, y: 1 });
+			expect(world.query(Position)).toEqual([e1]);
+
+			world.disposeQuery(Position);
+			// Mutations while the entry is disposed are not incrementally
+			// maintained — the rebuild must still see them.
+			const e2 = world.createEntity();
+			world.addComponent(e2, Position, { x: 2, y: 2 });
+			expect(world.query(Position).sort()).toEqual([e1, e2]);
+		});
+
+		it('is signature-exact and order-insensitive, like query()', () => {
+			const world = createWorld();
+			const e = world.createEntity();
+			world.addComponent(e, Position, { x: 0, y: 0 });
+			world.addTag(e, Selected);
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+			expect(world.query(Position, Selected)).toEqual([e]);
+
+			// Disposing the reordered spelling drops the same entry; the other
+			// signature is untouched.
+			world.disposeQuery(Not(Velocity), Position);
+			expect(world.query(Position, Selected)).toEqual([e]);
+			expect(world.query(Position, Not(Velocity))).toEqual([e]);
+		});
+
+		it('incremental maintenance works again after the rebuild', () => {
+			const world = createWorld();
+			const e1 = world.createEntity();
+			world.addComponent(e1, Position, { x: 1, y: 1 });
+			world.query(Position);
+			world.disposeQuery(Position);
+			world.query(Position); // rebuild
+
+			const e2 = world.createEntity();
+			world.addComponent(e2, Position, { x: 2, y: 2 });
+			expect(world.query(Position).sort()).toEqual([e1, e2]);
+			world.removeComponent(e1, Position);
+			expect(world.query(Position)).toEqual([e2]);
+			world.destroyEntity(e2);
+			expect(world.query(Position)).toEqual([]);
+		});
+
+		it('is a no-op for a never-queried signature', () => {
+			const world = createWorld();
+			expect(() => world.disposeQuery(Position, Not(Selected))).not.toThrow();
+		});
+	});
+
 	describe('mutation guard during the destroy sweep', () => {
 		const GUARD = /cannot mutate the world from a handler during entity teardown/;
 
