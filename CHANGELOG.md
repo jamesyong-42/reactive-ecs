@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.12.1...reactive-ecs-v0.13.0) (2026-06-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* setComponent and replaceComponent are removed (use patchComponent for strict merge, addComponent to upsert); per-tick buffers reclassified as a net-transition partition; getSources argument order is now (target, type); unknown scheduler constraint targets throw.
+
+### Features
+
+* 0.13.0 design precision — write API, buffer partition, validation, ownership ([7746c80](https://github.com/jamesyong-42/reactive-ecs/commit/7746c803b9a88ebd6ad92fe19e800cec842b9c5e))
+
+
+### Bug Fixes
+
+* carry the 0.13.0 release + bump-minor-pre-major ([1281608](https://github.com/jamesyong-42/reactive-ecs/commit/1281608faa7226786219f653c2bf7f6db670b364))
+
 ## [0.12.1](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.12.0...reactive-ecs-v0.12.1) (2026-06-10)
 
 
