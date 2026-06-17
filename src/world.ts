@@ -348,7 +348,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 	// Resource storage: one store per resource type
 	const resources = new Map<string, ResourceStore>();
 	// Resource type names set this tick — Set iteration preserves insertion
-	// order, so this doubles as the first-changed order for queryChangedResources.
+	// order, so this doubles as the first-changed order for changes().changedResources().
 	const changedResources = new Set<string>();
 	// Value of each resource at first setResource this window — backs the
 	// value-carrying changes().changedResources() (RFC-006). Cleared with the
