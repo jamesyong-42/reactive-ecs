@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.13.1...reactive-ecs-v0.14.0) (2026-06-17)
+
+
+### Features
+
+* changes() value-carrying change detection (RFC-006 v0.14) ([6ef15d9](https://github.com/jamesyong-42/reactive-ecs/commit/6ef15d954ce167035500c6d1d9c16bfe86fe87ff))
+* changes() value-carrying change detection (RFC-006 v0.14) ([a78b5e3](https://github.com/jamesyong-42/reactive-ecs/commit/a78b5e3d39e698aeddd3fb14b791a5af4580212d))
+
 ## [0.13.1](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.13.0...reactive-ecs-v0.13.1) (2026-06-11)
 
 
