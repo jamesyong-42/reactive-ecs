@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.16.0...reactive-ecs-v0.17.0) (2026-06-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* freeze-on-write ownership + functional updateComponent (RFC-007)
+
+### Features
+
+* freeze-on-write ownership + functional updateComponent (RFC-007) ([58b1488](https://github.com/jamesyong-42/reactive-ecs/commit/58b14882502512ca575026c245b8f2ef206d8b25))
+* React hooks subpath (/react) + RFC-007 docs ([f2bc350](https://github.com/jamesyong-42/reactive-ecs/commit/f2bc35002626edb66411933b98fadcab48e4bceb))
+
 ## [0.16.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.15.0...reactive-ecs-v0.16.0) (2026-06-17)
 
 
