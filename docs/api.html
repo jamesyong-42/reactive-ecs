@@ -477,15 +477,7 @@
     <a href="#query">query</a>
     <a href="#disposequery">disposeQuery</a>
     <a href="#querytagged">queryTagged</a>
-    <a href="#querychanged">queryChanged</a>
-    <a href="#queryadded">queryAdded</a>
-    <a href="#queryremoved">queryRemoved</a>
-    <a href="#queryaddedtag">queryAddedTag</a>
-    <a href="#queryremovedtag">queryRemovedTag</a>
     <a href="#queryrelation">queryRelation</a>
-    <a href="#queryrelationadded">queryRelationAdded</a>
-    <a href="#queryrelationremoved">queryRelationRemoved</a>
-    <a href="#querychangedresources">queryChangedResources</a>
   </div>
 
   <div class="nav-group">
@@ -526,7 +518,7 @@
 
   <div class="nav-group">
     <span>World · frame</span>
-    <a href="#cleardirty">clearDirty</a>
+    <a href="#world-frame">frame lifecycle</a>
   </div>
 
   <div class="nav-group">
@@ -909,10 +901,12 @@ if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code
       <strong>net transition since the tick began</strong> — absent→present = added,
       present→present with ≥ 1 write = changed, present→absent = removed, absent→absent =
       nothing — disjoint by definition. See <a href="index.html#net-cancellation">the partition
-      rule</a>. The per-tick buffer queries below (<code>queryChanged</code> /
+      rule</a>. The per-tick buffer queries that predated this (<code>queryChanged</code> /
       <code>queryAdded</code> / <code>queryRemoved</code> and their tag/relation/resource twins)
-      are <strong>deprecated</strong>: each is the value-carrying accessor of the same name on
-      <code>changes()</code> — <code>queryAdded(C)</code> → <code>changes().added(C)</code>.
+      were <strong>removed in v0.16</strong>: each is now the value-carrying accessor of the same
+      name on <code>changes()</code> — <code>queryAdded(C)</code> → <code>changes().added(C)</code>,
+      returning a <code>Map</code>/<code>Set</code> whose keys are the entity ids the buffer
+      returned.
     </p>
 
     <h3 id="changes">changes<a class="anchor" href="#changes">#</a></h3>
@@ -975,47 +969,9 @@ interface Change&lt;T&gt; { readonly prev: Readonly&lt;T&gt;; readonly next: Rea
 <figure class="code sig" data-lang="ts"><pre><code>queryTagged(type: TagType): EntityId[]</code></pre></figure>
     <p>All entities with the tag.</p>
 
-    <h3 id="querychanged">queryChanged<a class="anchor" href="#querychanged">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryChanged(type: ComponentType): EntityId[]</code></pre></figure>
-    <p>Entities whose net transition is <strong>present→present with ≥ 1 write</strong> — they had the component at the last <code>clearDirty()</code> and still do, and it was written. A fresh attach is <em>never</em> here (it's in <code>queryAdded</code>); remove-then-re-add of a pre-existing component <em>is</em>.</p>
-
-    <h3 id="queryadded">queryAdded<a class="anchor" href="#queryadded">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryAdded(type: ComponentType): EntityId[]</code></pre></figure>
-    <p>Entities whose net transition is <strong>absent→present</strong>. Disjoint from <code>queryChanged</code> and <code>queryRemoved</code>; add-then-remove within one tick lands in no buffer.</p>
-
-    <h3 id="queryremoved">queryRemoved<a class="anchor" href="#queryremoved">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryRemoved(type: ComponentType): EntityId[]</code></pre></figure>
-    <p>
-      Entities whose net transition is <strong>present→absent</strong> — via
-      <code>removeComponent</code> <em>or</em> <code>destroyEntity</code>. The single channel
-      for "this entity no longer has C"; consumers managing external resources need no
-      separate destroy bookkeeping. The buffer holds ids only — to read the dying value, use
-      <a href="#oncomponentremoved"><code>onComponentRemoved</code></a>.
-    </p>
-
-    <h3 id="queryaddedtag">queryAddedTag<a class="anchor" href="#queryaddedtag">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryAddedTag(type: TagType): EntityId[]</code></pre></figure>
-    <p>Entities whose net transition for the tag is absent→present. Tags have no changed buffer: remove-then-re-add of a tag held at tick start is vacuous and lands nowhere.</p>
-
-    <h3 id="queryremovedtag">queryRemovedTag<a class="anchor" href="#queryremovedtag">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryRemovedTag(type: TagType): EntityId[]</code></pre></figure>
-    <p>Entities whose net transition for the tag is present→absent — via <code>removeTag</code> or <code>destroyEntity</code>. Add-then-remove within one tick lands in no buffer.</p>
-
     <h3 id="queryrelation">queryRelation<a class="anchor" href="#queryrelation">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryRelation(type: RelationType): RelationEdge[]</code></pre></figure>
     <p>All live edges as <code>[source, target]</code> pairs.</p>
-
-    <h3 id="queryrelationadded">queryRelationAdded<a class="anchor" href="#queryrelationadded">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryRelationAdded(type: RelationType): RelationEdge[]</code></pre></figure>
-    <p>Edges whose net transition is absent→present. Edges have no changed buffer: unrelate-then-re-relate of a pre-existing edge is vacuous and lands nowhere.</p>
-
-    <h3 id="queryrelationremoved">queryRelationRemoved<a class="anchor" href="#queryrelationremoved">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryRelationRemoved(type: RelationType): RelationEdge[]</code></pre></figure>
-    <p>Edges whose net transition is present→absent — via <code>unrelate</code>, exclusivity replacement, or <code>destroyEntity</code> of either endpoint. Relate-then-unrelate within one tick lands in no buffer.</p>
-
-    <h3 id="querychangedresources">queryChangedResources<a class="anchor" href="#querychangedresources">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>queryChangedResources(): ResourceType[]</code></pre></figure>
-    <p>Every resource type written via <code>setResource</code> this tick, in first-changed order, deduped. Lazy store creation does not count. Reset by <a href="#tickworld"><code>tickWorld</code></a>'s window reset.</p>
   </section>
 
   <!-- ============================ EVENTS ============================ -->
@@ -1272,16 +1228,6 @@ applyChanges(world, c, { origin: HISTORY, invert: true }); // undo</code></pre><
       public way to advance the frame without delivering. (The old <code>incrementTick</code> /
       <code>emitFrame</code> escape hatches are gone — they let a caller advance the frame
       without committing.)
-    </p>
-
-    <h3 id="cleardirty">clearDirty<a class="anchor" href="#cleardirty">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>clearDirty(): void</code></pre></figure>
-    <p>
-      <strong>Deprecated.</strong> Resets the per-tick buffers and the presence baselines the
-      <a href="index.html#net-cancellation">partition rule</a> classifies net transitions
-      against. Frame reset is now owned by <a href="#tickworld"><code>tickWorld</code></a> (the
-      seal→reset step); <a href="#changes"><code>changes()</code></a> exposes the same window
-      without any manual clearing. Direct use will be removed.
     </p>
   </section>
 

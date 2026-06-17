@@ -20,7 +20,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			world.addComponent(e, Position, { x: 5, y: 6 });
 
 			const added = world.changes().added(Position);
-			expect([...added.keys()]).toEqual(world.queryAdded(Position));
+			expect([...added.keys()]).toEqual([e]);
 			expect(added.get(e)).toEqual({ x: 5, y: 6 });
 			expect(world.changes().changed(Position).size).toBe(0);
 			expect(world.changes().removed(Position).size).toBe(0);
@@ -30,13 +30,13 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 0 });
-			world.clearDirty(); // close the window — {x:1} is now the baseline
+			tickWorld(world); // close the window — {x:1} is now the baseline
 
 			world.patchComponent(e, Position, { x: 2 });
 			world.patchComponent(e, Position, { x: 3 });
 
 			const changed = world.changes().changed(Position);
-			expect([...changed.keys()]).toEqual(world.queryChanged(Position));
+			expect([...changed.keys()]).toEqual([e]);
 			// prev stays window-start ({x:1}) across multiple writes; next is current.
 			expect(changed.get(e)).toEqual({ prev: { x: 1, y: 0 }, next: { x: 3, y: 0 } });
 		});
@@ -45,13 +45,13 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
-			world.clearDirty();
+			tickWorld(world);
 
 			world.patchComponent(e, Position, { x: 9 }); // replaced mid-window
 			world.removeComponent(e, Position);
 
 			const removed = world.changes().removed(Position);
-			expect([...removed.keys()]).toEqual(world.queryRemoved(Position));
+			expect([...removed.keys()]).toEqual([e]);
 			// Window-start value, so applyChanges(invertChanges(...)) restores it.
 			expect(removed.get(e)).toEqual({ x: 1, y: 2 });
 		});
@@ -73,13 +73,13 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 1 });
-			world.clearDirty();
+			tickWorld(world);
 
 			world.removeComponent(e, Position);
 			world.addComponent(e, Position, { x: 2, y: 2 });
 
 			const changed = world.changes().changed(Position);
-			expect([...changed.keys()]).toEqual(world.queryChanged(Position));
+			expect([...changed.keys()]).toEqual([e]);
 			expect(changed.get(e)).toEqual({ prev: { x: 1, y: 1 }, next: { x: 2, y: 2 } });
 		});
 	});
@@ -91,18 +91,12 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const b = world.createEntity();
 			world.addTag(a, Selected);
 			world.addTag(b, Selected);
-			world.clearDirty();
+			tickWorld(world);
 
 			world.removeTag(a, Selected);
 			const c = world.createEntity();
 			world.addTag(c, Selected);
 
-			expect(keys(world.changes().addedTag(Selected))).toEqual(
-				world.queryAddedTag(Selected).sort(),
-			);
-			expect(keys(world.changes().removedTag(Selected))).toEqual(
-				world.queryRemovedTag(Selected).sort(),
-			);
 			expect([...world.changes().addedTag(Selected)]).toEqual([c]);
 			expect([...world.changes().removedTag(Selected)]).toEqual([a]);
 		});
@@ -113,10 +107,9 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const child = world.createEntity();
 			world.relate(child, ChildOf, parent);
 
-			expect(world.changes().addedRelation(ChildOf)).toEqual(world.queryRelationAdded(ChildOf));
 			expect(world.changes().addedRelation(ChildOf)).toEqual([[child, parent]]);
 
-			world.clearDirty();
+			tickWorld(world);
 			world.unrelate(child, ChildOf, parent);
 			expect(world.changes().removedRelation(ChildOf)).toEqual([[child, parent]]);
 		});
@@ -126,7 +119,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 		it('changedResources carries { prev, next } keyed by type', () => {
 			const world = createWorld();
 			world.setResource(Camera, { zoom: 1 });
-			world.clearDirty();
+			tickWorld(world);
 
 			world.setResource(Camera, { zoom: 2 });
 			world.setResource(Camera, { zoom: 3 });
@@ -147,7 +140,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			expect(keys(world.changes().created)).toEqual([a, b].sort());
 			expect(world.changes().destroyed.size).toBe(0);
 
-			world.clearDirty();
+			tickWorld(world);
 			const c = world.createEntity();
 			world.destroyEntity(a); // alive at window start → destroyed
 			expect([...world.changes().created]).toEqual([c]);
@@ -156,7 +149,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 
 		it('created-then-destroyed in one window is invisible', () => {
 			const world = createWorld();
-			world.clearDirty();
+			tickWorld(world);
 			const tmp = world.createEntity();
 			world.destroyEntity(tmp);
 			const c = world.changes();
@@ -168,7 +161,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 7, y: 8 });
-			world.clearDirty();
+			tickWorld(world);
 
 			world.destroyEntity(e);
 			expect([...world.changes().destroyed]).toEqual([e]);
@@ -210,7 +203,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			expect(world.changes().isEmpty()).toBe(true);
 			const e = world.createEntity();
 			expect(world.changes().isEmpty()).toBe(false); // created
-			world.clearDirty();
+			tickWorld(world);
 			expect(world.changes().isEmpty()).toBe(true);
 			world.addComponent(e, Position);
 			expect(world.changes().isEmpty()).toBe(false);
@@ -233,7 +226,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const world = createWorld({ maxReentrancyDepth: 50 });
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 0 });
-			world.clearDirty();
+			tickWorld(world);
 
 			world.onComponentChanged(Position, () => {
 				world.patchComponent(e, Position, { x: 1 }); // re-triggers this handler
@@ -247,7 +240,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 0 });
 			world.addComponent(e, Velocity, { dx: 0 });
-			world.clearDirty();
+			tickWorld(world);
 
 			// Position change writes Velocity once — depth 2, well under the cap.
 			world.onComponentChanged(Position, () => {

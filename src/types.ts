@@ -433,73 +433,10 @@ export interface World {
 	 * Returns an unsubscribe function.
 	 */
 	onChanges(handler: (changes: DeliveredChanges) => void): Unsubscribe;
-	/**
-	 * @deprecated Use `changes().changed(type)` — carries prev/next values.
-	 * Returns entities whose NET transition for this component since the last
-	 * `clearDirty()` is present→present with at least one write. The three
-	 * per-tick buffers (`queryAdded` / `queryChanged` / `queryRemoved`)
-	 * partition touched entities by net transition and are disjoint by
-	 * definition — a fresh attach lands in `queryAdded` only, never here.
-	 */
-	queryChanged(type: ComponentType): QueryResult;
-	/**
-	 * Returns entities whose net transition for this component since the last
-	 * `clearDirty()` is absent→present. Disjoint from `queryChanged` and
-	 * `queryRemoved`; an add followed by a remove in the same tick
-	 * (absent→absent) lands in no buffer.
-	 * @deprecated Use `changes().added(type)` — carries the attached value.
-	 */
-	queryAdded(type: ComponentType): QueryResult;
-	/**
-	 * Returns entities whose net transition for this component since the last
-	 * `clearDirty()` is present→absent — via `removeComponent` or
-	 * `destroyEntity`. A remove followed by a re-add in the same tick is
-	 * present→present and lands in `queryChanged` instead.
-	 * @deprecated Use `changes().removed(type)` — carries the dying value.
-	 */
-	queryRemoved(type: ComponentType): QueryResult;
 	/** Returns all entities with a specific tag. */
 	queryTagged(type: TagType): QueryResult;
-	/**
-	 * Returns entities whose net transition for this tag since the last
-	 * `clearDirty()` is absent→present. Tags have no changed buffer:
-	 * remove-then-re-add of a tag held at the last `clearDirty()` is a
-	 * vacuous present→present and lands in no buffer.
-	 * @deprecated Use `changes().addedTag(type)`.
-	 */
-	queryAddedTag(type: TagType): QueryResult;
-	/**
-	 * Returns entities whose net transition for this tag since the last
-	 * `clearDirty()` is present→absent — via `removeTag` or `destroyEntity`.
-	 * Add-then-remove in the same tick (absent→absent) lands in no buffer.
-	 * @deprecated Use `changes().removedTag(type)`.
-	 */
-	queryRemovedTag(type: TagType): QueryResult;
 	/** Returns all live edges of a relation as `[source, target]` pairs. */
 	queryRelation(type: RelationType): RelationEdge[];
-	/**
-	 * Returns edges whose net transition since the last `clearDirty()` is
-	 * absent→present. Edges have no changed buffer: unrelate-then-re-relate of
-	 * an edge present at the last `clearDirty()` is a vacuous present→present
-	 * and lands in no buffer.
-	 * @deprecated Use `changes().addedRelation(type)`.
-	 */
-	queryRelationAdded(type: RelationType): RelationEdge[];
-	/**
-	 * Returns edges whose net transition since the last `clearDirty()` is
-	 * present→absent — via `unrelate`, exclusivity replacement, or
-	 * `destroyEntity` of either endpoint. Relate-then-unrelate in the same
-	 * tick (absent→absent) lands in no buffer.
-	 * @deprecated Use `changes().removedRelation(type)`.
-	 */
-	queryRelationRemoved(type: RelationType): RelationEdge[];
-	/**
-	 * Returns resource types whose `setResource` was called this tick, in
-	 * first-changed order. Mirror of `queryChanged` for resources. Lazy
-	 * creation via `getResource` is not a change — only `setResource` counts.
-	 * @deprecated Use `changes().changedResources()` — carries prev/next values.
-	 */
-	queryChangedResources(): ResourceType[];
 
 	// Resources
 
@@ -589,14 +526,4 @@ export interface World {
 	getComponentsOf(entity: EntityId): ComponentType[];
 	/** Returns the TagTypes currently attached to an entity. */
 	getTagsOf(entity: EntityId): TagType[];
-
-	// Frame lifecycle
-
-	/**
-	 * Clears the per-tick buffers and the transition baselines they classify
-	 * against — the partition point for the added/changed/removed buffers.
-	 * @deprecated Frame reset is owned by `tickWorld`; direct use will be
-	 * removed. `changes()` exposes the same window without manual clearing.
-	 */
-	clearDirty(): void;
 }

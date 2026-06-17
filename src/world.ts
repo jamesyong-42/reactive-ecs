@@ -299,6 +299,8 @@ export interface WorldInternal extends World {
 	incrementTick(): void;
 	/** Internal: fire `onFrame` subscribers. Reachable only via `tickWorld`. */
 	emitFrame(): void;
+	/** Internal: reset the per-tick change window. Reachable only via `tickWorld`. */
+	clearDirty(): void;
 }
 
 export function createWorld(options?: CreateWorldOptions): World {
@@ -1537,34 +1539,9 @@ export function createWorld(options?: CreateWorldOptions): World {
 			return changesView;
 		},
 
-		queryChanged(type: ComponentType): QueryResult {
-			const store = getComponentStore(type);
-			return [...store.dirty];
-		},
-
-		queryAdded(type: ComponentType): QueryResult {
-			const store = getComponentStore(type);
-			return [...store.added];
-		},
-
-		queryRemoved(type: ComponentType): QueryResult {
-			const store = getComponentStore(type);
-			return [...store.removed];
-		},
-
 		queryTagged(type: TagType): QueryResult {
 			const store = getTagStore(type);
 			return [...store.entities];
-		},
-
-		queryAddedTag(type: TagType): QueryResult {
-			const store = getTagStore(type);
-			return [...store.added];
-		},
-
-		queryRemovedTag(type: TagType): QueryResult {
-			const store = getTagStore(type);
-			return [...store.removed];
 		},
 
 		queryRelation(type: RelationType): RelationEdge[] {
@@ -1572,25 +1549,6 @@ export function createWorld(options?: CreateWorldOptions): World {
 			const result: [EntityId, EntityId][] = [];
 			for (const [source, targets] of store.forward) {
 				for (const target of targets) result.push([source, target]);
-			}
-			return result;
-		},
-
-		queryRelationAdded(type: RelationType): RelationEdge[] {
-			const store = getRelationStore(type);
-			return decodeEdgeKeys(store.added);
-		},
-
-		queryRelationRemoved(type: RelationType): RelationEdge[] {
-			const store = getRelationStore(type);
-			return decodeEdgeKeys(store.removed);
-		},
-
-		queryChangedResources(): ResourceType[] {
-			const result: ResourceType[] = [];
-			for (const name of changedResources) {
-				const store = resources.get(name);
-				if (store) result.push(store.type);
 			}
 			return result;
 		},
