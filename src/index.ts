@@ -1,4 +1,10 @@
 export {
+	type ApplyChangesOptions,
+	type ApplyChangesResult,
+	applyChanges,
+	type SkippedEntry,
+} from './changes.js';
+export {
 	defineComponent,
 	defineRelation,
 	defineResource,
