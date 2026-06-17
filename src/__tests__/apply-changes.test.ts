@@ -29,7 +29,9 @@ describe('applyChanges (RFC-006 /changes ground support)', () => {
 		world.addComponent(e, Position, { x: 1, y: 2 });
 		tickWorld(world);
 
-		const change = capture(world, () => world.patchComponent(e, Position, { x: 9 }));
+		const change = capture(world, () =>
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 9 })),
+		);
 		expect(world.getComponent(e, Position)).toEqual({ x: 9, y: 2 });
 
 		applyChanges(world, change, { invert: true }); // undo
@@ -111,7 +113,9 @@ describe('applyChanges (RFC-006 /changes ground support)', () => {
 		const HISTORY = Symbol('history');
 		const e = world.createEntity();
 		world.addComponent(e, Position, { x: 1 });
-		const change = capture(world, () => world.patchComponent(e, Position, { x: 2 }));
+		const change = capture(world, () =>
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 2 })),
+		);
 
 		let sawOrigin: unknown = 'unset';
 		world.onComponentChanged(Position, () => {
@@ -157,9 +161,9 @@ describe('applyChanges (RFC-006 /changes ground support)', () => {
 
 		// Gesture 1 — drag all three.
 		tickWorld(world, () => {
-			world.patchComponent(e1, Position, { x: 10 });
-			world.patchComponent(e2, Position, { x: 20 });
-			world.patchComponent(e3, Position, { x: 30 });
+			world.updateComponent(e1, Position, (p) => ({ ...p, x: 10 }));
+			world.updateComponent(e2, Position, (p) => ({ ...p, x: 20 }));
+			world.updateComponent(e3, Position, (p) => ({ ...p, x: 30 }));
 		});
 		endGesture();
 

@@ -25,7 +25,7 @@ describe('tickWorld', () => {
 
 		tickWorld(world, (w) => {
 			order.push('fn');
-			w.patchComponent(e, Position, { x: 2 });
+			w.updateComponent(e, Position, (p) => ({ ...p, x: 2 }));
 		});
 
 		expect(order).toEqual(['fn', 'deliver', 'frame']);

@@ -20,12 +20,12 @@ describe('defaults are frozen at definition (ownership rule)', () => {
 		}).toThrow(TypeError);
 	});
 
-	it('frozen defaults still attach and patch normally (per-attach clone)', () => {
+	it('frozen defaults still attach and update normally (per-write freeze)', () => {
 		const Pos = defineComponent('FrozenPos2', { nested: { x: 0 } });
 		const world = createWorld();
 		const e = world.createEntity();
 		world.addComponent(e, Pos);
-		world.patchComponent(e, Pos, { nested: { x: 5 } });
+		world.updateComponent(e, Pos, (p) => ({ ...p, nested: { x: 5 } }));
 		expect(world.getComponent(e, Pos)).toEqual({ nested: { x: 5 } });
 	});
 

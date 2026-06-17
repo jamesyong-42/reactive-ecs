@@ -313,7 +313,7 @@ describe('SystemScheduler', () => {
 
 			// Tick 0: C changed this tick → runs.
 			tick = 0;
-			world.patchComponent(e, C, { v: 1 });
+			world.updateComponent(e, C, (p) => ({ ...p, v: 1 }));
 			scheduler.execute(world);
 			tickWorld(world);
 
@@ -324,7 +324,7 @@ describe('SystemScheduler', () => {
 
 			// Tick 2: C changed again → runs.
 			tick = 2;
-			world.patchComponent(e, C, { v: 2 });
+			world.updateComponent(e, C, (p) => ({ ...p, v: 2 }));
 			scheduler.execute(world);
 			tickWorld(world);
 

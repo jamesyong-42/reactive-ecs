@@ -102,17 +102,6 @@ export type QueryResult = EntityId[];
 /** Options for createWorld(). */
 export interface CreateWorldOptions {
 	/**
-	 * Dev-mode option: deep-freeze exactly what the world clones — plain
-	 * objects and arrays at any depth, never class instances — wherever
-	 * cloned data enters a store (addComponent, patchComponent, resource
-	 * instantiation, setResource). Clone and freeze are two enforcements of
-	 * the same ownership boundary: plain data crossing the API is owned by
-	 * the world. With freeze on, in-place mutation of a read then throws in
-	 * strict mode instead of silently bypassing change tracking.
-	 * Default: false.
-	 */
-	readonly freeze?: boolean;
-	/**
 	 * Max depth of synchronous handler re-entrancy before the world throws a
 	 * loud cycle error instead of overflowing the stack. A handler that mutates
 	 * the world re-triggers handlers synchronously; an unbounded handler→mutate
@@ -343,25 +332,27 @@ export interface World {
 	/**
 	 * Reads a component from an entity. Returns undefined if not present.
 	 * The returned object is the live store value typed read-only; write
-	 * through `patchComponent` / `addComponent`.
+	 * through `updateComponent` / `addComponent`.
 	 */
 	getComponent<T>(entity: EntityId, type: ComponentType<T>): Readonly<T> | undefined;
 	/** Checks if an entity has a component. */
 	hasComponent(entity: EntityId, type: ComponentType): boolean;
 	/**
-	 * Strict shallow-merge update of an existing component: one level deep,
-	 * nested objects in `data` replace wholesale. Incoming plain data is
-	 * defensively cloned; observers receive a top-level snapshot of the prior
-	 * value as `prev`. It appears in `changes()` by net transition:
-	 * `changes().changed(type)` when the component was present at tick start,
-	 * while a component attached this tick stays in `changes().added(type)`.
-	 * Non-creating by design — absence is never silent: throws if the entity
-	 * is dead, and throws if the entity is alive but lacks the component (use
-	 * `addComponent` to attach). For writes that may race a destroy (async
-	 * callbacks, timers), the idiomatic guard is
-	 * `if (world.entityExists(id)) world.patchComponent(id, Type, data)`.
+	 * Transforms an existing component via a pure recipe `(prev) => next` (RFC-007).
+	 * `prev` is the live value, its managed plain data frozen — build a new value;
+	 * mutating a plain field in place throws, and mutating a borrowed field in place
+	 * is invisible to change detection (replace it instead). Strict and non-creating
+	 * — absence is never silent: throws if the entity is dead, and throws if it is
+	 * alive but lacks the component (use `addComponent` to attach). The returned
+	 * value is frozen and stored. Returning `prev` by reference is a no-op: no write,
+	 * no event, no buffer entry. A write that throws (recipe, cycle, or accessor)
+	 * leaves the kernel's stores and change tracking unchanged.
 	 */
-	patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>): void;
+	updateComponent<T>(
+		entity: EntityId,
+		type: ComponentType<T>,
+		recipe: (prev: Readonly<T>) => T,
+	): void;
 
 	// Tag access
 
@@ -447,6 +438,14 @@ export interface World {
 	getResource<T>(type: ResourceType<T>): Readonly<T>;
 	/** Partially updates a singleton resource (shallow merge). */
 	setResource<T>(type: ResourceType<T>, data: Partial<T>): void;
+	/**
+	 * Transforms a singleton resource via a pure recipe `(prev) => next` (RFC-007) —
+	 * the functional counterpart to `setResource`'s merge. The returned value is
+	 * frozen and stored; returning `prev` by reference is a no-op. A throwing recipe
+	 * leaves change tracking unchanged. Lazily creates the resource from its
+	 * defaults on first touch, like `getResource`.
+	 */
+	updateResource<T>(type: ResourceType<T>, recipe: (prev: Readonly<T>) => T): void;
 
 	// Events
 
