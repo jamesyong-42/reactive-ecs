@@ -1,4 +1,5 @@
 import type {
+	Change,
 	ComponentChangedHandler,
 	ComponentRemovedHandler,
 	ComponentType,
@@ -17,6 +18,7 @@ import type {
 	TagType,
 	Unsubscribe,
 	World,
+	WorldChanges,
 } from './types.js';
 
 /** Internal storage for a single component type */
@@ -33,6 +35,14 @@ interface ComponentStore<T = unknown> {
 	 * classifying the net transition into exactly one per-tick buffer.
 	 */
 	baseline: Map<EntityId, boolean>;
+	/**
+	 * Value at FIRST touch this window, recorded alongside `baseline` — backs the
+	 * value-carrying `changes()` accessors (RFC-006): `changed.prev` and the
+	 * `removed` dying value are both the window-start value. `undefined` here can
+	 * mean either absent-at-window-start or a stored `undefined`; the buffers
+	 * (`added`/`dirty`/`removed`) disambiguate which keys are present.
+	 */
+	windowPrev: Map<EntityId, T | undefined>;
 	handlers: Map<EntityId | '*', Set<ComponentChangedHandler<T>>>;
 	removedHandlers: Map<EntityId | '*', Set<ComponentRemovedHandler<T>>>;
 }
@@ -296,6 +306,20 @@ export function createWorld(options?: CreateWorldOptions): World {
 	// Resource type names set this tick — Set iteration preserves insertion
 	// order, so this doubles as the first-changed order for queryChangedResources.
 	const changedResources = new Set<string>();
+	// Value of each resource at first setResource this window — backs the
+	// value-carrying changes().changedResources() (RFC-006). Cleared with the
+	// per-tick window in clearDirty().
+	const resourceWindowPrev = new Map<string, unknown>();
+	// Per-window entity lifecycle, netted: an entity created and destroyed in
+	// the same window is invisible (absent→absent). Backs changes().created /
+	// .destroyed. Cleared with the window in clearDirty().
+	const createdThisWindow = new Set<EntityId>();
+	const destroyedThisWindow = new Set<EntityId>();
+	// Synchronous handler re-entrancy guard (RFC-006): a handler that mutates
+	// re-triggers handlers; past this depth we throw a loud cycle error instead
+	// of overflowing the stack.
+	const maxReentrancyDepth = options?.maxReentrancyDepth ?? 1000;
+	let emitDepth = 0;
 	// Frame handlers
 	const frameHandlers = new Set<FrameHandler>();
 	// Create listeners — called after the entity id is assigned and marked alive
@@ -436,6 +460,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			added: new Set(),
 			removed: new Set(),
 			baseline: new Map(),
+			windowPrev: new Map(),
 			handlers: new Map(),
 			removedHandlers: new Map(),
 		};
@@ -516,86 +541,138 @@ export function createWorld(options?: CreateWorldOptions): World {
 		return store;
 	}
 
+	// Re-entrancy guard: every handler dispatch runs between enterEmit/exitEmit,
+	// so synchronous handler→mutate→handler nesting raises emitDepth. Past the
+	// cap we throw a loud cycle error instead of overflowing the stack.
+	function enterEmit() {
+		if (++emitDepth > maxReentrancyDepth) {
+			emitDepth--;
+			throw new Error(
+				`reactive-ecs: synchronous handler re-entrancy exceeded ${maxReentrancyDepth} — ` +
+					`a handler is mutating the world in a feedback loop (handler → mutate → handler). ` +
+					`Break the cycle, or raise createWorld({ maxReentrancyDepth }) if the depth is real.`,
+			);
+		}
+	}
+	function exitEmit() {
+		emitDepth--;
+	}
+
 	function emitComponentChanged<T>(
 		store: ComponentStore<T>,
 		entityId: EntityId,
 		prev: T | undefined,
 		next: T,
 	) {
-		const entityHandlers = store.handlers.get(entityId);
-		if (entityHandlers) {
-			for (const h of entityHandlers) h(entityId, prev, next);
-		}
-		const wildcardHandlers = store.handlers.get('*');
-		if (wildcardHandlers) {
-			for (const h of wildcardHandlers) h(entityId, prev, next);
+		enterEmit();
+		try {
+			const entityHandlers = store.handlers.get(entityId);
+			if (entityHandlers) {
+				for (const h of entityHandlers) h(entityId, prev, next);
+			}
+			const wildcardHandlers = store.handlers.get('*');
+			if (wildcardHandlers) {
+				for (const h of wildcardHandlers) h(entityId, prev, next);
+			}
+		} finally {
+			exitEmit();
 		}
 	}
 
 	function emitComponentRemoved<T>(store: ComponentStore<T>, entityId: EntityId, prev: T) {
-		const entityHandlers = store.removedHandlers.get(entityId);
-		if (entityHandlers) {
-			for (const h of entityHandlers) h(entityId, prev);
-		}
-		const wildcardHandlers = store.removedHandlers.get('*');
-		if (wildcardHandlers) {
-			for (const h of wildcardHandlers) h(entityId, prev);
+		enterEmit();
+		try {
+			const entityHandlers = store.removedHandlers.get(entityId);
+			if (entityHandlers) {
+				for (const h of entityHandlers) h(entityId, prev);
+			}
+			const wildcardHandlers = store.removedHandlers.get('*');
+			if (wildcardHandlers) {
+				for (const h of wildcardHandlers) h(entityId, prev);
+			}
+		} finally {
+			exitEmit();
 		}
 	}
 
 	function emitTagAdded(store: TagStore, entityId: EntityId) {
-		const entityHandlers = store.addedHandlers.get(entityId);
-		if (entityHandlers) {
-			for (const h of entityHandlers) h(entityId);
-		}
-		const wildcardHandlers = store.addedHandlers.get('*');
-		if (wildcardHandlers) {
-			for (const h of wildcardHandlers) h(entityId);
+		enterEmit();
+		try {
+			const entityHandlers = store.addedHandlers.get(entityId);
+			if (entityHandlers) {
+				for (const h of entityHandlers) h(entityId);
+			}
+			const wildcardHandlers = store.addedHandlers.get('*');
+			if (wildcardHandlers) {
+				for (const h of wildcardHandlers) h(entityId);
+			}
+		} finally {
+			exitEmit();
 		}
 	}
 
 	function emitTagRemoved(store: TagStore, entityId: EntityId) {
-		const entityHandlers = store.removedHandlers.get(entityId);
-		if (entityHandlers) {
-			for (const h of entityHandlers) h(entityId);
-		}
-		const wildcardHandlers = store.removedHandlers.get('*');
-		if (wildcardHandlers) {
-			for (const h of wildcardHandlers) h(entityId);
+		enterEmit();
+		try {
+			const entityHandlers = store.removedHandlers.get(entityId);
+			if (entityHandlers) {
+				for (const h of entityHandlers) h(entityId);
+			}
+			const wildcardHandlers = store.removedHandlers.get('*');
+			if (wildcardHandlers) {
+				for (const h of wildcardHandlers) h(entityId);
+			}
+		} finally {
+			exitEmit();
 		}
 	}
 
 	function emitRelationAdded(store: RelationStore, source: EntityId, target: EntityId) {
-		const sourceHandlers = store.addedHandlers.get(source);
-		if (sourceHandlers) {
-			for (const h of sourceHandlers) h(source, target);
-		}
-		const targetHandlers = store.addedTargetHandlers.get(target);
-		if (targetHandlers) {
-			for (const h of targetHandlers) h(source, target);
-		}
-		const wildcardHandlers = store.addedHandlers.get('*');
-		if (wildcardHandlers) {
-			for (const h of wildcardHandlers) h(source, target);
+		enterEmit();
+		try {
+			const sourceHandlers = store.addedHandlers.get(source);
+			if (sourceHandlers) {
+				for (const h of sourceHandlers) h(source, target);
+			}
+			const targetHandlers = store.addedTargetHandlers.get(target);
+			if (targetHandlers) {
+				for (const h of targetHandlers) h(source, target);
+			}
+			const wildcardHandlers = store.addedHandlers.get('*');
+			if (wildcardHandlers) {
+				for (const h of wildcardHandlers) h(source, target);
+			}
+		} finally {
+			exitEmit();
 		}
 	}
 
 	function emitResourceChanged<T>(store: ResourceStore<T>, prev: T, next: T) {
-		for (const h of store.handlers) h(prev, next);
+		enterEmit();
+		try {
+			for (const h of store.handlers) h(prev, next);
+		} finally {
+			exitEmit();
+		}
 	}
 
 	function emitRelationRemoved(store: RelationStore, source: EntityId, target: EntityId) {
-		const sourceHandlers = store.removedHandlers.get(source);
-		if (sourceHandlers) {
-			for (const h of sourceHandlers) h(source, target);
-		}
-		const targetHandlers = store.removedTargetHandlers.get(target);
-		if (targetHandlers) {
-			for (const h of targetHandlers) h(source, target);
-		}
-		const wildcardHandlers = store.removedHandlers.get('*');
-		if (wildcardHandlers) {
-			for (const h of wildcardHandlers) h(source, target);
+		enterEmit();
+		try {
+			const sourceHandlers = store.removedHandlers.get(source);
+			if (sourceHandlers) {
+				for (const h of sourceHandlers) h(source, target);
+			}
+			const targetHandlers = store.removedTargetHandlers.get(target);
+			if (targetHandlers) {
+				for (const h of targetHandlers) h(source, target);
+			}
+			const wildcardHandlers = store.removedHandlers.get('*');
+			if (wildcardHandlers) {
+				for (const h of wildcardHandlers) h(source, target);
+			}
+		} finally {
+			exitEmit();
 		}
 	}
 
@@ -620,6 +697,83 @@ export function createWorld(options?: CreateWorldOptions): World {
 		classifyTransition(store.baseline, store.added, null, store.removed, key, true, false);
 		emitRelationRemoved(store, source, target);
 	}
+
+	// The value-carrying change-detection view returned by world.changes()
+	// (RFC-006). Reads the live per-tick buffers + windowPrev; each accessor
+	// materializes a fresh container, so iterating one while the loop body
+	// mutates the world is safe and a later call reflects later writes. A single
+	// instance reused across calls — the freshness lives in the accessors.
+	const changesView: WorldChanges = {
+		get tick() {
+			return currentTick;
+		},
+		get created() {
+			return new Set(createdThisWindow);
+		},
+		get destroyed() {
+			return new Set(destroyedThisWindow);
+		},
+		added<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Readonly<T>> {
+			const store = getComponentStore(type);
+			const out = new Map<EntityId, Readonly<T>>();
+			for (const e of store.added) out.set(e, store.data.get(e) as T);
+			return out;
+		},
+		changed<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Change<T>> {
+			const store = getComponentStore(type);
+			const out = new Map<EntityId, Change<T>>();
+			for (const e of store.dirty) {
+				out.set(e, { prev: store.windowPrev.get(e) as T, next: store.data.get(e) as T });
+			}
+			return out;
+		},
+		removed<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Readonly<T>> {
+			const store = getComponentStore(type);
+			const out = new Map<EntityId, Readonly<T>>();
+			// Window-start value (so applyChanges(invertChanges(...)) restores it).
+			for (const e of store.removed) out.set(e, store.windowPrev.get(e) as T);
+			return out;
+		},
+		addedTag(type: TagType): ReadonlySet<EntityId> {
+			return new Set(getTagStore(type).added);
+		},
+		removedTag(type: TagType): ReadonlySet<EntityId> {
+			return new Set(getTagStore(type).removed);
+		},
+		addedRelation(type: RelationType): readonly RelationEdge[] {
+			return decodeEdgeKeys(getRelationStore(type).added);
+		},
+		removedRelation(type: RelationType): readonly RelationEdge[] {
+			return decodeEdgeKeys(getRelationStore(type).removed);
+		},
+		changedResources(): ReadonlyMap<ResourceType<unknown>, Change<unknown>> {
+			const out = new Map<ResourceType<unknown>, Change<unknown>>();
+			for (const name of changedResources) {
+				const store = resources.get(name);
+				if (store) {
+					out.set(store.type, {
+						prev: resourceWindowPrev.get(name),
+						next: store.value,
+					} as Change<unknown>);
+				}
+			}
+			return out;
+		},
+		isEmpty(): boolean {
+			if (createdThisWindow.size > 0 || destroyedThisWindow.size > 0) return false;
+			if (changedResources.size > 0) return false;
+			for (const store of components.values()) {
+				if (store.added.size || store.dirty.size || store.removed.size) return false;
+			}
+			for (const store of tags.values()) {
+				if (store.added.size || store.removed.size) return false;
+			}
+			for (const store of relations.values()) {
+				if (store.added.size || store.removed.size) return false;
+			}
+			return true;
+		},
+	};
 
 	const world: World = {
 		get currentTick() {
@@ -656,6 +810,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			assertNotTearingDown();
 			const id = nextEntityId++;
 			alive.add(id);
+			createdThisWindow.add(id);
 			for (const listener of createListeners) listener(id);
 			return id;
 		},
@@ -676,6 +831,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			}
 			nextEntityId = id + 1;
 			alive.add(id);
+			createdThisWindow.add(id);
 			for (const listener of createListeners) listener(id);
 			return id;
 		},
@@ -693,6 +849,11 @@ export function createWorld(options?: CreateWorldOptions): World {
 		destroyEntity(id: EntityId) {
 			assertNotTearingDown();
 			if (!alive.has(id)) return;
+			// Net per-window lifecycle (backs changes().created/.destroyed):
+			// created-then-destroyed this window is invisible; otherwise this is a
+			// net destroy of an entity that was alive at window start.
+			if (createdThisWindow.has(id)) createdThisWindow.delete(id);
+			else destroyedThisWindow.add(id);
 			// Relation sweep — BEFORE component/tag teardown so onRelationRemoved
 			// handlers can still read the dying entity's data. Policy effects are
 			// collected here and applied only after teardown completes: mutating
@@ -744,6 +905,8 @@ export function createWorld(options?: CreateWorldOptions): World {
 				for (const store of components.values()) {
 					if (store.data.has(id)) {
 						const prev = store.data.get(id);
+						// Capture the window-start value at first touch (backs changes()).
+						if (!store.windowPrev.has(id)) store.windowPrev.set(id, prev);
 						emitComponentRemoved(store, id, prev);
 						store.data.delete(id);
 						classifyTransition(
@@ -806,6 +969,8 @@ export function createWorld(options?: CreateWorldOptions): World {
 			// Attach-or-replace: prev distinguishes the two for observers; the
 			// buffers record the NET transition since the last clearDirty().
 			const prev = store.data.get(entity);
+			// Capture the window-start value at first touch (backs changes()).
+			if (!store.windowPrev.has(entity)) store.windowPrev.set(entity, prev);
 			const merged = maybeFreeze(instantiateDefaults(type.defaults, data));
 			store.data.set(entity, merged);
 			classifyTransition(
@@ -827,6 +992,8 @@ export function createWorld(options?: CreateWorldOptions): World {
 			const store = getComponentStore(type);
 			if (store.data.has(entity)) {
 				const prev = store.data.get(entity) as T;
+				// Capture the window-start value at first touch (backs changes()).
+				if (!store.windowPrev.has(entity)) store.windowPrev.set(entity, prev);
 				// Fire onComponentRemoved BEFORE data is deleted so `prev` is
 				// readable from the store too if the handler wants it.
 				emitComponentRemoved(store, entity, prev);
@@ -870,6 +1037,8 @@ export function createWorld(options?: CreateWorldOptions): World {
 						`use addComponent to attach`,
 				);
 			}
+			// Capture the window-start value at first touch (backs changes()).
+			if (!store.windowPrev.has(entity)) store.windowPrev.set(entity, existing);
 			// Clone incoming plain data so a caller-held alias can't mutate
 			// world state behind the API later, then REPLACE the stored object —
 			// stored values are never mutated in place (which also keeps frozen
@@ -1078,6 +1247,10 @@ export function createWorld(options?: CreateWorldOptions): World {
 			}
 		},
 
+		changes(): WorldChanges {
+			return changesView;
+		},
+
 		queryChanged(type: ComponentType): QueryResult {
 			const store = getComponentStore(type);
 			return [...store.dirty];
@@ -1153,6 +1326,8 @@ export function createWorld(options?: CreateWorldOptions): World {
 			// values are shared with `next` (safe — see patchComponent).
 			const incoming = clonePartial(data);
 			const prev = store.value;
+			// Capture the window-start value at first set this window (backs changes()).
+			if (!resourceWindowPrev.has(type.name)) resourceWindowPrev.set(type.name, prev);
 			store.value = maybeFreeze({ ...prev, ...incoming } as T);
 			emitResourceChanged(store, prev, store.value);
 		},
@@ -1296,6 +1471,12 @@ export function createWorld(options?: CreateWorldOptions): World {
 			return result;
 		},
 
+		getRegisteredRelations(): RelationType[] {
+			const result: RelationType[] = [];
+			for (const store of relations.values()) result.push(store.type);
+			return result;
+		},
+
 		getRegisteredResources(): ResourceType[] {
 			const result: ResourceType[] = [];
 			for (const store of resources.values()) result.push(store.type);
@@ -1325,6 +1506,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 				store.added.clear();
 				store.removed.clear();
 				store.baseline.clear();
+				store.windowPrev.clear();
 			}
 			for (const store of tags.values()) {
 				store.added.clear();
@@ -1337,6 +1519,9 @@ export function createWorld(options?: CreateWorldOptions): World {
 				store.baseline.clear();
 			}
 			changedResources.clear();
+			resourceWindowPrev.clear();
+			createdThisWindow.clear();
+			destroyedThisWindow.clear();
 		},
 
 		incrementTick() {

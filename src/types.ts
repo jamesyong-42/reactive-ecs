@@ -112,6 +112,13 @@ export interface CreateWorldOptions {
 	 * Default: false.
 	 */
 	readonly freeze?: boolean;
+	/**
+	 * Max depth of synchronous handler re-entrancy before the world throws a
+	 * loud cycle error instead of overflowing the stack. A handler that mutates
+	 * the world re-triggers handlers synchronously; an unbounded handler→mutate
+	 * →handler feedback loop would otherwise be a stack overflow. Default: 1000.
+	 */
+	readonly maxReentrancyDepth?: number;
 }
 
 /**
@@ -165,6 +172,65 @@ export type RelationFilter = EntityId | { source?: EntityId; target?: EntityId }
 
 /** A single relation edge — `[source, target]`. */
 export type RelationEdge = readonly [EntityId, EntityId];
+
+/** A before/after value pair for a changed component or resource (RFC-006). */
+export interface Change<T = unknown> {
+	readonly prev: Readonly<T>;
+	readonly next: Readonly<T>;
+}
+
+/**
+ * The net change detection over a tick window — the value-carrying successor to
+ * the per-tick buffer queries (RFC-006). `world.changes()` returns this live view
+ * of every change since the current tick began, by the same net-transition
+ * partition the buffers used:
+ *
+ *   absent→present = added · present→present (≥1 write) = changed ·
+ *   present→absent = removed · absent→absent = invisible.
+ *
+ * The accessor verbs mirror the buffer queries one-for-one — `added(C)` is the
+ * value-carrying successor to `queryAdded(C)`. Every value is a zero-copy
+ * reference to an immutable store snapshot; each accessor CALL materializes a
+ * fresh container, so iterating one while the loop body mutates the world is
+ * safe, and a later call reflects later writes. Not retainable across a tick.
+ */
+export interface WorldChanges {
+	/** The tick this window belongs to. */
+	readonly tick: number;
+	/** Entities net-created this window (created-then-destroyed cancels). */
+	readonly created: ReadonlySet<EntityId>;
+	/** Entities net-destroyed this window (alive at window start). */
+	readonly destroyed: ReadonlySet<EntityId>;
+
+	/** Components attached this window (absent→present); value = current. */
+	added<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Readonly<T>>;
+	/** Components written this window (present→present); `{ prev, next }`. */
+	changed<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Change<T>>;
+	/**
+	 * Components removed this window (present→absent); value = the WINDOW-START
+	 * value (so `applyChanges(invertChanges(...))` restores pre-window state).
+	 * The value of a component *replaced* mid-window is NOT here — net diffs
+	 * cannot serve that; use the synchronous `onComponentRemoved` event for
+	 * cleanup of every intermediate value.
+	 */
+	removed<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Readonly<T>>;
+
+	/** Tags added this window (absent→present). */
+	addedTag(type: TagType): ReadonlySet<EntityId>;
+	/** Tags removed this window (present→absent). */
+	removedTag(type: TagType): ReadonlySet<EntityId>;
+
+	/** Relation edges added this window (absent→present). */
+	addedRelation(type: RelationType): readonly RelationEdge[];
+	/** Relation edges removed this window (present→absent). */
+	removedRelation(type: RelationType): readonly RelationEdge[];
+
+	/** Resources set this window, `{ prev, next }` keyed by resource type. */
+	changedResources(): ReadonlyMap<ResourceType<unknown>, Change<unknown>>;
+
+	/** True when nothing changed this window. */
+	isEmpty(): boolean;
+}
 
 export type FrameHandler = () => void;
 
@@ -327,6 +393,16 @@ export interface World {
 	 */
 	disposeQuery(...types: (ComponentType | TagType | NotTerm)[]): void;
 	/**
+	 * The net change detection for the current tick — every component, tag,
+	 * relation, and resource change since the tick began, carrying values
+	 * (RFC-006). The value-carrying successor to the per-tick buffer queries:
+	 * `world.changes().added(C)` replaces `world.queryAdded(C)`, etc. A live
+	 * view whose accessors materialize stable per-call snapshots; not retainable
+	 * across a tick.
+	 */
+	changes(): WorldChanges;
+	/**
+	 * @deprecated Use `changes().changed(type)` — carries prev/next values.
 	 * Returns entities whose NET transition for this component since the last
 	 * `clearDirty()` is present→present with at least one write. The three
 	 * per-tick buffers (`queryAdded` / `queryChanged` / `queryRemoved`)
@@ -339,6 +415,7 @@ export interface World {
 	 * `clearDirty()` is absent→present. Disjoint from `queryChanged` and
 	 * `queryRemoved`; an add followed by a remove in the same tick
 	 * (absent→absent) lands in no buffer.
+	 * @deprecated Use `changes().added(type)` — carries the attached value.
 	 */
 	queryAdded(type: ComponentType): QueryResult;
 	/**
@@ -346,6 +423,7 @@ export interface World {
 	 * `clearDirty()` is present→absent — via `removeComponent` or
 	 * `destroyEntity`. A remove followed by a re-add in the same tick is
 	 * present→present and lands in `queryChanged` instead.
+	 * @deprecated Use `changes().removed(type)` — carries the dying value.
 	 */
 	queryRemoved(type: ComponentType): QueryResult;
 	/** Returns all entities with a specific tag. */
@@ -355,12 +433,14 @@ export interface World {
 	 * `clearDirty()` is absent→present. Tags have no changed buffer:
 	 * remove-then-re-add of a tag held at the last `clearDirty()` is a
 	 * vacuous present→present and lands in no buffer.
+	 * @deprecated Use `changes().addedTag(type)`.
 	 */
 	queryAddedTag(type: TagType): QueryResult;
 	/**
 	 * Returns entities whose net transition for this tag since the last
 	 * `clearDirty()` is present→absent — via `removeTag` or `destroyEntity`.
 	 * Add-then-remove in the same tick (absent→absent) lands in no buffer.
+	 * @deprecated Use `changes().removedTag(type)`.
 	 */
 	queryRemovedTag(type: TagType): QueryResult;
 	/** Returns all live edges of a relation as `[source, target]` pairs. */
@@ -370,6 +450,7 @@ export interface World {
 	 * absent→present. Edges have no changed buffer: unrelate-then-re-relate of
 	 * an edge present at the last `clearDirty()` is a vacuous present→present
 	 * and lands in no buffer.
+	 * @deprecated Use `changes().addedRelation(type)`.
 	 */
 	queryRelationAdded(type: RelationType): RelationEdge[];
 	/**
@@ -377,12 +458,14 @@ export interface World {
 	 * present→absent — via `unrelate`, exclusivity replacement, or
 	 * `destroyEntity` of either endpoint. Relate-then-unrelate in the same
 	 * tick (absent→absent) lands in no buffer.
+	 * @deprecated Use `changes().removedRelation(type)`.
 	 */
 	queryRelationRemoved(type: RelationType): RelationEdge[];
 	/**
 	 * Returns resource types whose `setResource` was called this tick, in
 	 * first-changed order. Mirror of `queryChanged` for resources. Lazy
 	 * creation via `getResource` is not a change — only `setResource` counts.
+	 * @deprecated Use `changes().changedResources()` — carries prev/next values.
 	 */
 	queryChangedResources(): ResourceType[];
 
@@ -466,6 +549,8 @@ export interface World {
 	getRegisteredComponents(): ComponentType[];
 	/** Returns all TagTypes that have ever had a store created in this world. */
 	getRegisteredTags(): TagType[];
+	/** Returns all RelationTypes that have ever had a store created in this world. */
+	getRegisteredRelations(): RelationType[];
 	/** Returns all ResourceTypes that have ever been accessed in this world. */
 	getRegisteredResources(): ResourceType[];
 	/** Returns the ComponentTypes currently attached to an entity. */
@@ -478,6 +563,8 @@ export interface World {
 	/**
 	 * Clears the per-tick buffers and the transition baselines they classify
 	 * against — the partition point for the added/changed/removed buffers.
+	 * @deprecated Frame reset is owned by `tickWorld`; direct use will be
+	 * removed. `changes()` exposes the same window without manual clearing.
 	 */
 	clearDirty(): void;
 	/** Increments the tick counter. */
