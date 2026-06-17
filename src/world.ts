@@ -4,9 +4,11 @@ import type {
 	ComponentRemovedHandler,
 	ComponentType,
 	CreateWorldOptions,
+	DeliveredChanges,
 	EntityId,
 	FrameHandler,
 	NotTerm,
+	Origin,
 	QueryResult,
 	RelationEdge,
 	RelationFilter,
@@ -88,6 +90,33 @@ interface ResourceStore<T = unknown> {
 	value: T;
 	handlers: Set<ResourceChangedHandler<T>>;
 }
+
+/**
+ * Per-store net-transition state for the OPEN origin-run (RFC-006), tracked
+ * only while `onChanges` has subscribers. Mirrors the tick buffers but resets
+ * at each origin boundary; `prev` captures the run-start value for components.
+ */
+interface RunComponentDelta {
+	added: Set<EntityId>;
+	changed: Set<EntityId>;
+	removed: Set<EntityId>;
+	baseline: Map<EntityId, boolean>;
+	prev: Map<EntityId, unknown>;
+}
+interface RunTagDelta {
+	added: Set<EntityId>;
+	removed: Set<EntityId>;
+	baseline: Map<EntityId, boolean>;
+}
+interface RunRelationDelta {
+	added: Set<string>;
+	removed: Set<string>;
+	baseline: Map<string, boolean>;
+}
+
+const EMPTY_MAP: ReadonlyMap<EntityId, never> = new Map<EntityId, never>();
+const EMPTY_SET: ReadonlySet<EntityId> = new Set<EntityId>();
+const EMPTY_EDGES: readonly RelationEdge[] = [];
 
 /** Buffer key for a single relation edge — `\0` cannot appear in a numeric id. */
 function edgeKey(source: EntityId, target: EntityId): string {
@@ -259,6 +288,15 @@ function deepFreezePlain(value: unknown): void {
 	}
 }
 
+/**
+ * The world with its internal frame driver. `advanceFrame` is the single
+ * seal→reset→deliver→emitFrame→incrementTick step that `tickWorld` calls; it is
+ * deliberately off the public `World` type so the tick is the only entry point.
+ */
+export interface WorldInternal extends World {
+	advanceFrame(fn?: (world: World) => void): void;
+}
+
 export function createWorld(options?: CreateWorldOptions): World {
 	let nextEntityId = 1;
 	let currentTick = 0;
@@ -320,6 +358,25 @@ export function createWorld(options?: CreateWorldOptions): World {
 	// of overflowing the stack.
 	const maxReentrancyDepth = options?.maxReentrancyDepth ?? 1000;
 	let emitDepth = 0;
+	// === onChanges delivery (RFC-006) ===
+	// Handlers receive sealed origin-runs at tickWorld. Run tracking is LAZY:
+	// the per-run deltas below are only maintained while a handler is subscribed.
+	const commitHandlers = new Set<(changes: DeliveredChanges) => void>();
+	// The open run: its effective origin, per-store net deltas, and whether it
+	// holds anything yet. Sealed (materialized + frozen) on each origin change
+	// and at tickWorld; queued in `sealedRuns` for delivery.
+	let runOrigin: Origin;
+	let runDirty = false;
+	const runComponents = new Map<string, RunComponentDelta>();
+	const runTags = new Map<string, RunTagDelta>();
+	const runRelations = new Map<string, RunRelationDelta>();
+	const runChangedResources = new Set<string>();
+	const runResourcePrev = new Map<string, unknown>();
+	const runCreated = new Set<EntityId>();
+	const runDestroyed = new Set<EntityId>();
+	const sealedRuns: DeliveredChanges[] = [];
+	// True only while delivering, to reject re-entrant tickWorld from a handler.
+	let delivering = false;
 	// Frame handlers
 	const frameHandlers = new Set<FrameHandler>();
 	// Create listeners — called after the entity id is assigned and marked alive
@@ -694,8 +751,222 @@ export function createWorld(options?: CreateWorldOptions): World {
 			if (sources.size === 0) store.inverse.delete(target);
 		}
 		const key = edgeKey(source, target);
+		if (runTracking()) recordRelationRun(store.type.name, key, true, false);
 		classifyTransition(store.baseline, store.added, null, store.removed, key, true, false);
 		emitRelationRemoved(store, source, target);
+	}
+
+	// === Origin-run tracking for onChanges (RFC-006) ===
+	// Maintained only while a handler is subscribed (lazy: runTracking()).
+
+	function runTracking(): boolean {
+		return commitHandlers.size > 0;
+	}
+
+	function getRunComponent(name: string): RunComponentDelta {
+		let d = runComponents.get(name);
+		if (!d) {
+			d = {
+				added: new Set(),
+				changed: new Set(),
+				removed: new Set(),
+				baseline: new Map(),
+				prev: new Map(),
+			};
+			runComponents.set(name, d);
+		}
+		return d;
+	}
+	function getRunTag(name: string): RunTagDelta {
+		let d = runTags.get(name);
+		if (!d) {
+			d = { added: new Set(), removed: new Set(), baseline: new Map() };
+			runTags.set(name, d);
+		}
+		return d;
+	}
+	function getRunRelation(name: string): RunRelationDelta {
+		let d = runRelations.get(name);
+		if (!d) {
+			d = { added: new Set(), removed: new Set(), baseline: new Map() };
+			runRelations.set(name, d);
+		}
+		return d;
+	}
+
+	// Runs are maximal same-origin stretches: when the effective origin changes,
+	// seal the open run before recording the new op. Call before every run op.
+	function runBoundary(): void {
+		if (mutationOrigin !== runOrigin) {
+			if (runDirty) sealRun();
+			runOrigin = mutationOrigin;
+		}
+	}
+
+	function recordComponentRun(
+		name: string,
+		entity: EntityId,
+		presentBefore: boolean,
+		presentNow: boolean,
+		prevValue: unknown,
+	): void {
+		runBoundary();
+		const d = getRunComponent(name);
+		if (!d.prev.has(entity)) d.prev.set(entity, prevValue);
+		classifyTransition(
+			d.baseline,
+			d.added,
+			d.changed,
+			d.removed,
+			entity,
+			presentBefore,
+			presentNow,
+		);
+		runDirty = true;
+	}
+	function recordTagRun(
+		name: string,
+		entity: EntityId,
+		presentBefore: boolean,
+		presentNow: boolean,
+	): void {
+		runBoundary();
+		const d = getRunTag(name);
+		classifyTransition(d.baseline, d.added, null, d.removed, entity, presentBefore, presentNow);
+		runDirty = true;
+	}
+	function recordRelationRun(
+		name: string,
+		key: string,
+		presentBefore: boolean,
+		presentNow: boolean,
+	): void {
+		runBoundary();
+		const d = getRunRelation(name);
+		classifyTransition(d.baseline, d.added, null, d.removed, key, presentBefore, presentNow);
+		runDirty = true;
+	}
+	function recordResourceRun(name: string, prevValue: unknown): void {
+		runBoundary();
+		if (!runResourcePrev.has(name)) runResourcePrev.set(name, prevValue);
+		runChangedResources.add(name);
+		runDirty = true;
+	}
+	function recordCreatedRun(id: EntityId): void {
+		runBoundary();
+		runCreated.add(id);
+		runDirty = true;
+	}
+	function recordDestroyedRun(id: EntityId): void {
+		runBoundary();
+		if (runCreated.has(id)) runCreated.delete(id);
+		else runDestroyed.add(id);
+		runDirty = true;
+	}
+
+	function resetRun(): void {
+		runComponents.clear();
+		runTags.clear();
+		runRelations.clear();
+		runChangedResources.clear();
+		runResourcePrev.clear();
+		runCreated.clear();
+		runDestroyed.clear();
+		runDirty = false;
+	}
+
+	// Materialize the open run into an immutable DeliveredChanges, FREEZING the
+	// `next` values at this instant (zero-copy refs to immutable store snapshots)
+	// so a later run's writes to the same key never leak backward. Queue it for
+	// delivery and reset the run.
+	function sealRun(): void {
+		const origin = runOrigin;
+		const tickNum = currentTick;
+
+		const comps = new Map<
+			string,
+			{
+				added: Map<EntityId, unknown>;
+				changed: Map<EntityId, Change<unknown>>;
+				removed: Map<EntityId, unknown>;
+			}
+		>();
+		for (const [name, d] of runComponents) {
+			const store = components.get(name);
+			if (!store) continue;
+			const added = new Map<EntityId, unknown>();
+			for (const e of d.added) added.set(e, store.data.get(e));
+			const changed = new Map<EntityId, Change<unknown>>();
+			for (const e of d.changed) {
+				changed.set(e, { prev: d.prev.get(e), next: store.data.get(e) } as Change<unknown>);
+			}
+			const removed = new Map<EntityId, unknown>();
+			for (const e of d.removed) removed.set(e, d.prev.get(e));
+			comps.set(name, { added, changed, removed });
+		}
+		const tagD = new Map<string, { added: Set<EntityId>; removed: Set<EntityId> }>();
+		for (const [name, d] of runTags) {
+			tagD.set(name, { added: new Set(d.added), removed: new Set(d.removed) });
+		}
+		const relD = new Map<string, { added: RelationEdge[]; removed: RelationEdge[] }>();
+		for (const [name, d] of runRelations) {
+			relD.set(name, { added: decodeEdgeKeys(d.added), removed: decodeEdgeKeys(d.removed) });
+		}
+		const resD = new Map<ResourceType<unknown>, Change<unknown>>();
+		for (const name of runChangedResources) {
+			const store = resources.get(name);
+			if (store) {
+				resD.set(store.type, {
+					prev: runResourcePrev.get(name),
+					next: store.value,
+				} as Change<unknown>);
+			}
+		}
+		const created: ReadonlySet<EntityId> = new Set(runCreated);
+		const destroyed: ReadonlySet<EntityId> = new Set(runDestroyed);
+
+		const delivered: DeliveredChanges = {
+			tick: tickNum,
+			origin,
+			created,
+			destroyed,
+			added<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Readonly<T>> {
+				return (comps.get(type.name)?.added as ReadonlyMap<EntityId, Readonly<T>>) ?? EMPTY_MAP;
+			},
+			changed<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Change<T>> {
+				return (comps.get(type.name)?.changed as ReadonlyMap<EntityId, Change<T>>) ?? EMPTY_MAP;
+			},
+			removed<T>(type: ComponentType<T>): ReadonlyMap<EntityId, Readonly<T>> {
+				return (comps.get(type.name)?.removed as ReadonlyMap<EntityId, Readonly<T>>) ?? EMPTY_MAP;
+			},
+			addedTag(type: TagType): ReadonlySet<EntityId> {
+				return tagD.get(type.name)?.added ?? EMPTY_SET;
+			},
+			removedTag(type: TagType): ReadonlySet<EntityId> {
+				return tagD.get(type.name)?.removed ?? EMPTY_SET;
+			},
+			addedRelation(type: RelationType): readonly RelationEdge[] {
+				return relD.get(type.name)?.added ?? EMPTY_EDGES;
+			},
+			removedRelation(type: RelationType): readonly RelationEdge[] {
+				return relD.get(type.name)?.removed ?? EMPTY_EDGES;
+			},
+			changedResources(): ReadonlyMap<ResourceType<unknown>, Change<unknown>> {
+				return resD;
+			},
+			isEmpty(): boolean {
+				return (
+					comps.size === 0 &&
+					tagD.size === 0 &&
+					relD.size === 0 &&
+					resD.size === 0 &&
+					created.size === 0 &&
+					destroyed.size === 0
+				);
+			},
+		};
+		sealedRuns.push(delivered);
+		resetRun();
 	}
 
 	// The value-carrying change-detection view returned by world.changes()
@@ -775,7 +1046,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 		},
 	};
 
-	const world: World = {
+	const world: WorldInternal = {
 		get currentTick() {
 			return currentTick;
 		},
@@ -811,6 +1082,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			const id = nextEntityId++;
 			alive.add(id);
 			createdThisWindow.add(id);
+			if (runTracking()) recordCreatedRun(id);
 			for (const listener of createListeners) listener(id);
 			return id;
 		},
@@ -832,6 +1104,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			nextEntityId = id + 1;
 			alive.add(id);
 			createdThisWindow.add(id);
+			if (runTracking()) recordCreatedRun(id);
 			for (const listener of createListeners) listener(id);
 			return id;
 		},
@@ -854,6 +1127,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			// net destroy of an entity that was alive at window start.
 			if (createdThisWindow.has(id)) createdThisWindow.delete(id);
 			else destroyedThisWindow.add(id);
+			if (runTracking()) recordDestroyedRun(id);
 			// Relation sweep — BEFORE component/tag teardown so onRelationRemoved
 			// handlers can still read the dying entity's data. Policy effects are
 			// collected here and applied only after teardown completes: mutating
@@ -907,6 +1181,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 						const prev = store.data.get(id);
 						// Capture the window-start value at first touch (backs changes()).
 						if (!store.windowPrev.has(id)) store.windowPrev.set(id, prev);
+						if (runTracking()) recordComponentRun(store.type.name, id, true, false, prev);
 						emitComponentRemoved(store, id, prev);
 						store.data.delete(id);
 						classifyTransition(
@@ -926,6 +1201,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 				// classification as components (minus a changed buffer).
 				for (const store of tags.values()) {
 					if (store.entities.has(id)) {
+						if (runTracking()) recordTagRun(store.type.name, id, true, false);
 						emitTagRemoved(store, id);
 						store.entities.delete(id);
 						classifyTransition(store.baseline, store.added, null, store.removed, id, true, false);
@@ -972,6 +1248,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			// Capture the window-start value at first touch (backs changes()).
 			if (!store.windowPrev.has(entity)) store.windowPrev.set(entity, prev);
 			const merged = maybeFreeze(instantiateDefaults(type.defaults, data));
+			if (runTracking()) recordComponentRun(type.name, entity, prev !== undefined, true, prev);
 			store.data.set(entity, merged);
 			classifyTransition(
 				store.baseline,
@@ -994,6 +1271,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 				const prev = store.data.get(entity) as T;
 				// Capture the window-start value at first touch (backs changes()).
 				if (!store.windowPrev.has(entity)) store.windowPrev.set(entity, prev);
+				if (runTracking()) recordComponentRun(type.name, entity, true, false, prev);
 				// Fire onComponentRemoved BEFORE data is deleted so `prev` is
 				// readable from the store too if the handler wants it.
 				emitComponentRemoved(store, entity, prev);
@@ -1049,6 +1327,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			// nested values are only ever replaced, never mutated.
 			const incoming = clonePartial(data);
 			const next = maybeFreeze({ ...existing, ...incoming } as T);
+			if (runTracking()) recordComponentRun(type.name, entity, true, true, existing);
 			store.data.set(entity, next);
 			classifyTransition(
 				store.baseline,
@@ -1074,6 +1353,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			const store = getTagStore(type);
 			if (store.entities.has(entity)) return;
 			store.entities.add(entity);
+			if (runTracking()) recordTagRun(type.name, entity, false, true);
 			// Net classification: a tag present at the last clearDirty() that was
 			// removed and re-added this tick is a vacuous present→present — it
 			// lands in no buffer (tags have no changed buffer).
@@ -1088,6 +1368,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			const store = getTagStore(type);
 			if (!store.entities.has(entity)) return;
 			store.entities.delete(entity);
+			if (runTracking()) recordTagRun(type.name, entity, true, false);
 			classifyTransition(store.baseline, store.added, null, store.removed, entity, true, false);
 			// Update cached queries — entity may no longer match
 			updateCachesForEntity(type.name, entity);
@@ -1143,6 +1424,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			}
 			sources.add(source);
 			const key = edgeKey(source, target);
+			if (runTracking()) recordRelationRun(type.name, key, false, true);
 			// Net classification: an edge present at the last clearDirty() that
 			// was unrelated and re-related this tick is a vacuous present→present
 			// — it lands in no buffer (edges have no changed buffer).
@@ -1328,6 +1610,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 			const prev = store.value;
 			// Capture the window-start value at first set this window (backs changes()).
 			if (!resourceWindowPrev.has(type.name)) resourceWindowPrev.set(type.name, prev);
+			if (runTracking()) recordResourceRun(type.name, prev);
 			store.value = maybeFreeze({ ...prev, ...incoming } as T);
 			emitResourceChanged(store, prev, store.value);
 		},
@@ -1453,6 +1736,21 @@ export function createWorld(options?: CreateWorldOptions): World {
 			return () => frameHandlers.delete(handler);
 		},
 
+		onChanges(handler: (changes: DeliveredChanges) => void): Unsubscribe {
+			commitHandlers.add(handler);
+			// Open a fresh run from this point so the handler sees changes made
+			// after it subscribed (run tracking is lazy on subscriber presence).
+			runOrigin = mutationOrigin;
+			return () => {
+				commitHandlers.delete(handler);
+				// Last subscriber gone: drop any in-flight run tracking state.
+				if (commitHandlers.size === 0) {
+					resetRun();
+					sealedRuns.length = 0;
+				}
+			};
+		},
+
 		// === Introspection ===
 
 		getAllEntities(): EntityId[] {
@@ -1530,6 +1828,53 @@ export function createWorld(options?: CreateWorldOptions): World {
 
 		emitFrame() {
 			for (const h of frameHandlers) h();
+		},
+
+		// Internal: the one frame-advance + delivery point that `tickWorld` calls.
+		// Order is seal → reset → deliver → emitFrame → incrementTick, and the
+		// frame ALWAYS advances even if a handler throws (RFC-006).
+		advanceFrame(fn?: (world: World) => void): void {
+			if (delivering) {
+				throw new Error(
+					'reactive-ecs: tickWorld() cannot be called from inside onChanges delivery',
+				);
+			}
+			if (fn) fn(world);
+			// Seal the open run, snapshot the queued runs, then RESET the run state
+			// and the tick window BEFORE delivering — so a handler's own mutations
+			// accumulate into the next tick, never the diff in flight.
+			if (runDirty) sealRun();
+			const toDeliver = sealedRuns.splice(0);
+			world.clearDirty();
+			runOrigin = mutationOrigin;
+			const errors: unknown[] = [];
+			if (toDeliver.length > 0 && commitHandlers.size > 0) {
+				delivering = true;
+				try {
+					const handlers = [...commitHandlers];
+					for (const changes of toDeliver) {
+						for (const h of handlers) {
+							try {
+								h(changes);
+							} catch (e) {
+								errors.push(e);
+							}
+						}
+					}
+				} finally {
+					delivering = false;
+				}
+			}
+			try {
+				world.emitFrame();
+			} catch (e) {
+				errors.push(e);
+			}
+			world.incrementTick();
+			if (errors.length === 1) throw errors[0];
+			if (errors.length > 1) {
+				throw new AggregateError(errors, 'reactive-ecs: onChanges/onFrame handler(s) threw');
+			}
 		},
 	};
 
