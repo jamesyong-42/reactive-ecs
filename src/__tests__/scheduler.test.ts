@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defineComponent, defineSystem } from '../define.js';
 import { SystemScheduler } from '../scheduler.js';
+import { tickWorld } from '../tick.js';
 import { createWorld } from '../world.js';
 
 describe('SystemScheduler', () => {
@@ -300,12 +301,12 @@ describe('SystemScheduler', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, C, { v: 0 });
-			world.clearDirty();
+			tickWorld(world);
 
 			scheduler.register(
 				defineSystem({
 					name: 'lazy',
-					runIf: (w) => w.queryChanged(C).length > 0,
+					runIf: (w) => [...w.changes().changed(C).keys()].length > 0,
 					execute: () => runs.push(tick),
 				}),
 			);
@@ -314,18 +315,18 @@ describe('SystemScheduler', () => {
 			tick = 0;
 			world.patchComponent(e, C, { v: 1 });
 			scheduler.execute(world);
-			world.clearDirty();
+			tickWorld(world);
 
 			// Tick 1: nothing changed → skipped.
 			tick = 1;
 			scheduler.execute(world);
-			world.clearDirty();
+			tickWorld(world);
 
 			// Tick 2: C changed again → runs.
 			tick = 2;
 			world.patchComponent(e, C, { v: 2 });
 			scheduler.execute(world);
-			world.clearDirty();
+			tickWorld(world);
 
 			expect(runs).toEqual([0, 2]);
 		});

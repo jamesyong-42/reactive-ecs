@@ -794,7 +794,7 @@ world.patchComponent(e, Transform, { position: { ...t.position, x: 10 } });</cod
     <div class="table-wrap"><table>
       <thead><tr><th>Operation</th><th>If present</th><th>If missing</th><th>If entity dead</th></tr></thead>
       <tbody>
-        <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev =</code> the old value; the buffers record the net transition (<code>queryChanged</code> if present at tick start)</td><td>attaches (<code>data</code> optional/partial — merged over defaults)</td><td>throws</td></tr>
+        <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev =</code> the old value; the <code>changes()</code> window records the net transition (<code>changes().changed(C)</code> if present at tick start)</td><td>attaches (<code>data</code> optional/partial — merged over defaults)</td><td>throws</td></tr>
         <tr><td><code>patchComponent</code></td><td>shallow-merges + emits</td><td><strong>throws</strong> — use <code>addComponent</code> to attach</td><td>throws</td></tr>
         <tr><td><code>removeComponent</code></td><td>removes (event fires first)</td><td>no-op</td><td>no-op</td></tr>
         <tr><td><code>addTag</code></td><td>no-op</td><td>adds</td><td>throws</td></tr>
@@ -842,8 +842,8 @@ world.queryTagged(Selected);   // every entity with the tag
 world.removeTag(e, Selected);  // fires onTagRemoved</code></pre></figure>
     <p>
       Tags participate in <code>query()</code> alongside components, have their own
-      add/remove events, and their own per-tick buffers
-      (<code>queryAddedTag</code> / <code>queryRemovedTag</code>).
+      add/remove events, and their own <code>changes()</code> accessors
+      (<code>changes().addedTag(T)</code> / <code>changes().removedTag(T)</code>).
     </p>
   </section>
 
@@ -908,10 +908,10 @@ world.unrelate(child, ChildOf);        // target omitted → all outgoing edges<
     </div>
 
     <h3 id="relation-reactivity">Relation reactivity<a class="anchor" href="#relation-reactivity">#</a></h3>
-<figure class="code" data-lang="ts"><pre><code>// Per-tick batches — mirror queryAdded / queryRemoved; cleared by clearDirty()
-world.queryRelation(ChildOf);         // all live edges: [source, target][]
-world.queryRelationAdded(ChildOf);    // net absent→present this tick
-world.queryRelationRemoved(ChildOf);  // net present→absent — INCLUDING destroys
+<figure class="code" data-lang="ts"><pre><code>// Per-tick change window — reset by tickWorld (the seal→reset step)
+world.queryRelation(ChildOf);                   // all live edges: [source, target][]
+world.changes().addedRelation(ChildOf);         // net absent→present this tick
+world.changes().removedRelation(ChildOf);       // net present→absent — INCLUDING destroys
 
 // Synchronous observers — filter by source (bare id) or target ({ target })
 world.onRelationAdded(ChildOf, handler, { target: parent }); // watch a parent's children
@@ -920,10 +920,11 @@ world.onRelationRemoved(ChildOf, (source, target) =&gt; {
   // fires during destroy too — the dying entity's components are still readable here
 }, sourceId);</code></pre></figure>
     <p>
-      The <a href="#net-cancellation">partition rule</a> applies per edge: the buffers
-      classify each edge's net transition since the last <code>clearDirty()</code>. Edges
-      have no changed buffer, so unrelate-then-re-relate of a pre-existing edge is a vacuous
-      present→present and lands in no buffer.
+      The <a href="#net-cancellation">partition rule</a> applies per edge: the
+      <code>changes()</code> window classifies each edge's net transition since the tick
+      began. Edges have no changed accessor, so unrelate-then-re-relate of a pre-existing
+      edge is a vacuous present→present and appears in neither
+      <code>addedRelation</code> nor <code>removedRelation</code>.
     </p>
   </section>
 
@@ -942,11 +943,11 @@ world.setResource(Camera, { zoom: 2 }); // shallow-merge partial update</code></
       A resource store is created lazily on first access, seeded from its defaults.
       Like components, updates are partial and shallow-merged — and like everything else,
       writes are observable: <code>setResource</code> fires
-      <code>onResourceChanged(R, (prev, next))</code> synchronously and the type lands in the
-      per-tick <code>queryChangedResources()</code> buffer.
+      <code>onResourceChanged(R, (prev, next))</code> synchronously and the type appears in
+      <code>changes().changedResources()</code> for the tick.
     </p>
     <ul>
-      <li><strong>Reads are silent.</strong> <code>getResource</code> creates the store on first use but emits nothing and never appears in <code>queryChangedResources()</code>.</li>
+      <li><strong>Reads are silent.</strong> <code>getResource</code> creates the store on first use but emits nothing and never appears in <code>changes().changedResources()</code>.</li>
       <li><strong>Registration follows store creation.</strong> <code>getRegisteredResources()</code> lists a type after its first <code>getResource</code> / <code>setResource</code> / <code>onResourceChanged</code> — defining alone doesn't register.</li>
       <li><strong>No removal, no built-in reset.</strong> Resources live for the world's lifetime; "reset" is just <code>setResource(R, R.defaults)</code> (remember it's a shallow merge — spread nested objects if you have them).</li>
     </ul>
@@ -1046,13 +1047,13 @@ world.query(Position, Not(Velocity));   // one scan, cached + maintained again</
   },
 });</code></pre></figure>
     <div class="callout">
-      <span class="callout-tag">Legacy</span>
+      <span class="callout-tag">Migration</span>
       <p>
         The presence-only buffer queries — <code>queryAdded</code> / <code>queryChanged</code> /
-        <code>queryRemoved</code> and their tag / relation / resource twins — are
-        <strong>deprecated</strong>. Each is the value-carrying accessor of the same name on
-        <code>changes()</code>: <code>queryAdded(C)</code> → <code>changes().added(C)</code>.
-        They return ids only; <code>changes()</code> returns ids <em>and</em> values.
+        <code>queryRemoved</code> and their tag / relation / resource twins — were
+        <strong>removed in v0.16</strong>. Each maps to the value-carrying accessor of the same
+        name on <code>changes()</code>: <code>queryAdded(C)</code> → <code>changes().added(C)</code>.
+        The old queries returned ids only; <code>changes()</code> returns ids <em>and</em> values.
       </p>
     </div>
     <h3 id="net-cancellation">The partition rule<a class="anchor" href="#net-cancellation">#</a></h3>
@@ -1214,16 +1215,16 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
     <ol>
       <li><strong><code>onEntityDestroyed</code> listeners fire first</strong> — while the entity's components, tags, and relations are still fully readable, so callbacks can snapshot whatever they need.</li>
       <li><strong>Query caches drop the entity.</strong></li>
-      <li><strong>The relation sweep runs:</strong> every edge where the entity is source or target is removed — <code>onRelationRemoved</code> fires per edge (the dying entity's components are still readable from these handlers), ids land in the <code>queryRelationRemoved</code> buffer, and each relation's <code>onTargetDestroy</code> policy effect is <em>collected</em>, not yet applied.</li>
-      <li><strong>Each owned component is removed:</strong> <code>onComponentRemoved</code> fires with the dying value, and the id lands in the <code>queryRemoved</code> buffer.</li>
-      <li><strong>Each owned tag is removed:</strong> <code>onTagRemoved</code> fires, and the id lands in the <code>queryRemovedTag</code> buffer. Per-entity subscriptions are cleaned up.</li>
+      <li><strong>The relation sweep runs:</strong> every edge where the entity is source or target is removed — <code>onRelationRemoved</code> fires per edge (the dying entity's components are still readable from these handlers), the edges appear in <code>changes().removedRelation(R)</code>, and each relation's <code>onTargetDestroy</code> policy effect is <em>collected</em>, not yet applied.</li>
+      <li><strong>Each owned component is removed:</strong> <code>onComponentRemoved</code> fires with the dying value, and the id appears in <code>changes().removed(C)</code> (mapped to its dying value).</li>
+      <li><strong>Each owned tag is removed:</strong> <code>onTagRemoved</code> fires, and the id appears in <code>changes().removedTag(T)</code>. Per-entity subscriptions are cleaned up.</li>
       <li><strong>Deferred policy effects apply last</strong> — cascades destroy their sources, <code>{ tag }</code> effects add their tags (skipped if a prior cascade already killed the source). Only now is mutation safe again.</li>
     </ol>
     <div class="callout">
       <span class="callout-tag">Design rule</span>
       <p>
         Destruction is just removal, observed through the same channels. If your cleanup
-        logic handles <code>onComponentRemoved</code> / <code>queryRemoved</code>, it already
+        logic handles <code>onComponentRemoved</code> / <code>changes().removed(C)</code>, it already
         handles destruction — there is no second code path to forget.
       </p>
     </div>
@@ -1442,15 +1443,15 @@ new PhasedScheduler({ phases: ['perceive', 'think', 'act'] as const });</code></
     <p>
       A system can declare a <code>runIf</code> predicate — evaluated immediately before it
       would run; return <code>false</code> to skip the tick. The library attaches no
-      change-detection policy: the predicate is yours, and the per-tick buffers are the
+      change-detection policy: the predicate is yours, and the <code>changes()</code> window is the
       natural fuel for it.
     </p>
 <figure class="code" data-lang="ts"><pre><code>const picking = defineSystem({
   name: 'picking',
   // skip entirely when nothing it reads changed this tick
   runIf: (w) =&gt;
-    w.queryChanged(Position).length &gt; 0 ||
-    w.queryChangedResources().some((r) =&gt; r.name === 'Camera'),
+    w.changes().changed(Position).size &gt; 0 ||
+    w.changes().changedResources().size &gt; 0,
   execute: (w) =&gt; { /* expensive spatial query */ },
 });</code></pre></figure>
     <p>
@@ -1616,7 +1617,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>changes()</code></td><td>Value-carrying net change detection for the tick — <code>added</code> / <code>changed</code> / <code>removed</code> (and tag / relation / resource twins), disjoint by the partition rule. The successor to the buffer queries below. See <a href="#change-tracking">Change tracking</a>.</td></tr>
         <tr><td><code>queryRelation(R)</code></td><td>All live edges as <code>[source, target]</code> pairs.</td></tr>
         <tr><td><code>queryTagged(T)</code></td><td>Entities with tag <code>T</code>.</td></tr>
-        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code> + tag / relation / resource twins</td><td><em>Deprecated</em> — presence-only buffers, replaced by the same-named accessors on <code>changes()</code>, which carry values.</td></tr>
+        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code> + tag / relation / resource twins</td><td><em>Removed (v0.16)</em> — presence-only buffers, replaced by the same-named accessors on <code>changes()</code>, which carry values.</td></tr>
       </tbody>
     </table></div>
 
@@ -1647,7 +1648,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>getRegisteredComponents()</code> / <code>getRegisteredTags()</code> / <code>getRegisteredRelations()</code> / <code>getRegisteredResources()</code></td><td>Every type that has had a store created in this world.</td></tr>
         <tr><td><code>getComponentsOf(e)</code> / <code>getTagsOf(e)</code></td><td>Types currently attached to an entity.</td></tr>
         <tr><td><code>applyChanges(world, changes, opts?)</code></td><td>Replay a change set (or its inverse) through the public write API — the ground support for undo/redo. <code>{ invert?, origin?, onMissing? }</code>. Validate-first.</td></tr>
-        <tr><td><code>clearDirty()</code></td><td><em>Deprecated</em> — frame reset is owned by <code>tickWorld</code>; <code>changes()</code> exposes the window without manual clearing.</td></tr>
+        <tr><td><code>clearDirty()</code></td><td><em>Removed (v0.16)</em> — frame reset is owned by <code>tickWorld</code>; <code>changes()</code> exposes the window without manual clearing.</td></tr>
       </tbody>
     </table></div>
 

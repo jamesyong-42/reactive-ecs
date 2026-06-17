@@ -10,7 +10,7 @@ describe('tickWorld', () => {
 		const world = createWorld();
 		const e = world.createEntity();
 		world.addComponent(e, Position, { x: 1 });
-		world.clearDirty();
+		tickWorld(world);
 
 		const order: string[] = [];
 		// onChanges delivery happens before onFrame; the window is already reset.
@@ -19,8 +19,8 @@ describe('tickWorld', () => {
 			// onFrame is now the POST-delivery flush hook: the tick window has been
 			// reset (buffers cleared) and the tick has not yet incremented.
 			order.push('frame');
-			expect(world.queryChanged(Position)).toEqual([]);
-			expect(world.currentTick).toBe(0);
+			expect([...world.changes().changed(Position).keys()]).toEqual([]);
+			expect(world.currentTick).toBe(1);
 		});
 
 		tickWorld(world, (w) => {
@@ -30,8 +30,8 @@ describe('tickWorld', () => {
 
 		expect(order).toEqual(['fn', 'deliver', 'frame']);
 		// After the tick: buffers cleared, tick incremented.
-		expect(world.queryChanged(Position)).toEqual([]);
-		expect(world.currentTick).toBe(1);
+		expect([...world.changes().changed(Position).keys()]).toEqual([]);
+		expect(world.currentTick).toBe(2);
 	});
 
 	it('passes the world to fn', () => {
@@ -53,7 +53,7 @@ describe('tickWorld', () => {
 
 		tickWorld(world);
 		expect(frames).toBe(1);
-		expect(world.queryAdded(Position)).toEqual([]);
+		expect([...world.changes().added(Position).keys()]).toEqual([]);
 		expect(world.currentTick).toBe(1);
 
 		tickWorld(world);

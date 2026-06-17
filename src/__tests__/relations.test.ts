@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { defineComponent, defineRelation, defineTag } from '../define.js';
+import { tickWorld } from '../tick.js';
 import { createWorld } from '../world.js';
 
 const Position = defineComponent('Position', { x: 0, y: 0 });
@@ -60,7 +61,7 @@ describe('Relations', () => {
 			world.relate(a, Likes, b);
 			world.relate(a, Likes, b);
 			expect(handler).toHaveBeenCalledTimes(1);
-			expect(world.queryRelationAdded(Likes)).toEqual([[a, b]]);
+			expect(world.changes().addedRelation(Likes)).toEqual([[a, b]]);
 			expect(world.getTargets(a, Likes)).toEqual([b]);
 		});
 
@@ -70,7 +71,7 @@ describe('Relations', () => {
 			const b = world.createEntity();
 			world.unrelate(a, Likes, b);
 			world.unrelate(a, Likes);
-			expect(world.queryRelationRemoved(Likes)).toEqual([]);
+			expect(world.changes().removedRelation(Likes)).toEqual([]);
 		});
 
 		it('unrelate with target omitted removes ALL of the source outgoing edges', () => {
@@ -80,13 +81,13 @@ describe('Relations', () => {
 			const c = world.createEntity();
 			world.relate(a, Likes, b);
 			world.relate(a, Likes, c);
-			world.clearDirty();
+			tickWorld(world);
 
 			world.unrelate(a, Likes);
 			expect(world.getTargets(a, Likes)).toEqual([]);
 			expect(world.getSources(b, Likes)).toEqual([]);
 			expect(world.getSources(c, Likes)).toEqual([]);
-			expect(world.queryRelationRemoved(Likes).sort()).toEqual(
+			expect([...world.changes().removedRelation(Likes)].sort()).toEqual(
 				[
 					[a, b],
 					[a, c],
@@ -128,7 +129,7 @@ describe('Relations', () => {
 			const p1 = world.createEntity();
 			const p2 = world.createEntity();
 			world.relate(child, ChildOf, p1);
-			world.clearDirty();
+			tickWorld(world);
 
 			const order: string[] = [];
 			world.onRelationRemoved(ChildOf, (s, t) => order.push(`removed:${s}->${t}`));
@@ -139,8 +140,8 @@ describe('Relations', () => {
 			expect(world.getTargets(child, ChildOf)).toEqual([p2]);
 			expect(world.getSources(p1, ChildOf)).toEqual([]);
 			// Buffers reflect both sides of the replacement.
-			expect(world.queryRelationRemoved(ChildOf)).toEqual([[child, p1]]);
-			expect(world.queryRelationAdded(ChildOf)).toEqual([[child, p2]]);
+			expect(world.changes().removedRelation(ChildOf)).toEqual([[child, p1]]);
+			expect(world.changes().addedRelation(ChildOf)).toEqual([[child, p2]]);
 		});
 
 		it('targetExclusive replacement displaces the prior source', () => {
@@ -149,7 +150,7 @@ describe('Relations', () => {
 			const o2 = world.createEntity();
 			const item = world.createEntity();
 			world.relate(o1, Owns, item);
-			world.clearDirty();
+			tickWorld(world);
 
 			const order: string[] = [];
 			world.onRelationRemoved(Owns, (s, t) => order.push(`removed:${s}->${t}`));
@@ -159,8 +160,8 @@ describe('Relations', () => {
 			expect(order).toEqual([`removed:${o1}->${item}`, `added:${o2}->${item}`]);
 			expect(world.getSources(item, Owns)).toEqual([o2]);
 			expect(world.getTargets(o1, Owns)).toEqual([]);
-			expect(world.queryRelationRemoved(Owns)).toEqual([[o1, item]]);
-			expect(world.queryRelationAdded(Owns)).toEqual([[o2, item]]);
+			expect(world.changes().removedRelation(Owns)).toEqual([[o1, item]]);
+			expect(world.changes().addedRelation(Owns)).toEqual([[o2, item]]);
 		});
 
 		it('both-exclusive relation is a true 1:1', () => {
@@ -205,9 +206,9 @@ describe('Relations', () => {
 			const a = world.createEntity();
 			const b = world.createEntity();
 			world.relate(a, Likes, b);
-			expect(world.queryRelationAdded(Likes)).toEqual([[a, b]]);
-			world.clearDirty();
-			expect(world.queryRelationAdded(Likes)).toEqual([]);
+			expect(world.changes().addedRelation(Likes)).toEqual([[a, b]]);
+			tickWorld(world);
+			expect(world.changes().addedRelation(Likes)).toEqual([]);
 			// The live edge is unaffected by the buffer clear.
 			expect(world.queryRelation(Likes)).toEqual([[a, b]]);
 		});
@@ -217,11 +218,11 @@ describe('Relations', () => {
 			const a = world.createEntity();
 			const b = world.createEntity();
 			world.relate(a, Likes, b);
-			world.clearDirty();
+			tickWorld(world);
 			world.unrelate(a, Likes, b);
-			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
-			world.clearDirty();
-			expect(world.queryRelationRemoved(Likes)).toEqual([]);
+			expect(world.changes().removedRelation(Likes)).toEqual([[a, b]]);
+			tickWorld(world);
+			expect(world.changes().removedRelation(Likes)).toEqual([]);
 		});
 
 		it('unrelate-then-relate of an edge present at tick start is vacuous — no buffer', () => {
@@ -229,15 +230,15 @@ describe('Relations', () => {
 			const a = world.createEntity();
 			const b = world.createEntity();
 			world.relate(a, Likes, b);
-			world.clearDirty();
+			tickWorld(world);
 
 			// unrelate then relate → net present→present; edges have no changed
 			// buffer, so the round trip lands nowhere.
 			world.unrelate(a, Likes, b);
-			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
+			expect(world.changes().removedRelation(Likes)).toEqual([[a, b]]);
 			world.relate(a, Likes, b);
-			expect(world.queryRelationRemoved(Likes)).toEqual([]);
-			expect(world.queryRelationAdded(Likes)).toEqual([]);
+			expect(world.changes().removedRelation(Likes)).toEqual([]);
+			expect(world.changes().addedRelation(Likes)).toEqual([]);
 		});
 
 		it('relate-then-unrelate in the same tick is a net absent→absent — no buffer', () => {
@@ -246,10 +247,10 @@ describe('Relations', () => {
 			const b = world.createEntity();
 			// relate then unrelate (no prior state) → both buffers empty
 			world.relate(a, Likes, b);
-			expect(world.queryRelationAdded(Likes)).toEqual([[a, b]]);
+			expect(world.changes().addedRelation(Likes)).toEqual([[a, b]]);
 			world.unrelate(a, Likes, b);
-			expect(world.queryRelationAdded(Likes)).toEqual([]);
-			expect(world.queryRelationRemoved(Likes)).toEqual([]);
+			expect(world.changes().addedRelation(Likes)).toEqual([]);
+			expect(world.changes().removedRelation(Likes)).toEqual([]);
 		});
 
 		it('destroyEntity of an endpoint nets to removed for pre-existing edges, nothing for same-tick edges', () => {
@@ -258,13 +259,13 @@ describe('Relations', () => {
 			const b = world.createEntity();
 			const c = world.createEntity();
 			world.relate(a, Likes, b); // pre-existing edge
-			world.clearDirty();
+			tickWorld(world);
 			world.relate(c, Likes, b); // created this tick
 
 			world.destroyEntity(b);
 			// a→b was present at tick start → removed; c→b is absent→absent → nothing.
-			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
-			expect(world.queryRelationAdded(Likes)).toEqual([]);
+			expect(world.changes().removedRelation(Likes)).toEqual([[a, b]]);
+			expect(world.changes().addedRelation(Likes)).toEqual([]);
 		});
 	});
 
@@ -446,13 +447,13 @@ describe('Relations', () => {
 			const a = world.createEntity();
 			const b = world.createEntity();
 			world.relate(a, Likes, b);
-			world.clearDirty();
+			tickWorld(world);
 
 			const removed = vi.fn();
 			world.onRelationRemoved(Likes, removed);
 			world.destroyEntity(a);
 			expect(removed).toHaveBeenCalledWith(a, b);
-			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
+			expect(world.changes().removedRelation(Likes)).toEqual([[a, b]]);
 			expect(world.getSources(b, Likes)).toEqual([]);
 		});
 
@@ -461,12 +462,12 @@ describe('Relations', () => {
 			const a = world.createEntity();
 			const b = world.createEntity();
 			world.relate(a, Likes, b);
-			world.clearDirty();
+			tickWorld(world);
 
 			world.destroyEntity(b);
 			expect(world.entityExists(a)).toBe(true);
 			expect(world.getTargets(a, Likes)).toEqual([]);
-			expect(world.queryRelationRemoved(Likes)).toEqual([[a, b]]);
+			expect(world.changes().removedRelation(Likes)).toEqual([[a, b]]);
 		});
 
 		it("target death with 'cascade' destroys the source too", () => {
@@ -558,10 +559,10 @@ describe('Relations', () => {
 			const c = world.createEntity();
 			world.relate(b, Likes, c); // b as source
 			world.relate(a, Likes, b); // b as target
-			world.clearDirty();
+			tickWorld(world);
 
 			world.destroyEntity(b);
-			expect(world.queryRelationRemoved(Likes).sort()).toEqual(
+			expect([...world.changes().removedRelation(Likes)].sort()).toEqual(
 				[
 					[a, b],
 					[b, c],
