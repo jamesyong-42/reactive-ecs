@@ -1,18 +1,17 @@
 import type { World } from './types.js';
+import type { WorldInternal } from './world.js';
 
 /**
- * Runs one frame using the recommended protocol: `fn(world)` if provided,
- * then `world.emitFrame()`, `world.clearDirty()`, `world.incrementTick()` —
- * in that order, so onFrame subscribers still see this tick's buffers and
- * tick number. Equivalent to the four manual calls:
+ * Runs one frame: `fn(world)` if provided, then the world's single frame-advance
+ * step — seal the open origin-run, reset the tick window, deliver sealed runs to
+ * `onChanges`, fire `onFrame`, and increment the tick (RFC-006). Delivery happens
+ * AFTER the reset, so a handler's own mutations land in the next tick; the frame
+ * always advances even if a handler throws, and an `AggregateError` (or the lone
+ * error) is rethrown after the clock has moved.
  *
- *   tickWorld(world, (w) => scheduler.execute(w));
- *   // ≡ scheduler.execute(world); world.emitFrame();
- *   //   world.clearDirty(); world.incrementTick();
+ * Call with no `fn` to flush + advance a frame without running systems:
+ *   tickWorld(world);
  */
 export function tickWorld(world: World, fn?: (world: World) => void): void {
-	if (fn) fn(world);
-	world.emitFrame();
-	world.clearDirty();
-	world.incrementTick();
+	(world as WorldInternal).advanceFrame(fn);
 }

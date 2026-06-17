@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defineComponent, defineRelation, defineResource, defineTag } from '../define.js';
+import { tickWorld } from '../tick.js';
 import { createWorld } from '../world.js';
 
 const Position = defineComponent('Position', { x: 0, y: 0 });
@@ -200,7 +201,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 		it('tick reflects currentTick', () => {
 			const world = createWorld();
 			expect(world.changes().tick).toBe(world.currentTick);
-			world.incrementTick();
+			tickWorld(world);
 			expect(world.changes().tick).toBe(world.currentTick);
 		});
 

@@ -6,18 +6,20 @@ import { createWorld } from '../world.js';
 const Position = defineComponent('Position', { x: 0, y: 0 });
 
 describe('tickWorld', () => {
-	it('runs fn, then emitFrame, then clearDirty, then incrementTick', () => {
+	it('runs fn, then seal+reset+deliver, then onFrame, then incrementTick (RFC-006 order)', () => {
 		const world = createWorld();
 		const e = world.createEntity();
 		world.addComponent(e, Position, { x: 1 });
 		world.clearDirty();
 
 		const order: string[] = [];
+		// onChanges delivery happens before onFrame; the window is already reset.
+		world.onChanges(() => order.push('deliver'));
 		world.onFrame(() => {
-			// emitFrame runs AFTER fn (its write is visible in the buffers)
-			// and BEFORE clearDirty/incrementTick.
+			// onFrame is now the POST-delivery flush hook: the tick window has been
+			// reset (buffers cleared) and the tick has not yet incremented.
 			order.push('frame');
-			expect(world.queryChanged(Position)).toEqual([e]);
+			expect(world.queryChanged(Position)).toEqual([]);
 			expect(world.currentTick).toBe(0);
 		});
 
@@ -26,7 +28,7 @@ describe('tickWorld', () => {
 			w.patchComponent(e, Position, { x: 2 });
 		});
 
-		expect(order).toEqual(['fn', 'frame']);
+		expect(order).toEqual(['fn', 'deliver', 'frame']);
 		// After the tick: buffers cleared, tick incremented.
 		expect(world.queryChanged(Position)).toEqual([]);
 		expect(world.currentTick).toBe(1);

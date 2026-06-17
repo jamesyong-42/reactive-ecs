@@ -232,6 +232,25 @@ export interface WorldChanges {
 	isEmpty(): boolean;
 }
 
+/**
+ * Mutation attribution (RFC-003): a string/symbol set via `withOrigin`, or
+ * `undefined` for the implicit local origin. The unit a `DeliveredChanges`
+ * carries — every mutation in a delivered run shares one origin.
+ */
+export type Origin = string | symbol | undefined;
+
+/**
+ * What `onChanges` delivers (RFC-006): a sealed, origin-homogeneous run of
+ * changes. It IS a `WorldChanges` — same accessors, same partition — and adds
+ * the run's attribution. `origin` is well-defined because the run is
+ * homogeneous (`undefined` = implicit local, never "mixed": an origin change
+ * seals the run). Unlike the live `changes()` view, a delivered run is an
+ * immutable snapshot frozen at seal time and safe to retain (undo, sync).
+ */
+export interface DeliveredChanges extends WorldChanges {
+	readonly origin: Origin;
+}
+
 export type FrameHandler = () => void;
 
 export type Unsubscribe = () => void;
@@ -402,6 +421,19 @@ export interface World {
 	 */
 	changes(): WorldChanges;
 	/**
+	 * Subscribe to delivered change detection (RFC-006). The handler fires once
+	 * per sealed origin-run, in capture order, when the tick advances via
+	 * `tickWorld` — once per tick in the common single-origin case, and once per
+	 * contiguous same-origin run when origins interleave mid-tick. The world is
+	 * final and coherent during delivery; handlers may read and may mutate (their
+	 * writes apply immediately and are delivered on the NEXT tick, never nested
+	 * into this one). Delivery is serial and exactly-once: every handler receives
+	 * every run even if an earlier handler throws (errors are collected and
+	 * rethrown as an AggregateError after the drain, and the frame still advances).
+	 * Returns an unsubscribe function.
+	 */
+	onChanges(handler: (changes: DeliveredChanges) => void): Unsubscribe;
+	/**
 	 * @deprecated Use `changes().changed(type)` — carries prev/next values.
 	 * Returns entities whose NET transition for this component since the last
 	 * `clearDirty()` is present→present with at least one write. The three
@@ -558,7 +590,7 @@ export interface World {
 	/** Returns the TagTypes currently attached to an entity. */
 	getTagsOf(entity: EntityId): TagType[];
 
-	// Frame lifecycle (used by engine after tick)
+	// Frame lifecycle
 
 	/**
 	 * Clears the per-tick buffers and the transition baselines they classify
@@ -567,8 +599,4 @@ export interface World {
 	 * removed. `changes()` exposes the same window without manual clearing.
 	 */
 	clearDirty(): void;
-	/** Increments the tick counter. */
-	incrementTick(): void;
-	/** Emits frame-end events to all onFrame subscribers. */
-	emitFrame(): void;
 }

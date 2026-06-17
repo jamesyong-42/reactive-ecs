@@ -486,6 +486,7 @@
     <span>Queries</span>
     <a href="#queries">Cached queries</a>
     <a href="#change-tracking">Change tracking</a>
+    <a href="#two-channel" class="sub">React vs. record</a>
   </div>
 
   <div class="nav-group">
@@ -582,9 +583,9 @@
     <ol>
       <li><strong>Absence is never silent.</strong> Reads return <code>undefined</code>; non-creating writes against absence throw.</li>
       <li><strong>One ownership rule.</strong> Plain data crossing the API boundary is owned by the world: cloned in, frozen in dev, replaced never mutated. Class instances stay the caller's, by reference.</li>
-      <li><strong>Events are the journal; buffers are the partition.</strong> Events are lossless, synchronous, per-mutation. Buffers classify the net transition since the last <code>clearDirty()</code> and are disjoint by definition.</li>
+      <li><strong>Events are the journal; change detection is the partition.</strong> Events are lossless, synchronous, per-mutation. <a href="#change-tracking"><code>changes()</code></a> classifies the net transition since the tick began into disjoint added / changed / removed sets, carrying values; the events remain the lossless capture layer every change set is a window over.</li>
       <li><strong>Entity first.</strong> Every per-entity read/write is <code>(entity, type, ...)</code>.</li>
-      <li><strong>The tick is one call.</strong> <code>tickWorld</code> is the door; <code>emitFrame</code> / <code>clearDirty</code> / <code>incrementTick</code> are the escape hatch.</li>
+      <li><strong>The tick is one call — and the tick delivers.</strong> <code>tickWorld</code> is the sole frame-advance point: it seals, resets, delivers <a href="#change-tracking"><code>onChanges</code></a> runs, and advances the clock. No second clock, no public <code>flush</code>/<code>commit</code>.</li>
     </ol>
   </section>
 
@@ -647,8 +648,9 @@ function tick() {
   tickWorld(world, (w) =&gt; scheduler.execute(w));
 }</code></pre></figure>
     <p>
-      <code>tickWorld</code> is the whole frame protocol in one call — run systems,
-      notify frame subscribers, reset per-tick change buffers, advance the tick counter.
+      <code>tickWorld</code> is the whole frame protocol in one call — run systems, seal and
+      reset the tick's <a href="#change-tracking">change window</a>, deliver
+      <code>onChanges</code> runs, notify frame subscribers, advance the tick counter.
       Drive it from <code>requestAnimationFrame</code>, a <code>setInterval</code>, or
       only when something actually changed; the library has no opinion.
     </p>
@@ -666,31 +668,36 @@ function tick() {
 
 const world = createWorld();
 
-world.currentTick;  // number — incremented by incrementTick()
+world.currentTick;  // number — advanced by tickWorld()
 world.entityCount;  // number of live entities</code></pre></figure>
 
     <h3 id="frame-lifecycle">Frame lifecycle<a class="anchor" href="#frame-lifecycle">#</a></h3>
     <p>
-      The tick is one call: <code>tickWorld(world, (w) =&gt; scheduler.execute(w))</code> runs
-      your callback, then <code>emitFrame()</code>, <code>clearDirty()</code>,
-      <code>incrementTick()</code> — in that order, so <code>onFrame</code> subscribers still
-      see this tick's buffers and tick number.
+      The tick is one call, and it is the <strong>sole frame-advance point</strong>:
+      <code>tickWorld(world, (w) =&gt; scheduler.execute(w))</code> runs your callback, then —
+      as one indivisible step — seals the open <a href="#change-tracking">origin-run</a>,
+      resets the tick's change window, delivers the sealed runs to
+      <a href="#change-tracking"><code>onChanges</code></a> handlers, fires
+      <code>onFrame</code>, and increments <code>currentTick</code>.
     </p>
-    <p>The three calls it encodes are public — the escape hatch when you need to interleave something between the steps:</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Method</th><th>What it does</th></tr></thead>
+      <thead><tr><th>Step</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td><code>emitFrame()</code></td><td>Fires every <code>onFrame</code> subscriber. The end-of-tick hook — flush batched UI updates here.</td></tr>
-        <tr><td><code>clearDirty()</code></td><td>Resets the per-tick buffers behind <code>queryChanged</code> / <code>queryAdded</code> / <code>queryRemoved</code> / <code>queryAddedTag</code> / <code>queryRemovedTag</code> — and the baselines the <a href="#change-tracking">partition</a> classifies against.</td></tr>
-        <tr><td><code>incrementTick()</code></td><td>Advances <code>currentTick</code> by one.</td></tr>
+        <tr><td>seal + reset</td><td>Freezes the open run's values, then resets the <a href="#change-tracking"><code>changes()</code></a> window and its partition baselines to fresh. Owns what <code>clearDirty()</code> used to.</td></tr>
+        <tr><td>deliver</td><td>Hands each sealed run to <code>onChanges</code> handlers, serially, in capture order. Delivery is <em>after</em> the reset, so a handler's own writes land in the next tick.</td></tr>
+        <tr><td>onFrame</td><td>Fires every <code>onFrame</code> subscriber — the post-delivery flush hook where a UI adapter pushes its batched state.</td></tr>
+        <tr><td>incrementTick</td><td>Advances <code>currentTick</code> by one.</td></tr>
       </tbody>
     </table></div>
     <div class="callout">
       <span class="callout-tag">Note</span>
       <p>
-        Per-tick buffers accumulate until <em>you</em> call <code>clearDirty()</code>.
-        If you skip frames (e.g. only ticking on input), the buffers simply hold
-        everything that changed since the last clear — often exactly what you want.
+        The frame <strong>always advances</strong>, even if an <code>onChanges</code> or
+        <code>onFrame</code> handler throws — errors are collected and rethrown as an
+        <code>AggregateError</code> after the clock has moved, so a buggy subscriber can't
+        strand the world between frames. Call <code>tickWorld(world)</code> with no callback
+        to flush and advance a frame without running systems — the "just deliver" path for an
+        app with no scheduler loop.
       </p>
     </div>
   </section>
@@ -1005,70 +1012,103 @@ world.query(Position, Not(Velocity));   // one scan, cached + maintained again</
   <section id="change-tracking">
     <h2>Change tracking<a class="anchor" href="#change-tracking">#</a></h2>
     <p>
-      Beyond "who has X right now," the world answers "whose X changed <em>this tick</em>."
-      The per-tick buffers reset when you call <code>clearDirty()</code> — and what they
-      hold is governed by one invariant, the <a href="#net-cancellation">partition rule</a>:
-      each buffer classifies an entity's <strong>net transition since the last
-      <code>clearDirty()</code></strong>, and the three buffers are disjoint by definition.
+      Beyond "who has X right now," the world answers "whose X changed <em>this tick</em>, and
+      to what." <a href="api.html#changes"><code>changes()</code></a> is that answer — a
+      value-carrying view of every change since the tick began, governed by one invariant, the
+      <a href="#net-cancellation">partition rule</a>: each accessor classifies an entity's
+      <strong>net transition since the tick began</strong> into disjoint added / changed /
+      removed sets, now carrying the values. The accessor verbs mirror the partition exactly:
     </p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Query</th><th>Net transition since <code>clearDirty()</code></th></tr></thead>
+      <thead><tr><th>Accessor</th><th>Net transition since the tick began · value</th></tr></thead>
       <tbody>
-        <tr><td><code>queryAdded(C)</code></td><td>absent → present.</td></tr>
-        <tr><td><code>queryChanged(C)</code></td><td>present → present with ≥ 1 write. A fresh attach is <em>never</em> here.</td></tr>
-        <tr><td><code>queryRemoved(C)</code></td><td>present → absent — via <code>removeComponent</code> <em>or</em> <code>destroyEntity</code>.</td></tr>
-        <tr><td><code>queryAddedTag(T)</code> / <code>queryRemovedTag(T)</code></td><td>same partition for tags — no changed buffer; present → present is vacuous.</td></tr>
-        <tr><td><code>queryRelationAdded(R)</code> / <code>queryRelationRemoved(R)</code></td><td>same partition per edge — no changed buffer.</td></tr>
-        <tr><td><code>queryChangedResources()</code></td><td>resource types written via <code>setResource</code> this tick (first-changed order).</td></tr>
+        <tr><td><code>changes().added(C)</code></td><td>absent → present. <code>Map&lt;id, value&gt;</code> — the attached value.</td></tr>
+        <tr><td><code>changes().changed(C)</code></td><td>present → present with ≥ 1 write. <code>Map&lt;id, {prev, next}&gt;</code>. A fresh attach is <em>never</em> here.</td></tr>
+        <tr><td><code>changes().removed(C)</code></td><td>present → absent — via <code>removeComponent</code> <em>or</em> <code>destroyEntity</code>. <code>Map&lt;id, value&gt;</code> — the dying value.</td></tr>
+        <tr><td><code>changes().addedTag(T)</code> / <code>removedTag(T)</code></td><td>same partition for tags — no changed set; present → present is vacuous.</td></tr>
+        <tr><td><code>changes().addedRelation(R)</code> / <code>removedRelation(R)</code></td><td>same partition per edge — no changed set.</td></tr>
+        <tr><td><code>changes().changedResources()</code></td><td>resource types written via <code>setResource</code> this tick, <code>{prev, next}</code> each.</td></tr>
       </tbody>
     </table></div>
-    <p>The canonical consumer is a system that maintains derived state — because the buffers are disjoint, there is nothing to dedupe:</p>
+    <p>
+      The canonical consumer is a system that maintains derived state — because the sets are
+      disjoint, there is nothing to dedupe, and because they carry values, the dying value for
+      <code>removed</code> and the <code>{prev, next}</code> for <code>changed</code> are right
+      there — no shadow-copy map to keep:
+    </p>
 <figure class="code" data-lang="ts"><pre><code>const spatialIndexSync = defineSystem({
   name: 'spatialIndexSync',
   execute: (w) =&gt; {
-    for (const id of w.queryAdded(Position))   index.insert(id, w.getComponent(id, Position)!);
-    for (const id of w.queryChanged(Position)) index.update(id, w.getComponent(id, Position)!);
-    for (const id of w.queryRemoved(Position)) index.remove(id);
+    const c = w.changes();
+    for (const [id, pos]           of c.added(Position))   index.insert(id, pos);
+    for (const [id, { prev, next }] of c.changed(Position)) index.move(id, cell(prev), cell(next));
+    for (const [id, prev]          of c.removed(Position)) index.remove(id, cell(prev)); // dying value
   },
 });</code></pre></figure>
+    <div class="callout">
+      <span class="callout-tag">Legacy</span>
+      <p>
+        The presence-only buffer queries — <code>queryAdded</code> / <code>queryChanged</code> /
+        <code>queryRemoved</code> and their tag / relation / resource twins — are
+        <strong>deprecated</strong>. Each is the value-carrying accessor of the same name on
+        <code>changes()</code>: <code>queryAdded(C)</code> → <code>changes().added(C)</code>.
+        They return ids only; <code>changes()</code> returns ids <em>and</em> values.
+      </p>
+    </div>
     <h3 id="net-cancellation">The partition rule<a class="anchor" href="#net-cancellation">#</a></h3>
     <p>
-      Within a tick, only the net transition matters to the buffers. absent→present is
-      <code>queryAdded</code> only; present→present with at least one write is
-      <code>queryChanged</code> only; present→absent is <code>queryRemoved</code> only;
+      Within a tick, only the net transition matters. absent→present is
+      <code>added</code> only; present→present with at least one write is
+      <code>changed</code> only; present→absent is <code>removed</code> only;
       absent→absent lands nowhere. Consequences:
     </p>
     <ul>
-      <li>A fresh attach is in <code>queryAdded</code> only — "new" and "updated" never alias.</li>
-      <li>Remove-then-re-add of a component that existed at tick start nets to <code>queryChanged</code> — the world holds it before and after.</li>
-      <li>Add-then-remove (or create + add + destroy) within one tick lands in no buffer.</li>
-      <li><code>destroyEntity</code> participates: pre-existing components/tags/edges land in the removed buffers; same-tick ephemera land nowhere.</li>
+      <li>A fresh attach is in <code>added</code> only — "new" and "updated" never alias.</li>
+      <li>Remove-then-re-add of a component that existed at tick start nets to <code>changed</code> — the world holds it before and after.</li>
+      <li>Add-then-remove (or create + add + destroy) within one tick lands in no set.</li>
+      <li><code>destroyEntity</code> participates: pre-existing components/tags/edges land in <code>removed</code> with their dying value; same-tick ephemera land nowhere.</li>
     </ul>
-<figure class="code" data-lang="ts"><pre><code>// within one tick, component absent at the last clearDirty():
+<figure class="code" data-lang="ts"><pre><code>// within one tick, component absent when the tick began:
 world.addComponent(e, Position, { x: 1 });   // event fires (prev = undefined)
 world.patchComponent(e, Position, { x: 2 }); // event fires (prev = {x:1})
 world.removeComponent(e, Position);          // event fires (prev = {x:2})
 
-world.queryAdded(Position);   // [] — net absent→absent
-world.queryChanged(Position); // []
-world.queryRemoved(Position); // [] — it wasn't present at the last clearDirty()</code></pre></figure>
-    <div class="callout">
-      <span class="callout-tag">Events vs buffers</span>
-      <p>
-        This is the conceptual split to internalize: <strong>events are the journal</strong> —
-        lossless, synchronous, per-mutation, every intermediate state observable in order.
-        <strong>Buffers are the partition</strong> — each touched entity classified into
-        exactly one buffer by its net transition. Use events for journals, sync, and
-        per-entity UI; use buffers for derived-state systems that only care where things
-        ended up. <strong>Buffers belong to the tick pipeline; anything on its own cadence
-        subscribes to events.</strong>
-      </p>
-    </div>
+world.changes().added(Position);   // empty — net absent→absent
+world.changes().changed(Position); // empty
+world.changes().removed(Position); // empty — it wasn't present when the tick began</code></pre></figure>
+    <h3 id="two-channel">Two channels: react vs. record<a class="anchor" href="#two-channel">#</a></h3>
+    <p>
+      The library carries change in two forms, and one sentence tells you which to reach for.
+      <strong>Synchronous events are for <em>reacting</em></strong> — invariants, GPU/DOM
+      cleanup, fine-grained value subscriptions: things that need the moment, mid-mutation.
+      <strong><a href="api.html#onchanges"><code>onChanges</code></a> delivered runs are for
+      <em>recording</em></strong> — undo, sync, derived state, devtools: things that want the net
+      result of a coherent unit of work, with attribution, after the work is done.
+    </p>
+<figure class="code" data-lang="ts"><pre><code>// REACT: synchronous, per-mutation, every intermediate state observable in order
+world.onComponentRemoved(MeshHandle, (id, prev) =&gt; prev.dispose()); // needs the dying value, now
+
+// RECORD: one delivered run per origin per tick, value-carrying, retainable, with origin
+world.onChanges((c) =&gt; {
+  if (c.origin !== undefined) return;        // skip remote / undo replays
+  undoStack.push(c);                         // zero-copy: the run retains snapshot refs
+});</code></pre></figure>
+    <p>
+      A delivered run <strong>is</strong> a <code>changes()</code> view — same
+      added / changed / removed accessors — plus the run's <code>origin</code>, frozen at seal
+      time and safe to retain across thousands of ticks. That, plus
+      <a href="api.html#applychanges"><code>applyChanges</code></a> (which replays a run or its
+      inverse through the public write API), is the whole ground support: app-level undo/redo
+      lands in about fifteen lines — push runs on <code>onChanges</code>, and
+      <code>applyChanges(world, c, { origin: HISTORY, invert: true })</code> to undo. See the
+      <a href="#document-vs-interaction">tombstone doctrine</a> for why ids stay valid across
+      delete → undo → redo.
+    </p>
     <div class="callout">
       <span class="callout-tag">Removal includes destruction</span>
       <p>
-        <code>queryRemoved</code> and <code>queryRemovedTag</code> include entities torn down
-        by <code>destroyEntity</code>. Consumers managing external resources (GPU buffers,
+        <code>changes().removed(C)</code> and <code>removedTag(T)</code> include entities torn
+        down by <code>destroyEntity</code>. Consumers managing external resources (GPU buffers,
         DOM nodes, subscriptions) get a <em>single</em> channel for "this entity no longer
         has C" — no separate destroy bookkeeping.
       </p>
@@ -1101,7 +1141,10 @@ world.onTagRemoved(Selected, (id) =&gt; { /* ... */ });
 world.onResourceChanged(Camera, (prev, next) =&gt; { /* viewport changed */ });
 world.onEntityCreated((id) =&gt; { /* ... */ });
 world.onEntityDestroyed((id) =&gt; { /* data still readable here */ });
-world.onFrame(() =&gt; { /* end-of-tick hook */ });
+world.onFrame(() =&gt; { /* post-delivery flush hook */ });
+
+// The RECORD channel: delivered at the tick, not per-mutation (see Two channels)
+world.onChanges((c) =&gt; { /* c is a retainable, origin-tagged change set */ });
 
 unsub(); // every subscription returns an Unsubscribe</code></pre></figure>
 
@@ -1111,6 +1154,7 @@ unsub(); // every subscription returns an Unsubscribe</code></pre></figure>
       <li><strong><code>onComponentChanged</code> fires on add too,</strong> with <code>prev === undefined</code> — one subscription covers both "appeared" and "updated."</li>
       <li><strong><code>onComponentRemoved</code> fires before deletion.</strong> The store still holds the value, and <code>prev</code> hands it to you — the right moment to release anything keyed by it.</li>
       <li><strong>Per-entity filtering is built in.</strong> Pass an <code>entityId</code> as the last argument to <code>onComponentChanged</code>, <code>onComponentRemoved</code>, <code>onTagAdded</code>, or <code>onTagRemoved</code>.</li>
+      <li><strong><a href="api.html#onchanges"><code>onChanges</code></a> is the one delivered channel.</strong> It does not fire mid-mutation — it delivers one net, origin-tagged change set per origin-run at the tick (see <a href="#two-channel">Two channels</a>). Reach for the synchronous events to <em>react</em>; reach for <code>onChanges</code> to <em>record</em>.</li>
     </ul>
   </section>
 
@@ -1261,8 +1305,9 @@ function NodeView({ world, id }: { world: World; id: EntityId }) {
       The same shape works with Vue's <code>ref</code>, Svelte stores, or signals — wire
       the event callback to the framework's reactivity primitive, return the unsubscribe
       as the cleanup. For coarse-grained updates (e.g. re-render a list when membership
-      changes), subscribe to <code>onTagAdded</code> / <code>onTagRemoved</code> or batch
-      on <code>onFrame</code> and read the <a href="#change-tracking">per-tick buffers</a>.
+      changes), subscribe to <code>onTagAdded</code> / <code>onTagRemoved</code>, or collect
+      a batched, retainable change set on <a href="api.html#onchanges"><code>onChanges</code></a>
+      and flush it on <code>onFrame</code>.
     </p>
   </section>
 
@@ -1531,8 +1576,8 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>Not(type)</code></td><td><code>NotTerm</code></td><td>Negated query term — see <a href="#not">Not()</a>.</td></tr>
         <tr><td><code>defineResource(name, defaults)</code></td><td><code>ResourceType&lt;T&gt;</code></td><td>World-level singleton.</td></tr>
         <tr><td><code>defineSystem(def)</code></td><td><code>SystemDef</code></td><td><code>{ name, execute, phase?, after?, before?, runIf? }</code>.</td></tr>
-        <tr><td><code>createWorld(options?)</code></td><td><code>World</code></td><td>New independent world. <code>{ freeze?: boolean }</code> — dev-mode deep-freeze of everything the world clones.</td></tr>
-        <tr><td><code>tickWorld(world, fn?)</code></td><td><code>void</code></td><td>Runs <code>fn</code>, then <code>emitFrame</code> / <code>clearDirty</code> / <code>incrementTick</code>.</td></tr>
+        <tr><td><code>createWorld(options?)</code></td><td><code>World</code></td><td>New independent world. <code>{ freeze?, maxReentrancyDepth? }</code> — dev-mode deep-freeze; handler re-entrancy cap (default 1000).</td></tr>
+        <tr><td><code>tickWorld(world, fn?)</code></td><td><code>void</code></td><td>The sole frame-advance point: runs <code>fn</code>, then seals + resets the change window, delivers <code>onChanges</code> runs, fires <code>onFrame</code>, increments the tick.</td></tr>
       </tbody>
     </table></div>
 
@@ -1568,11 +1613,10 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
       <tbody>
         <tr><td><code>query(...types)</code></td><td>Entities with all positive components/tags and none of the <code>Not()</code> terms. Cached, incrementally maintained.</td></tr>
         <tr><td><code>disposeQuery(...types)</code></td><td>Drop the cache entry for that exact signature; re-querying rebuilds with one scan.</td></tr>
-        <tr><td><code>queryRelation(R)</code> / <code>queryRelationAdded(R)</code> / <code>queryRelationRemoved(R)</code></td><td>Live edges / per-tick edge buffers as <code>[source, target]</code> pairs — the partition rule per edge; removed includes destroys.</td></tr>
+        <tr><td><code>changes()</code></td><td>Value-carrying net change detection for the tick — <code>added</code> / <code>changed</code> / <code>removed</code> (and tag / relation / resource twins), disjoint by the partition rule. The successor to the buffer queries below. See <a href="#change-tracking">Change tracking</a>.</td></tr>
+        <tr><td><code>queryRelation(R)</code></td><td>All live edges as <code>[source, target]</code> pairs.</td></tr>
         <tr><td><code>queryTagged(T)</code></td><td>Entities with tag <code>T</code>.</td></tr>
-        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code></td><td>Per-tick buffers — disjoint, classified by net transition since <code>clearDirty()</code>; removal includes <code>destroyEntity</code>.</td></tr>
-        <tr><td><code>queryAddedTag(T)</code> / <code>queryRemovedTag(T)</code></td><td>Per-tick tag buffers, same partition (no changed buffer).</td></tr>
-        <tr><td><code>queryChangedResources()</code></td><td>Resource types written this tick, first-changed order.</td></tr>
+        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code> + tag / relation / resource twins</td><td><em>Deprecated</em> — presence-only buffers, replaced by the same-named accessors on <code>changes()</code>, which carry values.</td></tr>
       </tbody>
     </table></div>
 
@@ -1589,7 +1633,8 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>onRelationRemoved(R, h, f?)</code></td><td><code>(source, target)</code></td><td>Also fires during destroys, before teardown. Same filter shapes.</td></tr>
         <tr><td><code>onEntityCreated(cb)</code></td><td><code>(id)</code></td><td></td></tr>
         <tr><td><code>onEntityDestroyed(cb)</code></td><td><code>(id)</code></td><td>Fires while the entity's data is still readable.</td></tr>
-        <tr><td><code>onFrame(h)</code></td><td><code>()</code></td><td>Fired by <code>emitFrame()</code>.</td></tr>
+        <tr><td><code>onChanges(h)</code></td><td><code>(changes)</code></td><td>The delivered <em>record</em> channel — one net, origin-tagged, retainable change set per origin-run at the tick. See <a href="#two-channel">Two channels</a>.</td></tr>
+        <tr><td><code>onFrame(h)</code></td><td><code>()</code></td><td>Post-delivery flush hook — fires after <code>onChanges</code> delivery and the window reset.</td></tr>
       </tbody>
     </table></div>
     <p>All subscription methods return an <code>Unsubscribe</code> function.</p>
@@ -1599,11 +1644,10 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
       <thead><tr><th>Member</th><th>Description</th></tr></thead>
       <tbody>
         <tr><td><code>getAllEntities()</code></td><td>All live entity ids.</td></tr>
-        <tr><td><code>getRegisteredComponents()</code> / <code>getRegisteredTags()</code> / <code>getRegisteredResources()</code></td><td>Every type that has had a store created in this world.</td></tr>
+        <tr><td><code>getRegisteredComponents()</code> / <code>getRegisteredTags()</code> / <code>getRegisteredRelations()</code> / <code>getRegisteredResources()</code></td><td>Every type that has had a store created in this world.</td></tr>
         <tr><td><code>getComponentsOf(e)</code> / <code>getTagsOf(e)</code></td><td>Types currently attached to an entity.</td></tr>
-        <tr><td><code>emitFrame()</code></td><td>Notify <code>onFrame</code> subscribers.</td></tr>
-        <tr><td><code>clearDirty()</code></td><td>Reset per-tick change buffers.</td></tr>
-        <tr><td><code>incrementTick()</code></td><td>Advance <code>currentTick</code>.</td></tr>
+        <tr><td><code>applyChanges(world, changes, opts?)</code></td><td>Replay a change set (or its inverse) through the public write API — the ground support for undo/redo. <code>{ invert?, origin?, onMissing? }</code>. Validate-first.</td></tr>
+        <tr><td><code>clearDirty()</code></td><td><em>Deprecated</em> — frame reset is owned by <code>tickWorld</code>; <code>changes()</code> exposes the window without manual clearing.</td></tr>
       </tbody>
     </table></div>
 
