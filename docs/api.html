@@ -473,6 +473,7 @@
 
   <div class="nav-group">
     <span>World · queries</span>
+    <a href="#changes">changes</a>
     <a href="#query">query</a>
     <a href="#disposequery">disposeQuery</a>
     <a href="#querytagged">queryTagged</a>
@@ -489,6 +490,7 @@
 
   <div class="nav-group">
     <span>World · events</span>
+    <a href="#onchanges">onChanges</a>
     <a href="#oncomponentchanged">onComponentChanged</a>
     <a href="#oncomponentremoved">onComponentRemoved</a>
     <a href="#ontagadded">onTagAdded</a>
@@ -511,16 +513,20 @@
     <a href="#getallentities">getAllEntities</a>
     <a href="#getregisteredcomponents">getRegisteredComponents</a>
     <a href="#getregisteredtags">getRegisteredTags</a>
+    <a href="#getregisteredrelations">getRegisteredRelations</a>
     <a href="#getregisteredresources">getRegisteredResources</a>
     <a href="#getcomponentsof">getComponentsOf</a>
     <a href="#gettagsof">getTagsOf</a>
   </div>
 
   <div class="nav-group">
+    <span>World · change utilities</span>
+    <a href="#applychanges">applyChanges</a>
+  </div>
+
+  <div class="nav-group">
     <span>World · frame</span>
-    <a href="#emitframe">emitFrame</a>
     <a href="#cleardirty">clearDirty</a>
-    <a href="#incrementtick">incrementTick</a>
   </div>
 
   <div class="nav-group">
@@ -654,14 +660,38 @@
       bypassing change tracking. Clone and freeze are two enforcements of the same boundary.
       Default off: zero overhead.
     </p>
+    <p>
+      <code>{ maxReentrancyDepth }</code> (default <code>1000</code>) bounds synchronous handler
+      re-entrancy: a handler that mutates the world re-triggers handlers synchronously, so an
+      unbounded handler→mutate→handler feedback loop would otherwise overflow the stack. Past
+      this depth the world throws a loud cycle error instead.
+    </p>
 
     <h3 id="tickworld">tickWorld<a class="anchor" href="#tickworld">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>tickWorld(world: World, fn?: (world: World) =&gt; void): void</code></pre></figure>
     <p>
-      The blessed frame protocol in one call: runs <code>fn(world)</code> (your systems —
-      typically <code>(w) =&gt; scheduler.execute(w)</code>), then <code>emitFrame()</code>,
-      <code>clearDirty()</code>, <code>incrementTick()</code> in the recommended order.
-      Equivalent to the four manual calls; harder to get wrong.
+      The sole frame-advance point — there is no other way to advance the clock. In order: runs
+      <code>fn(world)</code> (your systems — typically <code>(w) =&gt; scheduler.execute(w)</code>),
+      <strong>seals</strong> the open <a href="#onchanges">origin-run</a>, <strong>resets</strong>
+      the <a href="#changes"><code>changes()</code></a> window, <strong>delivers</strong> the
+      sealed runs to <a href="#onchanges"><code>onChanges</code></a> handlers, fires
+      <a href="#onframe"><code>onFrame</code></a>, and increments
+      <a href="#currenttick"><code>currentTick</code></a>. Delivery happens <em>after</em> the
+      reset, so any mutation an <code>onChanges</code> (or <code>onFrame</code>) handler makes
+      accumulates into the fresh window and is delivered on the <strong>next</strong> tick —
+      never nested into this one.
+    </p>
+    <p>
+      <strong>The frame always advances.</strong> If a delivery handler throws, the error is
+      collected and the sequence continues — every later handler still runs, the window still
+      resets, the clock still moves — and the lone error (or an <code>AggregateError</code> over
+      several) is rethrown only after the tick has fully advanced. A throwing handler can never
+      freeze the tick counter or strand the world between frames.
+    </p>
+    <p>
+      Call with no <code>fn</code> to flush and advance a frame without running systems —
+      <code>tickWorld(world)</code> is the "just deliver" path for an app with no scheduler
+      loop. Throws if called during delivery or mid-mutation.
     </p>
   </section>
 
@@ -671,7 +701,7 @@
 
     <h3 id="currenttick">currentTick<a class="anchor" href="#currenttick">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>readonly currentTick: number</code></pre></figure>
-    <p>Current tick number; advanced by <a href="#incrementtick"><code>incrementTick</code></a>.</p>
+    <p>Current tick number; advanced by <a href="#tickworld"><code>tickWorld</code></a> (a public read — it cannot itself move the clock).</p>
 
     <h3 id="entitycount">entityCount<a class="anchor" href="#entitycount">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>readonly entityCount: number</code></pre></figure>
@@ -874,13 +904,50 @@ if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code
     <h2>World · queries<a class="anchor" href="#world-queries">#</a></h2>
     <p>
       <code>query()</code> results are cached per type-combination and maintained incrementally
-      as components, tags, and entities change — repeat calls do no scanning. The per-tick
-      buffers (<code>queryChanged</code> / <code>queryAdded</code> / <code>queryRemoved</code>
-      and their tag/relation twins) classify each touched entity by its <strong>net transition
-      since the last <a href="#cleardirty"><code>clearDirty</code></a></strong>:
-      absent→present = added, present→present with ≥ 1 write = changed, present→absent =
-      removed, absent→absent = nothing. The buffers partition — they are disjoint by
-      definition. See <a href="index.html#net-cancellation">the partition rule</a>.
+      as components, tags, and entities change — repeat calls do no scanning. Change detection
+      for the tick is <a href="#changes"><code>changes()</code></a>: a value-carrying view by the
+      <strong>net transition since the tick began</strong> — absent→present = added,
+      present→present with ≥ 1 write = changed, present→absent = removed, absent→absent =
+      nothing — disjoint by definition. See <a href="index.html#net-cancellation">the partition
+      rule</a>. The per-tick buffer queries below (<code>queryChanged</code> /
+      <code>queryAdded</code> / <code>queryRemoved</code> and their tag/relation/resource twins)
+      are <strong>deprecated</strong>: each is the value-carrying accessor of the same name on
+      <code>changes()</code> — <code>queryAdded(C)</code> → <code>changes().added(C)</code>.
+    </p>
+
+    <h3 id="changes">changes<a class="anchor" href="#changes">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>changes(): WorldChanges</code></pre></figure>
+    <p>
+      The net change detection for the current tick, carrying values — the value-carrying
+      successor to the buffer queries. A <strong>live view</strong>: the window accumulates as
+      the tick runs, but each accessor <em>call</em> materializes a stable snapshot (every value
+      is a zero-copy reference to an immutable store snapshot; only the container is fresh), so
+      iterating one while the loop body mutates the world is safe, and a later call reflects
+      later writes. Not retainable across a tick. The accessors mirror the buffers one-for-one
+      and add values:
+    </p>
+<figure class="code sig" data-lang="ts"><pre><code>interface WorldChanges {
+  readonly tick: number;
+  readonly created: ReadonlySet&lt;EntityId&gt;;    // net-created this window (created-then-destroyed cancels)
+  readonly destroyed: ReadonlySet&lt;EntityId&gt;;  // net-destroyed (alive at window start)
+
+  added&lt;T&gt;(type: ComponentType&lt;T&gt;):   ReadonlyMap&lt;EntityId, Readonly&lt;T&gt;&gt;;     // value = current
+  changed&lt;T&gt;(type: ComponentType&lt;T&gt;): ReadonlyMap&lt;EntityId, Change&lt;T&gt;&gt;;       // { prev, next }
+  removed&lt;T&gt;(type: ComponentType&lt;T&gt;): ReadonlyMap&lt;EntityId, Readonly&lt;T&gt;&gt;;     // window-START value
+  addedTag(type: TagType): ReadonlySet&lt;EntityId&gt;;
+  removedTag(type: TagType): ReadonlySet&lt;EntityId&gt;;
+  addedRelation(type: RelationType): readonly RelationEdge[];
+  removedRelation(type: RelationType): readonly RelationEdge[];
+  changedResources(): ReadonlyMap&lt;ResourceType, Change&lt;unknown&gt;&gt;;
+  isEmpty(): boolean;
+}
+interface Change&lt;T&gt; { readonly prev: Readonly&lt;T&gt;; readonly next: Readonly&lt;T&gt; }</code></pre></figure>
+    <p>
+      <code>removed(C)</code> carries the <strong>window-start</strong> value (so
+      <a href="#applychanges"><code>applyChanges</code></a> can restore pre-window state). The
+      value of a component <em>replaced</em> mid-window is not here — net diffs cannot serve
+      that; use the synchronous <a href="#oncomponentremoved"><code>onComponentRemoved</code></a>
+      event for cleanup of every intermediate value.
     </p>
 
     <h3 id="query">query<a class="anchor" href="#query">#</a></h3>
@@ -948,7 +1015,7 @@ if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code
 
     <h3 id="querychangedresources">queryChangedResources<a class="anchor" href="#querychangedresources">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>queryChangedResources(): ResourceType[]</code></pre></figure>
-    <p>Every resource type written via <code>setResource</code> this tick, in first-changed order, deduped. Lazy store creation does not count. Cleared by <code>clearDirty()</code>.</p>
+    <p>Every resource type written via <code>setResource</code> this tick, in first-changed order, deduped. Lazy store creation does not count. Reset by <a href="#tickworld"><code>tickWorld</code></a>'s window reset.</p>
   </section>
 
   <!-- ============================ EVENTS ============================ -->
@@ -957,7 +1024,58 @@ if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code
     <p>
       All handlers fire <strong>synchronously inside the mutating call</strong>, in
       subscription order; per-entity (or per-source) handlers fire before wildcard handlers.
-      Every method returns an <code>Unsubscribe</code> function.
+      Every method returns an <code>Unsubscribe</code> function. The one exception is
+      <a href="#onchanges"><code>onChanges</code></a>, the <em>delivered</em> channel, which
+      fires at the tick boundary, not at mutation time.
+    </p>
+    <div class="callout">
+      <span class="callout-tag">Two channels</span>
+      <p>
+        The synchronous events (<code>onComponentChanged</code> and friends) are for
+        <strong>reacting</strong> — invariants, GPU/DOM cleanup, fine-grained value
+        subscriptions: things that need the moment. <a href="#onchanges"><code>onChanges</code></a>
+        is for <strong>recording</strong> — undo, sync, derived state, devtools: things that
+        want the net result of a coherent unit of work, with attribution, after the work is
+        done. Reach for the channel that matches the job.
+      </p>
+    </div>
+
+    <h3 id="onchanges">onChanges<a class="anchor" href="#onchanges">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>onChanges(handler: (changes: DeliveredChanges) =&gt; void): Unsubscribe</code></pre></figure>
+    <p>
+      Subscribe to <strong>delivered</strong> change detection. The handler fires once per sealed
+      <em>origin-run</em>, in capture order, when the tick advances via
+      <a href="#tickworld"><code>tickWorld</code></a> — once per tick in the common single-origin
+      case, and once per contiguous same-origin run when origins interleave mid-tick (a
+      <a href="#withorigin"><code>withOrigin</code></a> apply landing between local writes
+      delivers <code>[local, remote, local]</code>). The world is <strong>final and coherent</strong>
+      during delivery: handlers may read freely <em>and</em> may mutate — their writes apply
+      immediately, but accumulate into the next window and are delivered on the <strong>next</strong>
+      tick, never nested into this one. Delivery is serial and exactly-once: every handler
+      receives every run even if an earlier handler throws (errors are collected and rethrown as
+      an <code>AggregateError</code> after the drain, and the frame still advances — see
+      <a href="#tickworld"><code>tickWorld</code></a>). Empty runs are not delivered.
+    </p>
+    <p>
+      <code>DeliveredChanges</code> <strong>extends</strong>
+      <a href="#changes"><code>WorldChanges</code></a> — every <code>added</code> /
+      <code>changed</code> / <code>removed</code> accessor, the same partition — and adds exactly
+      one field:
+    </p>
+<figure class="code sig" data-lang="ts"><pre><code>type Origin = string | symbol | undefined;  // undefined = the implicit local origin
+
+interface DeliveredChanges extends WorldChanges {
+  readonly origin: Origin;
+}</code></pre></figure>
+    <p>
+      <code>origin</code> is well-defined <em>because</em> a run is origin-homogeneous:
+      <code>undefined</code> is the implicit local origin, never "mixed" — an origin change
+      seals the run. Unlike the live <a href="#changes"><code>changes()</code></a> view, a
+      delivered run is an <strong>immutable snapshot frozen at seal time and safe to retain</strong>
+      — an undo stack may hold one across thousands of ticks (the
+      <a href="index.html#change-tracking">ownership rule</a> makes that zero-copy and sound). Filter on
+      <code>origin</code> to suppress echo: an undo recorder records only <code>origin === undefined</code>,
+      a sync outbox sends only <code>origin !== REMOTE</code>.
     </p>
 
     <h3 id="oncomponentchanged">onComponentChanged<a class="anchor" href="#oncomponentchanged">#</a></h3>
@@ -1027,7 +1145,16 @@ if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code
 
     <h3 id="onframe">onFrame<a class="anchor" href="#onframe">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>onFrame(handler: () =&gt; void): Unsubscribe</code></pre></figure>
-    <p>Fires on every <a href="#emitframe"><code>emitFrame</code></a> — the end-of-tick hook for flushing batched UI updates.</p>
+    <p>
+      The <strong>post-delivery flush hook</strong>: fires once per
+      <a href="#tickworld"><code>tickWorld</code></a>, <em>after</em>
+      <a href="#onchanges"><code>onChanges</code></a> delivery and the
+      <a href="#changes"><code>changes()</code></a> window reset — the moment a UI adapter pushes
+      its batched, already-collected state. It no longer reads this-tick change data (the window
+      is already reset by the time it fires); for change data, use <code>onChanges</code> or,
+      inside a system, <code>changes()</code>. A throwing <code>onFrame</code> handler is
+      collected like an <code>onChanges</code> one — the frame still advances.
+    </p>
   </section>
 
   <!-- ============================ ORIGIN ============================ -->
@@ -1077,6 +1204,10 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
 <figure class="code sig" data-lang="ts"><pre><code>getRegisteredTags(): TagType[]</code></pre></figure>
     <p>Every TagType that has had a store created in this world.</p>
 
+    <h3 id="getregisteredrelations">getRegisteredRelations<a class="anchor" href="#getregisteredrelations">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>getRegisteredRelations(): RelationType[]</code></pre></figure>
+    <p>Every RelationType that has had a store created in this world — the fourth member of the introspection group, the one that makes a complete user-land entity snapshot possible (lazily-registered relation types are otherwise unenumerable).</p>
+
     <h3 id="getregisteredresources">getRegisteredResources<a class="anchor" href="#getregisteredresources">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>getRegisteredResources(): ResourceType[]</code></pre></figure>
     <p>Every ResourceType that has been accessed in this world.</p>
@@ -1090,33 +1221,68 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
     <p>The TagTypes currently attached to an entity.</p>
   </section>
 
+  <!-- ============================ CHANGE UTILITIES ============================ -->
+  <section id="world-change-utilities">
+    <h2>World · change utilities<a class="anchor" href="#world-change-utilities">#</a></h2>
+
+    <h3 id="applychanges">applyChanges<a class="anchor" href="#applychanges">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>applyChanges(world: World, changes: WorldChanges, opts?: {
+  invert?: boolean;               // apply the INVERSE: added↔removed, prev↔next (default false)
+  origin?: Origin;                // tag every replayed mutation with this origin
+  onMissing?: 'throw' | 'skip';   // dead-entity references (default 'throw')
+}): { skipped: readonly SkippedEntry[] }</code></pre></figure>
+    <p>
+      Replays a <a href="#changes"><code>WorldChanges</code></a> (or a delivered
+      <a href="#onchanges"><code>DeliveredChanges</code></a>, which <em>is</em> one) — or its
+      inverse — through the <strong>public write API</strong>. This is the ground support that
+      makes app-level undo/redo a one-liner each way; it carries no privileged access. Pass
+      <code>{ origin }</code> and it wraps the replay in
+      <a href="#withorigin"><code>withOrigin</code></a> for you, so an
+      <code>onChanges</code> recorder filtering by origin ignores the replay:
+    </p>
+<figure class="code" data-lang="ts"><pre><code>const HISTORY = Symbol('history');
+
+applyChanges(world, c, { origin: HISTORY });               // redo
+applyChanges(world, c, { origin: HISTORY, invert: true }); // undo</code></pre></figure>
+    <p>
+      <strong>Validate-first.</strong> With <code>onMissing: 'throw'</code> (default) it scans
+      every change for a dead-entity reference and throws <em>before</em> mutating anything, so
+      a partial apply can't corrupt the world — absence is never silent. <code>'skip'</code>
+      no-ops those entries and reports them in <code>skipped</code> (the multiplayer case: an op
+      on an entity a peer deleted no-ops at that key).
+    </p>
+    <p>
+      <strong>Entity lifecycle is not replayed.</strong> Component, tag, relation, and resource
+      changes are applied; <code>created</code> / <code>destroyed</code> entries are
+      <em>not</em> — entity creation and destruction are app policy (tombstone, or an identity
+      index for resurrection), and each such entry is reported in <code>skipped</code>. Removes
+      and unrelates run before adds and relates, so exclusivity replacement applies cleanly.
+    </p>
+  </section>
+
   <!-- ============================ FRAME ============================ -->
   <section id="world-frame">
     <h2>World · frame lifecycle<a class="anchor" href="#world-frame">#</a></h2>
     <p>
-      The tick is one call — <a href="#tickworld"><code>tickWorld</code></a> runs your
-      systems and then these three methods in the right order. They stay public as the
-      escape hatch when you need to interleave something between the steps:
+      Frame advance is internal to <a href="#tickworld"><code>tickWorld</code></a> — the
+      sole frame-advance point. It seals the open <a href="#onchanges">origin-run</a>, resets the
+      <a href="#changes"><code>changes()</code></a> window, delivers, fires
+      <a href="#onframe"><code>onFrame</code></a>, and increments
+      <a href="#currenttick"><code>currentTick</code></a> as one indivisible step; there is no
+      public way to advance the frame without delivering. (The old <code>incrementTick</code> /
+      <code>emitFrame</code> escape hatches are gone — they let a caller advance the frame
+      without committing.)
     </p>
-
-    <h3 id="emitframe">emitFrame<a class="anchor" href="#emitframe">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>emitFrame(): void</code></pre></figure>
-    <p>Fires every <a href="#onframe"><code>onFrame</code></a> subscriber.</p>
 
     <h3 id="cleardirty">clearDirty<a class="anchor" href="#cleardirty">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>clearDirty(): void</code></pre></figure>
     <p>
-      Resets all per-tick buffers — component <code>changed</code> / <code>added</code> /
-      <code>removed</code>, tag <code>added</code> / <code>removed</code>, relation
-      <code>added</code> / <code>removed</code> — and the presence baselines the
+      <strong>Deprecated.</strong> Resets the per-tick buffers and the presence baselines the
       <a href="index.html#net-cancellation">partition rule</a> classifies net transitions
-      against. Buffers accumulate until <em>you</em> call this; skipping frames simply
-      batches more change.
+      against. Frame reset is now owned by <a href="#tickworld"><code>tickWorld</code></a> (the
+      seal→reset step); <a href="#changes"><code>changes()</code></a> exposes the same window
+      without any manual clearing. Direct use will be removed.
     </p>
-
-    <h3 id="incrementtick">incrementTick<a class="anchor" href="#incrementtick">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>incrementTick(): void</code></pre></figure>
-    <p>Advances <a href="#currenttick"><code>currentTick</code></a> by one.</p>
   </section>
 
   <!-- ============================ SYSTEM SCHEDULER ============================ -->
@@ -1383,7 +1549,8 @@ type Unsubscribe                = () =&gt; void;
 type QueryResult                = EntityId[];
 
 interface CreateWorldOptions {
-  freeze?: boolean;  // dev-mode: deep-freeze exactly what the world clones (default false)
+  freeze?: boolean;              // dev-mode: deep-freeze exactly what the world clones (default false)
+  maxReentrancyDepth?: number;   // synchronous handler re-entrancy depth before a cycle error (default 1000)
 }</code></pre></figure>
   </section>
 
