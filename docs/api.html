@@ -446,7 +446,7 @@
     <a href="#removecomponent">removeComponent</a>
     <a href="#getcomponent">getComponent</a>
     <a href="#hascomponent">hasComponent</a>
-    <a href="#patchcomponent">patchComponent</a>
+    <a href="#updatecomponent">updateComponent</a>
   </div>
 
   <div class="nav-group">
@@ -644,13 +644,13 @@
 <figure class="code sig" data-lang="ts"><pre><code>createWorld(options?: CreateWorldOptions): World</code></pre></figure>
     <p>Creates an independent world — entities, component/tag/relation stores, resources, query caches, and subscriptions are all per-world.</p>
     <p>
-      <code>{ freeze: true }</code> is the dev-mode ownership enforcement: the world
-      deep-freezes exactly what it clones — plain objects and arrays at any depth, never
-      class instances — wherever cloned data enters a store (<code>addComponent</code>,
-      <code>patchComponent</code>, resource instantiation, <code>setResource</code>). With
-      freeze on, in-place mutation of a read throws in strict mode instead of silently
-      bypassing change tracking. Clone and freeze are two enforcements of the same boundary.
-      Default off: zero overhead.
+      Ownership is enforced by <strong>freeze-on-write</strong> (RFC-007), always on, every
+      build — there is no <code>freeze</code> option. Managed plain data entering a store
+      (<code>addComponent</code>, <code>updateComponent</code>, resource instantiation,
+      <code>setResource</code>) is deep-frozen in place — arrays and <code>{}</code>-objects at
+      any depth, never class instances or typed arrays (those are borrowed by reference). So
+      in-place mutation of a read throws in strict mode instead of silently bypassing change
+      tracking, and the change journal's retained values are immutable by construction.
     </p>
     <p>
       <code>{ maxReentrancyDepth }</code> (default <code>1000</code>) bounds synchronous handler
@@ -775,8 +775,9 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 <figure class="code sig" data-lang="ts"><pre><code>addComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data?: Partial&lt;T&gt;): void</code></pre></figure>
     <p>
       Attach-or-replace (upsert). <code>data</code> is optional and partial — shallow-merged
-      over the type's defaults; plain objects and arrays are deep-cloned at any depth (class
-      instances kept by reference), so two entities never share nested state. On first
+      over the type's defaults; the merged value is deep-frozen in place (managed plain data at
+      any depth; class instances and typed arrays kept by reference), immutable by construction.
+      Entities may safely share a frozen subtree — it can only be replaced, never mutated. On first
       attach, observers fire with <code>prev === undefined</code>; on an entity that already
       has the component, the value is replaced and observers fire with <code>prev =</code>
       the old value — so <code>prev === undefined</code> reliably means "first attach".
@@ -798,30 +799,31 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
 
     <h3 id="getcomponent">getComponent<a class="anchor" href="#getcomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>getComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;): Readonly&lt;T&gt; | undefined</code></pre></figure>
-    <p>Current value, typed read-only, or <code>undefined</code> if not present. The returned object is the live store value — mutating it in place is invisible to the world (and throws under <code>createWorld({ freeze: true })</code>); write through <a href="#patchcomponent"><code>patchComponent</code></a> or <a href="#addcomponent"><code>addComponent</code></a>.</p>
+    <p>Current value, typed read-only, or <code>undefined</code> if not present. The returned object is the live store value — managed plain data is deep-frozen on write, so mutating it in place throws in strict mode; write through <a href="#updatecomponent"><code>updateComponent</code></a> or <a href="#addcomponent"><code>addComponent</code></a>.</p>
 
     <h3 id="hascomponent">hasComponent<a class="anchor" href="#hascomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>hasComponent(entity: EntityId, type: ComponentType): boolean</code></pre></figure>
     <p>Presence check.</p>
 
-    <h3 id="patchcomponent">patchComponent<a class="anchor" href="#patchcomponent">#</a></h3>
-<figure class="code sig" data-lang="ts"><pre><code>patchComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
+    <h3 id="updatecomponent">updateComponent<a class="anchor" href="#updatecomponent">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>updateComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;, recipe: (prev: Readonly&lt;T&gt;) =&gt; T): void</code></pre></figure>
     <p>
-      Strict shallow-merge update of an <em>existing</em> component — one level deep: nested
-      objects in <code>data</code> replace, they don't merge into. Incoming plain data is
-      defensively cloned (caller-held aliases can't mutate world state later), and the stored
-      object is replaced on write, never mutated in place. Fires
-      <code>onComponentChanged</code> with the previous value; the entity lands in
-      <code>queryChanged</code> (or stays in <code>queryAdded</code> if it was attached this
-      tick). Non-creating by design — absence is never silent:
+      Transforms an <em>existing</em> component with a pure recipe. <code>prev</code> is the live
+      (frozen) value; return the next value — <code>p =&gt; ({ ...p, x })</code> is the one-level
+      merge, and you can compute from <code>prev</code> or branch. The returned value is frozen
+      and stored. Returning <code>prev</code> unchanged is a free no-op: no write, no event, no
+      buffer entry. Fires <code>onComponentChanged</code> with the previous value; the entity
+      lands in <code>queryChanged</code> (or stays in <code>queryAdded</code> if it was attached
+      this tick). A write that throws (recipe, cycle, or accessor) leaves the kernel's stores and
+      change tracking unchanged. Non-creating by design — absence is never silent:
     </p>
 <figure class="code" data-lang="ts"><pre><code>// dead entity:
-//   patchComponent(Position): entity 42 does not exist or has been destroyed
+//   updateComponent(Position): entity 42 does not exist or has been destroyed
 // alive, but the component was never attached:
-//   patchComponent(Position): entity 42 has no Position — use addComponent to attach
+//   updateComponent(Position): entity 42 has no Position — use addComponent to attach
 
 // the idiomatic guard for writes that may race a destroy:
-if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code></pre></figure>
+if (world.entityExists(id)) world.updateComponent(id, Position, (p) =&gt; ({ ...p, x: 15 }));</code></pre></figure>
   </section>
 
   <!-- ============================ TAGS ============================ -->
@@ -888,7 +890,11 @@ if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code
 
     <h3 id="setresource">setResource<a class="anchor" href="#setresource">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>setResource&lt;T&gt;(type: ResourceType&lt;T&gt;, data: Partial&lt;T&gt;): void</code></pre></figure>
-    <p>Shallow-merges a partial update over the singleton. Incoming plain data is defensively cloned, same as <code>patchComponent</code>, and the stored value is replaced on write, never mutated in place.</p>
+    <p>Shallow-merges a partial update over the singleton. The merged value is frozen on write (managed plain data, deep), and the stored value is replaced, never mutated in place.</p>
+
+    <h3 id="updateresource">updateResource<a class="anchor" href="#updateresource">#</a></h3>
+<figure class="code sig" data-lang="ts"><pre><code>updateResource&lt;T&gt;(type: ResourceType&lt;T&gt;, recipe: (prev: Readonly&lt;T&gt;) =&gt; T): void</code></pre></figure>
+    <p>The functional counterpart to <a href="#setresource"><code>setResource</code></a> — transforms the singleton with a recipe <code>prev =&gt; next</code>. The returned value is frozen and stored; returning <code>prev</code> unchanged is a no-op. Lazily creates the resource from its defaults on first touch, like <a href="#getresource"><code>getResource</code></a>.</p>
   </section>
 
   <!-- ============================ QUERIES ============================ -->
@@ -1495,7 +1501,6 @@ type Unsubscribe                = () =&gt; void;
 type QueryResult                = EntityId[];
 
 interface CreateWorldOptions {
-  freeze?: boolean;              // dev-mode: deep-freeze exactly what the world clones (default false)
   maxReentrancyDepth?: number;   // synchronous handler re-entrancy depth before a cycle error (default 1000)
 }</code></pre></figure>
   </section>

@@ -16,7 +16,7 @@ If you want raw per-frame throughput for thousands of game entities, use [bitECS
 Every API decision in this library answers to five rules:
 
 1. **Absence is never silent** — reads return `undefined`; non-creating writes against absence throw.
-2. **One ownership rule** — plain data crossing the API boundary is owned by the world: cloned in, frozen in dev, replaced never mutated; class instances stay the caller's, by reference.
+2. **One ownership rule** — *managed plain data* (arrays and `{}`-objects) crossing the API boundary is **frozen in place** and owned by the world: immutable by construction, shared freely, replaced never mutated. *Borrowed values* (class instances, typed arrays, `Map`/`Set`/`Date`) are by reference and outside the immutability/change-detection guarantee — the caller's to manage, changed by replacement.
 3. **Events are the journal; buffers are the partition** — events are lossless, synchronous, per-mutation; buffers classify the net transition since the last `clearDirty()` and are disjoint by definition.
 4. **Entity first** — every per-entity read/write is `(entity, type, ...)`.
 5. **The tick is one call** — `tickWorld` is the door; `emitFrame` / `clearDirty` / `incrementTick` are the escape hatch.
@@ -63,7 +63,7 @@ const movement = defineSystem({
     for (const id of w.query(Position, Velocity)) {
       const p = w.getComponent(id, Position)!;
       const v = w.getComponent(id, Velocity)!;
-      w.patchComponent(id, Position, { x: p.x + v.dx, y: p.y + v.dy });
+      w.updateComponent(id, Position, (pos) => ({ ...pos, x: p.x + v.dx, y: p.y + v.dy }));
     }
   },
 });
@@ -86,24 +86,26 @@ world.clearDirty();
 world.incrementTick();
 ```
 
-## The write API — add, patch, remove
+## The write API — add, update, remove
 
 Three verbs with disjoint meanings:
 
 - **`addComponent(e, Type, data?)`** — upsert: attach-or-replace. `data` is partial, merged over the type's defaults; omitted data attaches pure defaults. Observers receive the existing value as `prev` on a replace, so `prev === undefined` reliably means first attach.
-- **`patchComponent(e, Type, data)`** — strict shallow-merge update of an *existing* component. One level deep; nested objects in `data` replace wholesale. Non-creating by design — absence is never silent:
+- **`updateComponent(e, Type, prev => next)`** — transform an *existing* component with a pure recipe. `prev` is the live (frozen) value; return the next value — `p => ({ ...p, x })` is the one-level merge, and you can compute from `prev` or branch. Returning `prev` unchanged is a free no-op: no write, no event, no buffer entry. Non-creating by design — absence is never silent:
 
   ```
-  patchComponent(Position): entity 42 does not exist or has been destroyed
-  patchComponent(Position): entity 42 has no Position — use addComponent to attach
+  updateComponent(Position): entity 42 does not exist or has been destroyed
+  updateComponent(Position): entity 42 has no Position — use addComponent to attach
   ```
 
 - **`removeComponent(e, Type)`** — detach; fires `onComponentRemoved` with the discarded value before deletion.
 
+Resources mirror this: **`setResource(Type, data)`** merges a partial, **`updateResource(Type, prev => next)`** transforms functionally with the same no-op skip.
+
 For writes that may race a destroy (async callbacks, timers, network responses), the idiomatic guard is:
 
 ```ts
-if (world.entityExists(id)) world.patchComponent(id, Position, { x });
+if (world.entityExists(id)) world.updateComponent(id, Position, (p) => ({ ...p, x }));
 ```
 
 A throw from an unguarded write is the library telling you an entity died while you weren't looking — silently dropping the write (or worse, resurrecting the component) would hide the race.
@@ -160,7 +162,28 @@ Consequences worth internalizing:
 
 Events never net-cancel: a remove-then-re-add still fires `onComponentRemoved` and `onComponentChanged(prev: undefined)` in order. If you need every intermediate state, subscribe. **Buffers belong to the tick pipeline; anything on its own cadence subscribes to events.**
 
-Reads are typed read-only: `getComponent` returns `Readonly<T> | undefined` and `getResource` returns `Readonly<T>`. The returned object is the live store value, so write through `patchComponent` / `addComponent` / `setResource` instead of mutating it — that's what keeps the events above firing. In development, `createWorld({ freeze: true })` enforces this at runtime: the world deep-freezes exactly what it clones (plain objects and arrays at any depth — never class instances), so in-place mutation of a read throws in strict mode. Clone and freeze are two enforcements of the same ownership boundary.
+Reads are typed read-only: `getComponent` returns `Readonly<T> | undefined` and `getResource` returns `Readonly<T>`. The returned object is the live store value, so write through `updateComponent` / `addComponent` / `setResource` instead of mutating it — that's what keeps the events above firing. And the type is not just a hint: managed plain data is **deep-frozen on write** (every build, not just dev — there is no `freeze` option), so an in-place mutation of a read throws in strict mode. Frozen-by-construction is what makes the change journal's retained values sound — and what gives the [React hooks](#react-hooks) stable snapshot identity. Borrowed values (class instances, typed arrays) are by reference and outside the freeze — change them by replacement.
+
+## React hooks
+
+`@jamesyong42/reactive-ecs/react` (React is an optional peer dependency) provides `useSyncExternalStore` hooks over the same synchronous events:
+
+```tsx
+import { useComponent, useQuery, useResource } from '@jamesyong42/reactive-ecs/react';
+
+function Entity({ world, id }: { world: World; id: EntityId }) {
+  const pos = useComponent(world, id, Position);   // re-renders on write/remove
+  return <div>{pos ? `${pos.x},${pos.y}` : 'no position'}</div>;
+}
+
+function MovingList({ world }: { world: World }) {
+  const moving = useQuery(world, Position, Velocity, Not(Frozen)); // re-renders on SET change only
+  const zoom = useResource(world, Camera).zoom;
+  return <ul style={{ zoom }}>{moving.map((id) => <li key={id}>{id}</li>)}</ul>;
+}
+```
+
+The hooks are correct *because* of freeze-on-write: a stored value keeps a stable identity until it is replaced, so `getSnapshot` returns the same reference between writes and React never re-renders spuriously. `useQuery` re-renders only when the matching entity **set** changes — a value-only change to a matched component doesn't churn the list. Each hook is a thin wrapper over a framework-agnostic adapter (`createComponentStore` / `createResourceStore` / `createQueryStore`, each `{ subscribe, getSnapshot }`) — usable from any framework with an external-store primitive.
 
 ## Origin tagging — coexisting observers
 
@@ -172,7 +195,7 @@ const UNDO = Symbol('undo-replay');
 
 // The sync adapter applies a remote batch without re-broadcasting it:
 world.withOrigin(REMOTE, () => {
-  world.patchComponent(id, Position, { x: 10 });
+  world.updateComponent(id, Position, (p) => ({ ...p, x: 10 }));
 });
 
 // The broadcaster skips remote echoes and undo replays:
@@ -319,7 +342,7 @@ Ascending order matters: ids are never reused, so `createEntityWithId` refuses a
 ## What it gives you
 
 - **Entities** — opaque integer IDs; creation is O(1), destruction is proportional to the entity's components/tags/edges plus the number of registered stores and query caches.
-- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). `addComponent` is the upsert (partial data over defaults; re-adding replaces, with the existing value as `prev`), `patchComponent` is the strict shallow-merge update that throws on absence, `removeComponent` detaches. Plain data is defensively cloned all the way down (class instances are kept by reference) on every write path; reads come back as `Readonly<T>`, and `createWorld({ freeze: true })` enforces that at runtime in dev.
+- **Components** — typed data (`defineComponent('Name', defaults)`); arbitrary shape (numbers, strings, arrays, objects, class instances — not restricted to TypedArrays). `addComponent` is the upsert (partial data over defaults; re-adding replaces, with the existing value as `prev`), `updateComponent(e, T, prev => next)` is the functional update that throws on absence and skips no-op writes, `removeComponent` detaches. Managed plain data is deep-frozen in place on every write (class instances and typed arrays stay borrowed by reference); reads come back as `Readonly<T>` and are immutable at runtime in every build.
 - **Tags** — zero-data boolean markers (`defineTag('Selected')`).
 - **Relations** — managed entity-to-entity edges (`defineRelation('ChildOf', { ... })`) with an always-coherent inverse index and lifecycle cleanup: `relate`, `unrelate`, `getTargets`, `getTarget`, `getSources`, `queryRelation`, `queryRelationAdded`, `queryRelationRemoved`, `onRelationAdded`, `onRelationRemoved`. Exclusivity bounds and `onTargetDestroy` policies (`'clear'` / `'cascade'` / `{ tag }`) per relation type.
 - **Resources** — singletons (`defineResource('Camera', { ... })`) — perfect for viewport state, config, or holding a class instance like a spatial index.
