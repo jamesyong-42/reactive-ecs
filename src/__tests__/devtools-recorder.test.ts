@@ -5,6 +5,7 @@ import {
 	defaultDescriber,
 	type EntityDescriber,
 } from '../devtools/index.js';
+import { tickWorld } from '../tick.js';
 import { createWorld } from '../world.js';
 
 const Name = defineComponent('Name', { value: '' });
@@ -17,8 +18,8 @@ describe('createLifecycleRecorder', () => {
 		const world = createWorld();
 		let ms = 0;
 		const recorder = createLifecycleRecorder(world, { now: () => ms });
-		world.incrementTick();
-		world.incrementTick();
+		tickWorld(world);
+		tickWorld(world);
 		ms = 125;
 		const e = world.createEntity();
 		const recs = recorder.records();

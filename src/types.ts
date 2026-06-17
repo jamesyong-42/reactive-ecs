@@ -590,7 +590,7 @@ export interface World {
 	/** Returns the TagTypes currently attached to an entity. */
 	getTagsOf(entity: EntityId): TagType[];
 
-	// Frame lifecycle (used by engine after tick)
+	// Frame lifecycle
 
 	/**
 	 * Clears the per-tick buffers and the transition baselines they classify
@@ -599,8 +599,4 @@ export interface World {
 	 * removed. `changes()` exposes the same window without manual clearing.
 	 */
 	clearDirty(): void;
-	/** Increments the tick counter. */
-	incrementTick(): void;
-	/** Emits frame-end events to all onFrame subscribers. */
-	emitFrame(): void;
 }

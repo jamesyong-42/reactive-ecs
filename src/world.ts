@@ -295,6 +295,10 @@ function deepFreezePlain(value: unknown): void {
  */
 export interface WorldInternal extends World {
 	advanceFrame(fn?: (world: World) => void): void;
+	/** Internal: advance the tick counter. Reachable only via `tickWorld`. */
+	incrementTick(): void;
+	/** Internal: fire `onFrame` subscribers. Reachable only via `tickWorld`. */
+	emitFrame(): void;
 }
 
 export function createWorld(options?: CreateWorldOptions): World {
