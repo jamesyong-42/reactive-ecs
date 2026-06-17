@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.14.0...reactive-ecs-v0.15.0) (2026-06-17)
+
+
+### Features
+
+* onChanges + applyChanges — two-channel change detection (RFC-006 v0.15) ([c2a0651](https://github.com/jamesyong-42/reactive-ecs/commit/c2a065178340067243f4fe50d85500e3f1051301))
+
 ## [0.14.0](https://github.com/jamesyong-42/reactive-ecs/compare/reactive-ecs-v0.13.1...reactive-ecs-v0.14.0) (2026-06-17)
 
 
