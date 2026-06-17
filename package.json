@@ -1,6 +1,6 @@
 {
 	"name": "@jamesyong42/reactive-ecs",
-	"version": "0.13.1",
+	"version": "0.14.0",
 	"description": "A reactive, dependency-free TypeScript ECS — event-driven components, tags, resources, cached queries, and a topological system scheduler. Designed for React and other UI frameworks, not just game loops.",
 	"license": "MIT",
 	"author": "James Yong",
