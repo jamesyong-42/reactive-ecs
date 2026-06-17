@@ -169,10 +169,9 @@ export interface Change<T = unknown> {
 }
 
 /**
- * The net change detection over a tick window — the value-carrying successor to
- * the per-tick buffer queries (RFC-006). `world.changes()` returns this live view
- * of every change since the current tick began, by the same net-transition
- * partition the buffers used:
+ * The net change detection over a tick window, carrying values (RFC-006).
+ * `world.changes()` returns this live view of every change since the current
+ * tick began, classified by net transition:
  *
  *   absent→present = added · present→present (≥1 write) = changed ·
  *   present→absent = removed · absent→absent = invisible.
@@ -288,8 +287,9 @@ export interface World {
 	 * edges (as source or target — applying each relation's `onTargetDestroy`
 	 * policy after teardown completes). Handlers fired during the teardown
 	 * sweep may read the dying entity but not mutate the world — every
-	 * mutating method throws until the sweep completes. React via the removed
-	 * buffers or an `onTargetDestroy` policy instead.
+	 * mutating method throws until the sweep completes. React from a later
+	 * system over `changes().removed` / `changes().removedRelation`, or via an
+	 * `onTargetDestroy` policy, instead.
 	 */
 	destroyEntity(id: EntityId): void;
 	/** Checks if an entity ID is still alive. */
@@ -345,7 +345,7 @@ export interface World {
 	 * — absence is never silent: throws if the entity is dead, and throws if it is
 	 * alive but lacks the component (use `addComponent` to attach). The returned
 	 * value is frozen and stored. Returning `prev` by reference is a no-op: no write,
-	 * no event, no buffer entry. A write that throws (recipe, cycle, or accessor)
+	 * no event, no `changes()` entry. A write that throws (recipe, cycle, or accessor)
 	 * leaves the kernel's stores and change tracking unchanged.
 	 */
 	updateComponent<T>(
@@ -405,10 +405,10 @@ export interface World {
 	/**
 	 * The net change detection for the current tick — every component, tag,
 	 * relation, and resource change since the tick began, carrying values
-	 * (RFC-006). The value-carrying successor to the per-tick buffer queries:
-	 * `world.changes().added(C)` replaces `world.queryAdded(C)`, etc. A live
-	 * view whose accessors materialize stable per-call snapshots; not retainable
-	 * across a tick.
+	 * (RFC-006). One value-carrying accessor per partition slot —
+	 * `changes().added(C)` / `changed(C)` / `removed(C)` and their tag, relation,
+	 * and resource twins. A live view whose accessors materialize stable per-call
+	 * snapshots; not retainable across a tick.
 	 */
 	changes(): WorldChanges;
 	/**

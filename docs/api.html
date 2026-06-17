@@ -406,7 +406,7 @@
     <span class="pulse-mini"></span>
     <b>reactive-ecs</b>
   </a>
-  <div class="brand-version">v0.12.0 · API reference</div>
+  <div class="brand-version">v0.17.0 · API reference</div>
 
   <div class="nav-group">
     <a class="guide-link" href="index.html">← Guide</a>
@@ -469,6 +469,7 @@
     <span>World · resources</span>
     <a href="#getresource">getResource</a>
     <a href="#setresource">setResource</a>
+    <a href="#updateresource">updateResource</a>
   </div>
 
   <div class="nav-group">
@@ -577,7 +578,7 @@
 <div class="measure">
 
   <header class="page-head">
-    <div class="kicker">@jamesyong42/reactive-ecs · v0.12.0</div>
+    <div class="kicker">@jamesyong42/reactive-ecs · v0.17.0</div>
     <h1>API reference</h1>
     <p>
       Every exported function, <code>World</code> member, scheduler, and type.
@@ -752,11 +753,13 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
       target). No-op if already dead. The observable sequence: <code>onEntityDestroyed</code>
       listeners (data still readable) → query caches drop the id → relation sweep
       (<code>onRelationRemoved</code> per edge, policy effects collected) → per-component
-      <code>onComponentRemoved</code> + buffers → per-tag <code>onTagRemoved</code> + buffers →
+      <code>onComponentRemoved</code> (id appears in <code>changes().removed(C)</code>) → per-tag
+      <code>onTagRemoved</code> (id appears in <code>changes().removedTag(T)</code>) →
       deferred <code>onTargetDestroy</code> effects apply (cascades, tags). Handlers fired
       during the sweep may read freely, but every mutating World method throws until the
-      sweep completes: <em>cannot mutate the world from a handler during entity teardown —
-      react via the removed buffers or an onTargetDestroy policy instead</em>. The guard
+      sweep completes — react instead from a later system over
+      <code>changes().removed(C)</code> / <code>changes().removedRelation(R)</code>, or from an
+      <code>onTargetDestroy</code> policy. The guard
       lifts before the deferred policy effects apply (those are the world's own mutations),
       so cascades and <code>{ tag }</code> policies work unchanged. See the
       <a href="index.html#destroy-semantics">guide</a> for the full contract.
@@ -781,19 +784,19 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
       attach, observers fire with <code>prev === undefined</code>; on an entity that already
       has the component, the value is replaced and observers fire with <code>prev =</code>
       the old value — so <code>prev === undefined</code> reliably means "first attach".
-      Buffers record the <a href="index.html#net-cancellation">net transition</a> since the
-      last <code>clearDirty()</code>: absent then → <code>queryAdded</code>, present then →
-      <code>queryChanged</code>. Throws if the entity is not alive. A full-value replace is
-      just <code>addComponent</code> with the complete value.
+      <code>changes()</code> records the <a href="index.html#net-cancellation">net transition</a>
+      since the tick began: absent at tick start lands in <code>changes().added</code>, present
+      at tick start lands in <code>changes().changed</code>. Throws if the entity is not alive. A
+      full-value replace is just <code>addComponent</code> with the complete value.
     </p>
 
     <h3 id="removecomponent">removeComponent<a class="anchor" href="#removecomponent">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>removeComponent&lt;T&gt;(entity: EntityId, type: ComponentType&lt;T&gt;): void</code></pre></figure>
     <p>
       Detaches a component. Fires <a href="#oncomponentremoved"><code>onComponentRemoved</code></a>
-      <em>before</em> the data is deleted (so <code>prev</code> is readable). Buffers record
-      the net transition: a component present at the last <code>clearDirty()</code> lands in
-      <code>queryRemoved</code>; one added earlier this tick nets to absent→absent and lands
+      <em>before</em> the data is deleted (so <code>prev</code> is readable). <code>changes()</code>
+      records the net transition: a component present when the tick began lands in
+      <code>changes().removed</code>; one added earlier this tick nets to absent→absent and lands
       nowhere. No-op if absent.
     </p>
 
@@ -812,10 +815,11 @@ world.setNextEntityId(snapshot.nextEntityId);</code></pre></figure>
       (frozen) value; return the next value — <code>p =&gt; ({ ...p, x })</code> is the one-level
       merge, and you can compute from <code>prev</code> or branch. The returned value is frozen
       and stored. Returning <code>prev</code> unchanged is a free no-op: no write, no event, no
-      buffer entry. Fires <code>onComponentChanged</code> with the previous value; the entity
-      lands in <code>queryChanged</code> (or stays in <code>queryAdded</code> if it was attached
-      this tick). A write that throws (recipe, cycle, or accessor) leaves the kernel's stores and
-      change tracking unchanged. Non-creating by design — absence is never silent:
+      <code>changes()</code> entry. Fires <code>onComponentChanged</code> with the previous value;
+      the entity appears in <code>changes().changed</code> (or stays in <code>changes().added</code>
+      if it was attached this tick). A write that throws (recipe, cycle, or accessor) leaves the
+      kernel's stores and change tracking unchanged. Non-creating by design — absence is never
+      silent:
     </p>
 <figure class="code" data-lang="ts"><pre><code>// dead entity:
 //   updateComponent(Position): entity 42 does not exist or has been destroyed
@@ -832,11 +836,11 @@ if (world.entityExists(id)) world.updateComponent(id, Position, (p) =&gt; ({ ...
 
     <h3 id="addtag">addTag<a class="anchor" href="#addtag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>addTag(entity: EntityId, type: TagType): void</code></pre></figure>
-    <p>Adds a tag. Fires <a href="#ontagadded"><code>onTagAdded</code></a>; lands in <code>queryAddedTag</code> when the tag was absent at the last <code>clearDirty()</code> (re-adding a tag held at tick start is a vacuous present→present — no buffer). No-op if already present.</p>
+    <p>Adds a tag. Fires <a href="#ontagadded"><code>onTagAdded</code></a>; appears in <code>changes().addedTag</code> when the tag was absent when the tick began (re-adding a tag held at tick start is a vacuous present→present — recorded nowhere). No-op if already present.</p>
 
     <h3 id="removetag">removeTag<a class="anchor" href="#removetag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>removeTag(entity: EntityId, type: TagType): void</code></pre></figure>
-    <p>Removes a tag. Fires <a href="#ontagremoved"><code>onTagRemoved</code></a>; lands in <code>queryRemovedTag</code> when the tag was present at the last <code>clearDirty()</code> (add-then-remove within one tick nets to nothing). No-op if absent.</p>
+    <p>Removes a tag. Fires <a href="#ontagremoved"><code>onTagRemoved</code></a>; appears in <code>changes().removedTag</code> when the tag was present when the tick began (add-then-remove within one tick nets to nothing). No-op if absent.</p>
 
     <h3 id="hastag">hasTag<a class="anchor" href="#hastag">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>hasTag(entity: EntityId, type: TagType): boolean</code></pre></figure>
@@ -854,7 +858,7 @@ if (world.entityExists(id)) world.updateComponent(id, Position, (p) =&gt; ({ ...
       <li><strong>Throws</strong> if source <em>or</em> target is not alive — a born-dangling edge is impossible.</li>
       <li><strong>No-op</strong> if the exact edge already exists.</li>
       <li><strong>Exclusivity replaces:</strong> if a bound would be violated, the existing edge is removed first — removed-then-added events fire, mirroring <code>addComponent</code> overwrite semantics.</li>
-      <li>Lands in <code>queryRelationAdded</code> when the edge was absent at the last <code>clearDirty()</code> — re-relating an edge unrelated earlier this tick is a vacuous present→present, no buffer — and fires <a href="#onrelationadded"><code>onRelationAdded</code></a>.</li>
+      <li>Appears in <code>changes().addedRelation</code> when the edge was absent when the tick began — re-relating an edge unrelated earlier this tick is a vacuous present→present, recorded nowhere — and fires <a href="#onrelationadded"><code>onRelationAdded</code></a>.</li>
     </ul>
 
     <h3 id="unrelate">unrelate<a class="anchor" href="#unrelate">#</a></h3>
@@ -862,8 +866,8 @@ if (world.entityExists(id)) world.updateComponent(id, Position, (p) =&gt; ({ ...
     <p>
       Removes the edge to <code>target</code> — or, with <code>target</code> omitted,
       <strong>all</strong> of source's outgoing edges for this relation. No-op if absent.
-      Lands in <code>queryRelationRemoved</code> when the edge existed at the last
-      <code>clearDirty()</code> (relate-then-unrelate within one tick nets to nothing) and
+      Appears in <code>changes().removedRelation</code> when the edge existed when the tick
+      began (relate-then-unrelate within one tick nets to nothing) and
       fires <a href="#onrelationremoved"><code>onRelationRemoved</code></a> per edge.
     </p>
 
@@ -907,24 +911,19 @@ if (world.entityExists(id)) world.updateComponent(id, Position, (p) =&gt; ({ ...
       <strong>net transition since the tick began</strong> — absent→present = added,
       present→present with ≥ 1 write = changed, present→absent = removed, absent→absent =
       nothing — disjoint by definition. See <a href="index.html#net-cancellation">the partition
-      rule</a>. The per-tick buffer queries that predated this (<code>queryChanged</code> /
-      <code>queryAdded</code> / <code>queryRemoved</code> and their tag/relation/resource twins)
-      were <strong>removed in v0.16</strong>: each is now the value-carrying accessor of the same
-      name on <code>changes()</code> — <code>queryAdded(C)</code> → <code>changes().added(C)</code>,
-      returning a <code>Map</code>/<code>Set</code> whose keys are the entity ids the buffer
-      returned.
+      rule</a>.
     </p>
 
     <h3 id="changes">changes<a class="anchor" href="#changes">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>changes(): WorldChanges</code></pre></figure>
     <p>
-      The net change detection for the current tick, carrying values — the value-carrying
-      successor to the buffer queries. A <strong>live view</strong>: the window accumulates as
+      The net change detection for the current tick, carrying values. A <strong>live view</strong>:
+      the window accumulates as
       the tick runs, but each accessor <em>call</em> materializes a stable snapshot (every value
       is a zero-copy reference to an immutable store snapshot; only the container is fresh), so
       iterating one while the loop body mutates the world is safe, and a later call reflects
-      later writes. Not retainable across a tick. The accessors mirror the buffers one-for-one
-      and add values:
+      later writes. Not retainable across a tick. One accessor per partition slot, each keyed by
+      entity id and carrying the value:
     </p>
 <figure class="code sig" data-lang="ts"><pre><code>interface WorldChanges {
   readonly tick: number;
@@ -1081,18 +1080,19 @@ interface DeliveredChanges extends WorldChanges {
       Fires when an edge is removed — via <code>unrelate</code>, exclusivity replacement, or
       <code>destroyEntity</code> of either endpoint. During a destroy the dying entity's
       components and tags are still readable from the handler, but mutating the world
-      mid-sweep throws: read freely, react from a system over
-      <code>queryRelationRemoved</code> or an <code>onTargetDestroy</code> policy instead.
+      mid-sweep throws: read freely, react from a later system over
+      <code>changes().removedRelation</code> or an <code>onTargetDestroy</code> policy instead.
     </p>
 
     <h3 id="onresourcechanged">onResourceChanged<a class="anchor" href="#onresourcechanged">#</a></h3>
 <figure class="code sig" data-lang="ts"><pre><code>onResourceChanged&lt;T&gt;(type: ResourceType&lt;T&gt;, handler: (prev: T, next: T) =&gt; void): Unsubscribe</code></pre></figure>
     <p>
-      Fires synchronously inside every <code>setResource</code>, after the merge —
-      <code>prev</code> is a top-level pre-merge snapshot (the object itself never aliases
-      <code>next</code>; nested values the merge didn't replace are shared — safe, since
+      Fires synchronously inside every <code>setResource</code> (after the merge) and
+      <code>updateResource</code> (after the recipe) — <code>prev</code> is a top-level snapshot
+      of the value before the write (the object itself never aliases
+      <code>next</code>; nested values a merge didn't replace are shared — safe, since
       stored values are only ever replaced, never mutated in place),
-      <code>next</code> is the live post-merge value. No per-entity filter (resources are
+      <code>next</code> is the live post-write value. No per-entity filter (resources are
       singletons). Subscribing lazily creates the store. Handlers can read
       <code>mutationOrigin</code>.
     </p>
@@ -1137,7 +1137,7 @@ interface DeliveredChanges extends WorldChanges {
       <li><strong>Re-entrant:</strong> nested calls stack; innermost wins; exiting restores the enclosing origin — also on throw.</li>
       <li><strong>Returns</strong> <code>fn</code>'s return value.</li>
       <li><strong>Synchronous only:</strong> if <code>fn</code> is async, mutations after the first <code>await</code> are <em>not</em> tagged — re-enter <code>withOrigin</code> in continuations.</li>
-      <li><code>destroyEntity</code> cascades — teardown events and relation policy effects — inherit the origin active at the call site. Per-tick buffers stay origin-blind.</li>
+      <li><code>destroyEntity</code> cascades — teardown events and relation policy effects — inherit the origin active at the call site. <code>changes()</code> stays origin-blind; per-origin attribution rides on the delivered <a href="#onchanges"><code>onChanges</code></a> runs.</li>
     </ul>
 <figure class="code" data-lang="ts"><pre><code>const REMOTE = Symbol('remote');
 
@@ -1231,9 +1231,7 @@ applyChanges(world, c, { origin: HISTORY, invert: true }); // undo</code></pre><
       <a href="#changes"><code>changes()</code></a> window, delivers, fires
       <a href="#onframe"><code>onFrame</code></a>, and increments
       <a href="#currenttick"><code>currentTick</code></a> as one indivisible step; there is no
-      public way to advance the frame without delivering. (The old <code>incrementTick</code> /
-      <code>emitFrame</code> escape hatches are gone — they let a caller advance the frame
-      without committing.)
+      public way to advance the frame without delivering.
     </p>
   </section>
 
@@ -1468,9 +1466,9 @@ type EntityDescriber = (world: World, e: EntityId) =&gt; EntityDescriptor;</code
 }</code></pre></figure>
     <p>
       <code>runIf</code> is evaluated immediately before the system would run, so it sees
-      same-tick writes from earlier systems via the per-tick buffers. On a skip the profiler's
+      same-tick writes from earlier systems via <code>changes()</code>. On a skip the profiler's
       optional <code>skipSystem</code> fires instead of <code>beginSystem</code>/<code>endSystem</code>.
-      Caveat: buffers clear at end of tick — order lazy readers after their writers.
+      Caveat: the <code>changes()</code> window resets at end of tick — order lazy readers after their writers.
     </p>
 
     <h3 id="systemprofiler">SystemProfiler<a class="anchor" href="#systemprofiler">#</a></h3>

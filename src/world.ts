@@ -258,7 +258,8 @@ export function createWorld(options?: CreateWorldOptions): World {
 		if (tearingDown) {
 			throw new Error(
 				'cannot mutate the world from a handler during entity teardown — ' +
-					'react via the removed buffers or an onTargetDestroy policy instead',
+					'react from a later system over changes().removed / changes().removedRelation, ' +
+					'or via an onTargetDestroy policy, instead',
 			);
 		}
 	}
