@@ -34,7 +34,7 @@ describe('onChanges — delivered change detection (RFC-006)', () => {
 
 		const runs: DeliveredChanges[] = [];
 		world.onChanges((c) => runs.push(c));
-		world.patchComponent(e, Position, { x: 9 });
+		world.updateComponent(e, Position, (p) => ({ ...p, x: 9 }));
 		tickWorld(world);
 		expect(runs[0].changed(Position).get(e)).toEqual({
 			prev: { x: 1, y: 2 },
@@ -75,9 +75,9 @@ describe('onChanges — delivered change detection (RFC-006)', () => {
 		const runs: DeliveredChanges[] = [];
 		world.onChanges((d) => runs.push(d));
 		tickWorld(world, (w) => {
-			w.patchComponent(a, Position, { x: 1 }); // local
-			w.withOrigin(REMOTE, () => w.patchComponent(b, Position, { x: 2 })); // remote
-			w.patchComponent(c, Position, { x: 3 }); // local again
+			w.updateComponent(a, Position, (p) => ({ ...p, x: 1 })); // local
+			w.withOrigin(REMOTE, () => w.updateComponent(b, Position, (p) => ({ ...p, x: 2 }))); // remote
+			w.updateComponent(c, Position, (p) => ({ ...p, x: 3 })); // local again
 		});
 
 		expect(runs.map((r) => r.origin)).toEqual([undefined, REMOTE, undefined]);
@@ -95,8 +95,8 @@ describe('onChanges — delivered change detection (RFC-006)', () => {
 		const runs: DeliveredChanges[] = [];
 		world.onChanges((d) => runs.push(d));
 		tickWorld(world, (w) => {
-			w.patchComponent(e, Position, { x: 10 }); // local run
-			w.withOrigin(REMOTE, () => w.patchComponent(e, Position, { x: 99 })); // remote run, same entity
+			w.updateComponent(e, Position, (p) => ({ ...p, x: 10 })); // local run
+			w.withOrigin(REMOTE, () => w.updateComponent(e, Position, (p) => ({ ...p, x: 99 }))); // remote run, same entity
 		});
 
 		// The local run carries the value AT THE SEAL boundary (10), not 99.

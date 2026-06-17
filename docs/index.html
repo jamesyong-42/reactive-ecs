@@ -558,7 +558,7 @@
     </p>
     <p>reactive-ecs makes the opposite trade. The library owns component storage, and because it owns the store, it can make guarantees a bring-your-own-storage toolkit cannot:</p>
     <ul>
-      <li><strong>Every write through the world API emits.</strong> <code>addComponent</code> / <code>patchComponent</code> / <code>removeComponent</code> all notify observers — no <code>set()</code> ceremony to forget. The flip side of the contract: reads hand you the stored object, so treat it as read-only and write through the API.</li>
+      <li><strong>Every write through the world API emits.</strong> <code>addComponent</code> / <code>updateComponent</code> / <code>removeComponent</code> all notify observers — no <code>set()</code> ceremony to forget. The flip side of the contract: reads hand you the stored object, so treat it as read-only and write through the API.</li>
       <li><strong>Subscriptions can target a single entity.</strong> <code>onComponentChanged(Position, handler, entityId)</code> is exactly the shape a <code>useComponent()</code> hook needs.</li>
       <li><strong>Removal is observable with the data still readable.</strong> <code>onComponentRemoved</code> fires <em>before</em> deletion, so handlers can release GPU buffers, DOM nodes, or subscriptions keyed by the dying value.</li>
       <li><strong>Entity ids never lie.</strong> Ids are monotonic and never reused — <code>entityExists(staleId)</code> is <code>false</code> forever.</li>
@@ -635,7 +635,7 @@ const movement = defineSystem({
     for (const id of w.query(Position, Velocity)) {
       const p = w.getComponent(id, Position)!;
       const v = w.getComponent(id, Velocity)!;
-      w.patchComponent(id, Position, { x: p.x + v.dx, y: p.y + v.dy });
+      w.updateComponent(id, Position, (pos) =&gt; ({ ...pos, x: p.x + v.dx, y: p.y + v.dy }));
     }
   },
 });
@@ -755,47 +755,45 @@ const Path = defineComponent('Path', {
 world.hasComponent(e, Position);                   // true
 world.getComponent(e, Position);                   // { x: 10, y: 20 } | undefined
 
-world.patchComponent(e, Position, { x: 15 });      // strict shallow-merge update
+world.updateComponent(e, Position, (p) => ({ ...p, x: 15 })); // functional update
 world.getComponent(e, Position);                   // { x: 15, y: 20 }
 
 world.removeComponent(e, Position);                // detach (fires onComponentRemoved)</code></pre></figure>
     <ul>
       <li><strong><code>addComponent</code> is the upsert.</strong> It shallow-merges your data over the defined defaults (partial initialization is safe) and attach-or-replaces: re-adding replaces the value, with the existing value as <code>prev</code> in observers.</li>
-      <li><strong>Defensive clone on every write.</strong> Plain objects and arrays in incoming data are deep-cloned at any depth, so two entities never share nested state by accident and a reference you keep to data you passed can never mutate world state behind the API. Class instances are kept by reference, deliberately: the library never clones what it can't reconstruct. (Data must be acyclic.)</li>
-      <li><strong><code>patchComponent</code> is the strict update.</strong> It takes a <code>Partial&lt;T&gt;</code> and merges it over the current value — <em>one level deep</em> — and emits a change event. It never creates: absence is never silent, so it throws rather than no-op when the target is missing.</li>
+      <li><strong>Freeze on every write.</strong> Managed plain data (arrays and <code>{}</code>-objects) is deep-frozen in place on the way in — immutable by construction, no defensive clone. Two entities can safely share a frozen subtree (it can only be replaced, never mutated), and a reference you keep to data you passed is now frozen too. Class instances and typed arrays are borrowed by reference. (Data must be acyclic and free of accessors.)</li>
+      <li><strong><code>updateComponent</code> is the functional update.</strong> It takes a recipe <code>(prev) =&gt; next</code> — <code>p =&gt; ({ ...p, x })</code> is the one-level merge — and emits a change event. Returning <code>prev</code> unchanged is a free no-op. It never creates: absence is never silent, so it throws rather than no-op when the target is missing.</li>
     </ul>
     <p>The two error messages are the migration guide:</p>
 <figure class="code" data-lang="ts"><pre><code>// dead entity:
-//   patchComponent(Position): entity 42 does not exist or has been destroyed
+//   updateComponent(Position): entity 42 does not exist or has been destroyed
 // alive, but the component was never attached:
-//   patchComponent(Position): entity 42 has no Position — use addComponent to attach
+//   updateComponent(Position): entity 42 has no Position — use addComponent to attach
 
 // the idiomatic guard for writes that may race a destroy (async callbacks, timers):
-if (world.entityExists(id)) world.patchComponent(id, Position, { x: 15 });</code></pre></figure>
+if (world.entityExists(id)) world.updateComponent(id, Position, (p) =&gt; ({ ...p, x: 15 }));</code></pre></figure>
     <p>
-      One level deep means nested objects are replaced wholesale, not merged into — and
-      <code>Partial&lt;T&gt;</code> is partial at the <em>top</em> level only, so a nested
-      object must be passed complete:
+      A spread recipe merges one level only — nested objects are replaced wholesale, not merged
+      into — so to update one nested field, spread the current value:
     </p>
 <figure class="code" data-lang="ts"><pre><code>const Transform = defineComponent('Transform', {
   position: { x: 0, y: 0 },
   rotation: 0,
 });
 
-// nested objects replace wholesale — there is no deep merge
-world.patchComponent(e, Transform, { position: { x: 10, y: 0 } });
+// a spread replaces a nested object wholesale — the spread is one level deep
+world.updateComponent(e, Transform, (t) =&gt; ({ ...t, position: { x: 10, y: 0 } }));
 // → { position: { x: 10, y: 0 }, rotation: 0 }
 
-// to update one nested field, spread the current value:
-const t = world.getComponent(e, Transform)!;
-world.patchComponent(e, Transform, { position: { ...t.position, x: 10 } });</code></pre></figure>
+// to update one nested field, spread the nested value too:
+world.updateComponent(e, Transform, (t) =&gt; ({ ...t, position: { ...t.position, x: 10 } }));</code></pre></figure>
 
     <h3 id="op-semantics">Operation semantics<a class="anchor" href="#op-semantics">#</a></h3>
     <div class="table-wrap"><table>
       <thead><tr><th>Operation</th><th>If present</th><th>If missing</th><th>If entity dead</th></tr></thead>
       <tbody>
         <tr><td><code>addComponent</code></td><td>replaces — observers fire with <code>prev =</code> the old value; the <code>changes()</code> window records the net transition (<code>changes().changed(C)</code> if present at tick start)</td><td>attaches (<code>data</code> optional/partial — merged over defaults)</td><td>throws</td></tr>
-        <tr><td><code>patchComponent</code></td><td>shallow-merges + emits</td><td><strong>throws</strong> — use <code>addComponent</code> to attach</td><td>throws</td></tr>
+        <tr><td><code>updateComponent</code></td><td>recipe <code>prev=&gt;next</code> + emits (no-op skip if <code>prev</code> returned)</td><td><strong>throws</strong> — use <code>addComponent</code> to attach</td><td>throws</td></tr>
         <tr><td><code>removeComponent</code></td><td>removes (event fires first)</td><td>no-op</td><td>no-op</td></tr>
         <tr><td><code>addTag</code></td><td>no-op</td><td>adds</td><td>throws</td></tr>
         <tr><td><code>removeTag</code></td><td>removes</td><td>no-op</td><td>no-op</td></tr>
@@ -803,7 +801,7 @@ world.patchComponent(e, Transform, { position: { ...t.position, x: 10 } });</cod
       </tbody>
     </table></div>
     <p>
-      Two facts worth memorizing: <code>patchComponent</code> against absence throws — its
+      Two facts worth memorizing: <code>updateComponent</code> against absence throws — its
       error message names the fix — and because re-adding reports the true previous value,
       <code>prev === undefined</code> in <code>onComponentChanged</code> reliably means
       "first attach". A full-value replace is just <code>addComponent</code> with the
@@ -812,17 +810,16 @@ world.patchComponent(e, Transform, { position: { ...t.position, x: 10 } });</cod
     <div class="callout">
       <span class="callout-tag">The contract</span>
       <p>
-        All writes go through <code>addComponent</code> / <code>patchComponent</code> /
+        All writes go through <code>addComponent</code> / <code>updateComponent</code> /
         <code>removeComponent</code>, which is what lets the library guarantee that every
         change is queryable via <a href="#change-tracking">change tracking</a> and observable
-        via <a href="#events">events</a>. One ownership rule covers both directions: plain
-        data crossing the API boundary is owned by the world — cloned on the way in, and
-        stored values are replaced on write, never mutated in place. Don't mutate the object
-        returned by <code>getComponent</code> — the <code>Readonly</code> typing enforces
-        that at compile time, and <code>createWorld({ freeze: true })</code> enforces it at
-        runtime in development by deep-freezing exactly what the world clones (plain
-        objects/arrays at any depth; never class instances). Clone and freeze are two
-        enforcements of the same boundary.
+        via <a href="#events">events</a>. One ownership rule covers both directions: managed
+        plain data crossing the API boundary is owned by the world — frozen in place on the way
+        in (immutable by construction, no defensive clone), and stored values are replaced on
+        write, never mutated. Don't mutate the object returned by <code>getComponent</code> —
+        the <code>Readonly</code> typing flags that at compile time, and the deep freeze (every
+        build, not just dev) throws at runtime. Borrowed values (class instances, typed arrays)
+        are by reference and outside the freeze — change them by replacement.
       </p>
     </div>
   </section>
@@ -1071,7 +1068,7 @@ world.query(Position, Not(Velocity));   // one scan, cached + maintained again</
     </ul>
 <figure class="code" data-lang="ts"><pre><code>// within one tick, component absent when the tick began:
 world.addComponent(e, Position, { x: 1 });   // event fires (prev = undefined)
-world.patchComponent(e, Position, { x: 2 }); // event fires (prev = {x:1})
+world.updateComponent(e, Position, (p) =&gt; ({ ...p, x: 2 })); // event fires (prev = {x:1})
 world.removeComponent(e, Position);          // event fires (prev = {x:2})
 
 world.changes().added(Position);   // empty — net absent→absent
@@ -1174,7 +1171,7 @@ const UNDO = Symbol('undo-replay');
 
 // The sync adapter applies a remote batch without re-broadcasting it:
 world.withOrigin(REMOTE, () =&gt; {
-  world.patchComponent(id, Position, { x: 10 });
+  world.updateComponent(id, Position, (p) =&gt; ({ ...p, x: 10 }));
 });
 
 // The broadcaster skips remote echoes and undo replays:
@@ -1593,8 +1590,8 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>entityExists(id)</code></td><td><code>true</code> while alive; <code>false</code> forever after destroy.</td></tr>
         <tr><td><code>createEntityWithId(id)</code></td><td>Create under a caller-chosen id — for restore; ascending order, throws on consumed ids.</td></tr>
         <tr><td><code>setNextEntityId(n)</code></td><td>Restore the id counter exactly (forward only).</td></tr>
-        <tr><td><code>addComponent(e, C, data?)</code></td><td>Upsert — attach-or-replace; data merged over defaults, deep-cloned.</td></tr>
-        <tr><td><code>patchComponent(e, C, partial)</code></td><td>Strict shallow-merge update; throws on a dead entity or an absent component.</td></tr>
+        <tr><td><code>addComponent(e, C, data?)</code></td><td>Upsert — attach-or-replace; data merged over defaults, frozen on write.</td></tr>
+        <tr><td><code>updateComponent(e, C, prev=&gt;next)</code></td><td>Functional update; no-op skip if <code>prev</code> returned; throws on a dead entity or an absent component.</td></tr>
         <tr><td><code>removeComponent(e, C)</code></td><td>Detach <code>C</code>; fires <code>onComponentRemoved</code> first.</td></tr>
         <tr><td><code>getComponent(e, C)</code></td><td>Current value or <code>undefined</code>.</td></tr>
         <tr><td><code>hasComponent(e, C)</code></td><td>Presence check.</td></tr>

@@ -93,7 +93,7 @@ describe('World', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 10, y: 20 });
-			world.patchComponent(e, Position, { x: 99 });
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 99 }));
 			const pos = world.getComponent(e, Position);
 			expect(pos).toBeDefined();
 			if (!pos) throw new Error('Position component missing');
@@ -118,7 +118,7 @@ describe('World', () => {
 			expect(world.getComponent(e, Label)?.text).toBe('Hello World');
 		});
 
-		it('defaults containing an array of objects are not shared between entities', () => {
+		it('defaults containing an array of objects are shared (frozen) between entities — RFC-007', () => {
 			const Path = defineComponent('Path', { points: [{ x: 0 }] });
 			const world = createWorld();
 			const e1 = world.createEntity();
@@ -129,9 +129,11 @@ describe('World', () => {
 			const p1 = world.getComponent(e1, Path);
 			const p2 = world.getComponent(e2, Path);
 			if (!p1 || !p2) throw new Error('Path component missing');
-			// Objects inside arrays are cloned per entity — distinct identities.
-			expect(p1.points[0]).not.toBe(p2.points[0]);
-			expect(p1.points[0]).not.toBe(Path.defaults.points[0]);
+			// Freeze-on-write shares the frozen default subtree across instances (no
+			// copy); safe because it can only ever be replaced wholesale, never mutated.
+			expect(p1.points[0]).toBe(p2.points[0]);
+			expect(p1.points[0]).toBe(Path.defaults.points[0]);
+			expect(Object.isFrozen(p1.points[0])).toBe(true);
 			expect(p1.points[0]).toEqual({ x: 0 });
 		});
 
@@ -146,23 +148,23 @@ describe('World', () => {
 		});
 	});
 
-	describe('patchComponent', () => {
-		it('shallow-merges one level — untouched fields survive', () => {
+	describe('updateComponent', () => {
+		it('a spread recipe merges one level — untouched fields survive', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1, y: 2 });
-			world.patchComponent(e, Position, { x: 9 });
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 9 }));
 			expect(world.getComponent(e, Position)).toEqual({ x: 9, y: 2 });
 		});
 
-		it('nested objects in the patch replace wholesale — the merge is one level deep', () => {
+		it('a spread recipe replaces a nested object wholesale (the spread is one level deep)', () => {
 			const Style = defineComponent('PatchStyle', {
 				fill: { color: 'red', opacity: 1 } as Record<string, unknown>,
 			});
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Style);
-			world.patchComponent(e, Style, { fill: { color: 'blue' } });
+			world.updateComponent(e, Style, (p) => ({ ...p, fill: { color: 'blue' } }));
 			// The nested object is replaced, not merged — opacity is gone.
 			expect(world.getComponent(e, Style)).toEqual({ fill: { color: 'blue' } });
 		});
@@ -175,7 +177,7 @@ describe('World', () => {
 
 			const handler = vi.fn();
 			world.onComponentChanged(Position, handler);
-			world.patchComponent(e, Position, { x: 9 });
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 9 }));
 
 			expect(handler).toHaveBeenCalledTimes(1);
 			expect(handler).toHaveBeenCalledWith(e, { x: 1, y: 2 }, { x: 9, y: 2 });
@@ -188,16 +190,16 @@ describe('World', () => {
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 0, y: 0 });
 			world.destroyEntity(e);
-			expect(() => world.patchComponent(e, Position, { x: 1 })).toThrow(
-				`patchComponent(Position): entity ${e} does not exist or has been destroyed`,
+			expect(() => world.updateComponent(e, Position, (p) => ({ ...p, x: 1 }))).toThrow(
+				`updateComponent(Position): entity ${e} does not exist or has been destroyed`,
 			);
 		});
 
 		it('throws when the entity is alive but lacks the component', () => {
 			const world = createWorld();
 			const e = world.createEntity();
-			expect(() => world.patchComponent(e, Position, { x: 1 })).toThrow(
-				`patchComponent(Position): entity ${e} has no Position — use addComponent to attach`,
+			expect(() => world.updateComponent(e, Position, (p) => ({ ...p, x: 1 }))).toThrow(
+				`updateComponent(Position): entity ${e} has no Position — use addComponent to attach`,
 			);
 		});
 	});
@@ -291,7 +293,7 @@ describe('World', () => {
 			tickWorld(world);
 
 			// Only e1 is dirty after patch
-			world.patchComponent(e1, Position, { x: 99 });
+			world.updateComponent(e1, Position, (p) => ({ ...p, x: 99 }));
 			const changed = [...world.changes().changed(Position).keys()];
 			expect(changed).toHaveLength(1);
 			expect(changed).toContain(e1);
@@ -455,7 +457,7 @@ describe('World', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1 });
-			world.patchComponent(e, Position, { y: 2 });
+			world.updateComponent(e, Position, (p) => ({ ...p, y: 2 }));
 			expect([...world.changes().added(Position).keys()]).toEqual([e]);
 			expect([...world.changes().changed(Position).keys()]).toEqual([]);
 			expect([...world.changes().removed(Position).keys()]).toEqual([]);
@@ -466,7 +468,7 @@ describe('World', () => {
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1 });
 			tickWorld(world);
-			world.patchComponent(e, Position, { x: 2 });
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 2 }));
 			expect([...world.changes().changed(Position).keys()]).toEqual([e]);
 			expect([...world.changes().added(Position).keys()]).toEqual([]);
 			expect([...world.changes().removed(Position).keys()]).toEqual([]);
@@ -500,7 +502,7 @@ describe('World', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Position, { x: 1 });
-			world.patchComponent(e, Position, { x: 2 });
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 2 }));
 			world.addTag(e, Selected);
 			world.destroyEntity(e);
 			expect([...world.changes().added(Position).keys()]).toEqual([]);
@@ -519,7 +521,7 @@ describe('World', () => {
 			tickWorld(world);
 			world.removeComponent(e, Position);
 			world.addComponent(e, Position, { x: 5 });
-			world.patchComponent(e, Position, { y: 9 });
+			world.updateComponent(e, Position, (p) => ({ ...p, y: 9 }));
 			expect([...world.changes().changed(Position).keys()]).toEqual([e]);
 			expect([...world.changes().added(Position).keys()]).toEqual([]);
 			expect([...world.changes().removed(Position).keys()]).toEqual([]);
@@ -855,7 +857,7 @@ describe('World', () => {
 			expect(handler).toHaveBeenCalledTimes(1);
 
 			unsub();
-			world.patchComponent(e, Position, { x: 99 });
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 99 }));
 			expect(handler).toHaveBeenCalledTimes(1); // not called again
 		});
 
@@ -989,10 +991,10 @@ describe('World', () => {
 		});
 	});
 
-	describe('freeze option — dev-mode ownership enforcement', () => {
+	describe('freeze-on-write — ownership enforcement (RFC-007, always on)', () => {
 		it('freeze on: mutating a component read throws in strict mode — top level and nested', () => {
 			const Box = defineComponent('FreezeBox', { v: 0, nested: { count: 0 }, list: [1] });
-			const world = createWorld({ freeze: true });
+			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Box, { v: 1 });
 
@@ -1014,10 +1016,10 @@ describe('World', () => {
 
 		it('freeze on: patched values are frozen too — the API write path still works', () => {
 			const Box = defineComponent('FreezeBox2', { v: 0, nested: { count: 0 } });
-			const world = createWorld({ freeze: true });
+			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Box);
-			world.patchComponent(e, Box, { nested: { count: 5 } });
+			world.updateComponent(e, Box, (p) => ({ ...p, nested: { count: 5 } }));
 
 			const read = world.getComponent(e, Box) as { v: number; nested: { count: number } };
 			expect(read).toEqual({ v: 0, nested: { count: 5 } });
@@ -1028,7 +1030,7 @@ describe('World', () => {
 
 		it('freeze on: mutating a resource read throws — including nested plain objects', () => {
 			const Cfg = defineResource('FreezeCfg', { opts: { darkMode: false } });
-			const world = createWorld({ freeze: true });
+			const world = createWorld();
 			world.setResource(Cfg, { opts: { darkMode: true } });
 
 			const read = world.getResource(Cfg) as { opts: { darkMode: boolean } };
@@ -1048,7 +1050,7 @@ describe('World', () => {
 				count = 0;
 			}
 			const Indexed = defineComponent('FreezeIndexed', { index: null as SpatialIndex | null });
-			const world = createWorld({ freeze: true });
+			const world = createWorld();
 			const e = world.createEntity();
 			const instance = new SpatialIndex();
 			world.addComponent(e, Indexed, { index: instance });
@@ -1060,16 +1062,16 @@ describe('World', () => {
 			expect(instance.count).toBe(7);
 		});
 
-		it('default off: reads stay mutable in place (unchanged behavior)', () => {
+		it('reads are frozen unconditionally — no opt-out (RFC-007)', () => {
 			const Box = defineComponent('NoFreezeBox', { nested: { count: 0 } });
-			const world = createWorld();
+			const world = createWorld(); // no freeze option — freezing is always on
 			const e = world.createEntity();
 			world.addComponent(e, Box);
 			const read = world.getComponent(e, Box) as { nested: { count: number } };
 			expect(() => {
 				read.nested.count = 42;
-			}).not.toThrow();
-			expect(world.getComponent(e, Box)?.nested.count).toBe(42);
+			}).toThrow(TypeError);
+			expect(world.getComponent(e, Box)?.nested.count).toBe(0);
 		});
 	});
 
@@ -1129,7 +1131,7 @@ describe('World', () => {
 	describe('mutation guard during the destroy sweep', () => {
 		const GUARD = /cannot mutate the world from a handler during entity teardown/;
 
-		it('a handler mutating during destroy throws — addComponent / patchComponent / destroyEntity / relate', () => {
+		it('a handler mutating during destroy throws — addComponent / updateComponent / destroyEntity / relate', () => {
 			const world = createWorld();
 			const e = world.createEntity();
 			const other = world.createEntity();
@@ -1140,7 +1142,9 @@ describe('World', () => {
 			world.onComponentRemoved(Position, (id) => {
 				if (id !== e) return;
 				expect(() => world.addComponent(other, Velocity, { dx: 1 })).toThrow(GUARD);
-				expect(() => world.patchComponent(other, Position, { x: 9 })).toThrow(GUARD);
+				expect(() => world.updateComponent(other, Position, (p) => ({ ...p, x: 9 }))).toThrow(
+					GUARD,
+				);
 				expect(() => world.destroyEntity(other)).toThrow(GUARD);
 				expect(() => world.relate(other, defineRelation('GuardRel'), other)).toThrow(GUARD);
 				checked = true;
@@ -1530,49 +1534,57 @@ describe('World', () => {
 	});
 
 	describe('resource defaults', () => {
-		it('deep-clones nested objects so worlds do not share state via defaults', () => {
+		it('default values are frozen — worlds cannot corrupt shared defaults (RFC-007)', () => {
 			const Config = defineResource('Config', { nested: { count: 0 } });
 			const w1 = createWorld();
 			const w2 = createWorld();
 
-			w1.getResource(Config).nested.count = 42;
+			expect(() => {
+				(w1.getResource(Config) as { nested: { count: number } }).nested.count = 42;
+			}).toThrow(TypeError);
 			expect(w2.getResource(Config).nested.count).toBe(0);
 		});
 
-		it('deep-clones nested arrays', () => {
+		it('default arrays are frozen (RFC-007)', () => {
 			const Config = defineResource('WithArray', { tags: ['a', 'b'] });
 			const w1 = createWorld();
 			const w2 = createWorld();
 
-			w1.getResource(Config).tags.push('c');
+			expect(() => w1.getResource(Config).tags.push('c')).toThrow(TypeError);
 			expect(w2.getResource(Config).tags).toEqual(['a', 'b']);
 		});
 	});
 
 	describe('write aliasing', () => {
-		it('patchComponent clones incoming plain data — caller aliases cannot mutate world state', () => {
+		it('updateComponent freezes incoming plain data — caller aliases are frozen, world independent (RFC-007)', () => {
 			const Box = defineComponent('AliasBox', { inner: { v: 0 }, list: [0] });
 			const world = createWorld();
 			const e = world.createEntity();
 			world.addComponent(e, Box);
 			const inner = { v: 99 };
 			const data = { inner, list: [1, 2] };
-			world.patchComponent(e, Box, data);
-			inner.v = 123;
-			data.list.push(3);
+			world.updateComponent(e, Box, (p) => ({ ...p, ...data }));
+			// Freeze-on-write: the handed-over plain data is now frozen — a later
+			// caller mutation throws instead of silently corrupting the store.
+			expect(() => {
+				inner.v = 123;
+			}).toThrow(TypeError);
+			expect(() => data.list.push(3)).toThrow(TypeError);
 			expect(world.getComponent(e, Box)).toEqual({ inner: { v: 99 }, list: [1, 2] });
 		});
 
-		it('setResource clones incoming plain data — caller aliases cannot mutate world state', () => {
+		it('setResource freezes incoming plain data — caller aliases are frozen (RFC-007)', () => {
 			const Cfg = defineResource('AliasConfig', { opts: { darkMode: false } });
 			const world = createWorld();
 			const opts = { darkMode: true };
 			world.setResource(Cfg, { opts });
-			opts.darkMode = false;
+			expect(() => {
+				opts.darkMode = false;
+			}).toThrow(TypeError);
 			expect(world.getResource(Cfg).opts.darkMode).toBe(true);
 		});
 
-		it('patchComponent prev snapshot does not alias next at the top level', () => {
+		it('updateComponent prev snapshot does not alias next at the top level', () => {
 			const Box = defineComponent('AliasBox2', { v: 0 });
 			const world = createWorld();
 			const e = world.createEntity();
@@ -1581,7 +1593,7 @@ describe('World', () => {
 			world.onComponentChanged(Box, (_id, prev, next) => {
 				captured = { prev, next };
 			});
-			world.patchComponent(e, Box, { v: 1 });
+			world.updateComponent(e, Box, (p) => ({ ...p, v: 1 }));
 			expect(captured.prev).not.toBe(captured.next);
 			expect(captured.prev).toEqual({ v: 0 });
 			expect(captured.next).toEqual({ v: 1 });

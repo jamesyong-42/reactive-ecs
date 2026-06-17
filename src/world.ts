@@ -1,3 +1,4 @@
+import { freezePlain, mergePlain } from './freeze.js';
 import type {
 	Change,
 	ComponentChangedHandler,
@@ -184,54 +185,6 @@ function subscribeRelationHandler(
 }
 
 /**
- * Recursively clone plain data: arrays and objects whose constructor is
- * `Object` are copied; class instances (and anything else) are kept by
- * reference. No cycle detection — inputs must be acyclic plain data.
- */
-function clonePlainData(value: unknown): unknown {
-	if (Array.isArray(value)) {
-		return value.map(clonePlainData);
-	}
-	if (value !== null && typeof value === 'object' && (value as object).constructor === Object) {
-		const out: Record<string, unknown> = {};
-		for (const key in value as Record<string, unknown>) {
-			out[key] = clonePlainData((value as Record<string, unknown>)[key]);
-		}
-		return out;
-	}
-	return value;
-}
-
-/**
- * Instantiate a value from `defaults`, applying optional `overrides`, and
- * recursively clone nested arrays / plain objects so callers can't
- * accidentally share state with the type's defaults or with each other.
- * Class instances are kept by reference. Defaults and init data must be
- * acyclic plain data — there is no cycle detection.
- */
-function instantiateDefaults<T>(defaults: T, overrides?: Partial<T>): T {
-	const merged = (overrides ? { ...defaults, ...overrides } : { ...defaults }) as T;
-	for (const key in merged) {
-		(merged as Record<string, unknown>)[key] = clonePlainData(merged[key]);
-	}
-	return merged;
-}
-
-/**
- * Defensive clone of incoming partial write data — same plain-data rules as
- * `instantiateDefaults` (arrays / plain objects cloned recursively, class
- * instances by reference). Used by `patchComponent` / `setResource` so a
- * caller-held alias to nested data can never mutate world state silently.
- */
-function clonePartial<T>(data: Partial<T>): Partial<T> {
-	const out = { ...data };
-	for (const key in out) {
-		(out as Record<string, unknown>)[key] = clonePlainData(out[key]);
-	}
-	return out;
-}
-
-/**
  * Classify a key's NET transition since the last clearDirty() into exactly
  * one per-tick buffer. `baseline` records presence at the FIRST touch this
  * tick; each subsequent mutation re-derives the net transition against it:
@@ -268,27 +221,6 @@ function classifyTransition<K>(
 }
 
 /**
- * Recursively deep-freeze plain data in place — the mirror of
- * `clonePlainData`: arrays and objects whose constructor is `Object` are
- * frozen at every depth; class instances (and anything else) are left
- * untouched. Freezing exactly what the world clones makes clone and freeze
- * two enforcements of the same ownership boundary.
- */
-function deepFreezePlain(value: unknown): void {
-	if (Array.isArray(value)) {
-		Object.freeze(value);
-		for (const item of value) deepFreezePlain(item);
-		return;
-	}
-	if (value !== null && typeof value === 'object' && (value as object).constructor === Object) {
-		Object.freeze(value);
-		for (const key in value as Record<string, unknown>) {
-			deepFreezePlain((value as Record<string, unknown>)[key]);
-		}
-	}
-}
-
-/**
  * The world with its internal frame driver. `advanceFrame` is the single
  * seal→reset→deliver→emitFrame→incrementTick step that `tickWorld` calls; it is
  * deliberately off the public `World` type so the tick is the only entry point.
@@ -306,15 +238,8 @@ export interface WorldInternal extends World {
 export function createWorld(options?: CreateWorldOptions): World {
 	let nextEntityId = 1;
 	let currentTick = 0;
-	// Dev-mode ownership enforcement — freeze exactly what the world clones,
-	// wherever cloned data enters a store. See CreateWorldOptions.freeze.
-	const freezeEnabled = options?.freeze === true;
-
-	/** Deep-freeze plain data entering a store when `freeze` is on. */
-	function maybeFreeze<T>(value: T): T {
-		if (freezeEnabled) deepFreezePlain(value);
-		return value;
-	}
+	// Ownership (RFC-007): managed plain data entering a store is deep-frozen in
+	// place by freezePlain — immutable by construction, always on, every build.
 	// Origin tag for the current synchronous mutation window — set by
 	// withOrigin(), read by handlers via world.mutationOrigin. `undefined`
 	// (no window) is the unforgeable "local" origin.
@@ -596,7 +521,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 		}
 		const store: ResourceStore<T> = {
 			type,
-			value: maybeFreeze(instantiateDefaults(type.defaults)),
+			value: freezePlain(mergePlain(type.defaults)),
 			handlers: new Set(),
 		};
 		// Cast to the erased type held in the Map. Safe — see note on getComponentStore's return.
@@ -1251,9 +1176,15 @@ export function createWorld(options?: CreateWorldOptions): World {
 			// Attach-or-replace: prev distinguishes the two for observers; the
 			// buffers record the NET transition since the last clearDirty().
 			const prev = store.data.get(entity);
+			// Build + freeze the value FIRST — both can throw (accessor / cycle).
+			// Nothing observable is touched until the value is in hand, so a thrown
+			// write leaves the kernel's stores and change tracking unchanged (RFC-007
+			// atomicity). The merged result is frozen in place; managed plain data is
+			// immutable by construction (no defensive clone).
+			const merged = freezePlain(mergePlain(type.defaults, data));
+			// --- infallible tail: tracking + store + emit ---
 			// Capture the window-start value at first touch (backs changes()).
 			if (!store.windowPrev.has(entity)) store.windowPrev.set(entity, prev);
-			const merged = maybeFreeze(instantiateDefaults(type.defaults, data));
 			if (runTracking()) recordComponentRun(type.name, entity, prev !== undefined, true, prev);
 			store.data.set(entity, merged);
 			classifyTransition(
@@ -1306,33 +1237,29 @@ export function createWorld(options?: CreateWorldOptions): World {
 			return store.data.has(entity);
 		},
 
-		patchComponent<T>(entity: EntityId, type: ComponentType<T>, data: Partial<T>) {
+		updateComponent<T>(entity: EntityId, type: ComponentType<T>, recipe: (prev: Readonly<T>) => T) {
 			assertNotTearingDown();
 			if (!alive.has(entity)) {
 				throw new Error(
-					`patchComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
+					`updateComponent(${type.name}): entity ${entity} does not exist or has been destroyed`,
 				);
 			}
 			const store = getComponentStore(type);
 			const existing = store.data.get(entity);
 			if (existing === undefined) {
 				throw new Error(
-					`patchComponent(${type.name}): entity ${entity} has no ${type.name} — ` +
+					`updateComponent(${type.name}): entity ${entity} has no ${type.name} — ` +
 						`use addComponent to attach`,
 				);
 			}
-			// Capture the window-start value at first touch (backs changes()).
+			// Run the recipe and freeze its result FIRST — both can throw (user code,
+			// then accessor / cycle). Returning `prev` by reference is a pure no-op:
+			// nothing is written, no observer fires, the entity enters no buffer.
+			const next = recipe(existing as Readonly<T>);
+			if (Object.is(next, existing)) return;
+			freezePlain(next);
+			// --- infallible tail (atomicity: only reached once next is in hand) ---
 			if (!store.windowPrev.has(entity)) store.windowPrev.set(entity, existing);
-			// Clone incoming plain data so a caller-held alias can't mutate
-			// world state behind the API later, then REPLACE the stored object —
-			// stored values are never mutated in place (which also keeps frozen
-			// stores writable through the API). The displaced object becomes
-			// `prev`: it leaves the store at this write, so it never aliases the
-			// live value. Nested values the merge didn't replace are shared with
-			// `next`, which is safe: write paths clone incoming data and stored
-			// nested values are only ever replaced, never mutated.
-			const incoming = clonePartial(data);
-			const next = maybeFreeze({ ...existing, ...incoming } as T);
 			if (runTracking()) recordComponentRun(type.name, entity, true, true, existing);
 			store.data.set(entity, next);
 			classifyTransition(
@@ -1344,7 +1271,7 @@ export function createWorld(options?: CreateWorldOptions): World {
 				true,
 				true,
 			);
-			emitComponentChanged(store, entity, existing, next);
+			emitComponentChanged(store, entity, existing as T, next);
 		},
 
 		// === Tag access ===
@@ -1562,19 +1489,34 @@ export function createWorld(options?: CreateWorldOptions): World {
 		setResource<T>(type: ResourceType<T>, data: Partial<T>) {
 			assertNotTearingDown();
 			const store = getResourceStore(type);
-			changedResources.add(type.name);
-			// Clone incoming plain data — same aliasing guarantee as
-			// patchComponent — then REPLACE the stored value (never mutate in
-			// place). The displaced object becomes `prev`: it leaves the store at
-			// this write, so it never aliases the live value; untouched nested
-			// values are shared with `next` (safe — see patchComponent).
-			const incoming = clonePartial(data);
 			const prev = store.value;
-			// Capture the window-start value at first set this window (backs changes()).
+			// Build + freeze FIRST (atomicity, RFC-007): a descriptor merge of the
+			// partial over the frozen prior value, frozen in place. `changedResources`
+			// is marked only AFTER — a thrown write leaves change tracking untouched.
+			const next = freezePlain(mergePlain(prev, data));
+			// --- infallible tail ---
 			if (!resourceWindowPrev.has(type.name)) resourceWindowPrev.set(type.name, prev);
+			changedResources.add(type.name);
 			if (runTracking()) recordResourceRun(type.name, prev);
-			store.value = maybeFreeze({ ...prev, ...incoming } as T);
-			emitResourceChanged(store, prev, store.value);
+			store.value = next;
+			emitResourceChanged(store, prev, next);
+		},
+
+		updateResource<T>(type: ResourceType<T>, recipe: (prev: Readonly<T>) => T) {
+			assertNotTearingDown();
+			const store = getResourceStore(type);
+			const prev = store.value;
+			// Run recipe + freeze FIRST. Returning `prev` is a pure no-op (the store
+			// already exists from getResourceStore — instantiation is not a change).
+			const next = recipe(prev as Readonly<T>);
+			if (Object.is(next, prev)) return;
+			freezePlain(next);
+			// --- infallible tail ---
+			if (!resourceWindowPrev.has(type.name)) resourceWindowPrev.set(type.name, prev);
+			changedResources.add(type.name);
+			if (runTracking()) recordResourceRun(type.name, prev);
+			store.value = next;
+			emitResourceChanged(store, prev, next);
 		},
 
 		// === Events ===

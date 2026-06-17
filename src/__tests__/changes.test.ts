@@ -32,8 +32,8 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			world.addComponent(e, Position, { x: 1, y: 0 });
 			tickWorld(world); // close the window — {x:1} is now the baseline
 
-			world.patchComponent(e, Position, { x: 2 });
-			world.patchComponent(e, Position, { x: 3 });
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 2 }));
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 3 }));
 
 			const changed = world.changes().changed(Position);
 			expect([...changed.keys()]).toEqual([e]);
@@ -47,7 +47,7 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			world.addComponent(e, Position, { x: 1, y: 2 });
 			tickWorld(world);
 
-			world.patchComponent(e, Position, { x: 9 }); // replaced mid-window
+			world.updateComponent(e, Position, (p) => ({ ...p, x: 9 })); // replaced mid-window
 			world.removeComponent(e, Position);
 
 			const removed = world.changes().removed(Position);
@@ -229,10 +229,12 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 			tickWorld(world);
 
 			world.onComponentChanged(Position, () => {
-				world.patchComponent(e, Position, { x: 1 }); // re-triggers this handler
+				world.updateComponent(e, Position, (p) => ({ ...p, x: 1 })); // re-triggers this handler
 			});
 
-			expect(() => world.patchComponent(e, Position, { x: 1 })).toThrow(/re-entrancy/);
+			expect(() => world.updateComponent(e, Position, (p) => ({ ...p, x: 1 }))).toThrow(
+				/re-entrancy/,
+			);
 		});
 
 		it('does not fire for normal nested handler chains within the cap', () => {
@@ -244,9 +246,9 @@ describe('changes() — value-carrying change detection (RFC-006)', () => {
 
 			// Position change writes Velocity once — depth 2, well under the cap.
 			world.onComponentChanged(Position, () => {
-				world.patchComponent(e, Velocity, { dx: 1 });
+				world.updateComponent(e, Velocity, (p) => ({ ...p, dx: 1 }));
 			});
-			expect(() => world.patchComponent(e, Position, { x: 1 })).not.toThrow();
+			expect(() => world.updateComponent(e, Position, (p) => ({ ...p, x: 1 }))).not.toThrow();
 			expect(world.getComponent(e, Velocity)).toEqual({ dx: 1, dy: 0 });
 		});
 	});
