@@ -84,10 +84,10 @@ export interface SystemDef {
 	/**
 	 * Run condition — evaluated immediately before the system would run, inside
 	 * the same tick (so it sees writes from systems that ran earlier this tick
-	 * via the per-tick buffers); return false to skip this tick. The library
-	 * attaches no change-detection policy — the predicate is yours. The classic
-	 * shape: `runIf: (w) => w.queryChanged(Position).length > 0`. Caveat:
-	 * per-tick buffers are cleared at end of tick, so order systems that lazily
+	 * via `changes()`); return false to skip this tick. The library attaches no
+	 * change-detection policy — the predicate is yours. The classic shape:
+	 * `runIf: (w) => w.changes().changed(Position).size > 0`. Caveat: the
+	 * `changes()` window resets at end of tick, so order systems that lazily
 	 * READ a type after the systems that WRITE it (phases make this natural) —
 	 * a write that happens after the guard ran this tick is invisible to next
 	 * tick's guard.
@@ -188,9 +188,10 @@ export interface Change<T = unknown> {
  *   absent→present = added · present→present (≥1 write) = changed ·
  *   present→absent = removed · absent→absent = invisible.
  *
- * The accessor verbs mirror the buffer queries one-for-one — `added(C)` is the
- * value-carrying successor to `queryAdded(C)`. Every value is a zero-copy
- * reference to an immutable store snapshot; each accessor CALL materializes a
+ * The accessor verbs name the net-transition partition — `added(C)` /
+ * `changed(C)` / `removed(C)` and their tag/relation/resource twins. Every
+ * value is a zero-copy reference to an immutable store snapshot; each accessor
+ * CALL materializes a
  * fresh container, so iterating one while the loop body mutates the world is
  * safe, and a later call reflects later writes. Not retainable across a tick.
  */
@@ -319,8 +320,8 @@ export interface World {
 	 * async, mutations after the first `await` are NOT tagged — async
 	 * continuations must re-enter `withOrigin`. `destroyEntity` cascades
 	 * (teardown events and relation policy effects) inherit the origin active
-	 * at the `destroyEntity` call site. Per-tick buffers (`queryChanged` etc.)
-	 * stay origin-blind.
+	 * at the `destroyEntity` call site. `changes()` stays origin-blind;
+	 * per-origin attribution is on the delivered `onChanges` runs.
 	 */
 	withOrigin<T>(origin: string | symbol, fn: () => T): T;
 
@@ -332,9 +333,9 @@ export interface World {
 	 * is safe, and omitted data attaches pure defaults. When the entity
 	 * already has the component, the existing value is replaced: observers
 	 * receive the existing value as `prev` — `prev === undefined` in observers
-	 * reliably means first attach. Buffers record the NET transition since the
-	 * last clearDirty(): absent then → `queryAdded`, present then →
-	 * `queryChanged`.
+	 * reliably means first attach. `changes()` records the NET transition since
+	 * the tick began: absent then → `changes().added`, present then →
+	 * `changes().changed`.
 	 */
 	addComponent<T>(entity: EntityId, type: ComponentType<T>, data?: Partial<T>): void;
 	/** Removes a component from an entity. */
@@ -351,10 +352,9 @@ export interface World {
 	 * Strict shallow-merge update of an existing component: one level deep,
 	 * nested objects in `data` replace wholesale. Incoming plain data is
 	 * defensively cloned; observers receive a top-level snapshot of the prior
-	 * value as `prev`. The entity lands in the buffer matching its net
-	 * transition: `queryChanged` when the component was present at the last
-	 * `clearDirty()`, while a component attached this tick stays in
-	 * `queryAdded`.
+	 * value as `prev`. It appears in `changes()` by net transition:
+	 * `changes().changed(type)` when the component was present at tick start,
+	 * while a component attached this tick stays in `changes().added(type)`.
 	 * Non-creating by design — absence is never silent: throws if the entity
 	 * is dead, and throws if the entity is alive but lacks the component (use
 	 * `addComponent` to attach). For writes that may race a destroy (async
