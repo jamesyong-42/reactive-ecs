@@ -14,6 +14,7 @@ export {
 } from './scheduler.js';
 export { tickWorld } from './tick.js';
 export type {
+	Change,
 	ComponentChangedHandler,
 	ComponentRemovedHandler,
 	ComponentType,
@@ -34,5 +35,6 @@ export type {
 	TagType,
 	Unsubscribe,
 	World,
+	WorldChanges,
 } from './types.js';
 export { createWorld } from './world.js';
