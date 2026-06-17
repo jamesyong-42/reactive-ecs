@@ -462,7 +462,7 @@
     <span class="pulse-mini"></span>
     <b>reactive-ecs</b>
   </a>
-  <div class="brand-version">v0.12.0 · MIT</div>
+  <div class="brand-version">v0.17.0 · MIT</div>
 
   <div class="nav-group">
     <span>Start</span>
@@ -496,6 +496,7 @@
     <a href="#destroy-semantics">Destroy semantics</a>
     <a href="#document-vs-interaction">Document vs. interaction</a>
     <a href="#driving-ui">Driving a UI</a>
+    <a href="#react-hooks" class="sub">React hooks</a>
   </div>
 
   <div class="nav-group">
@@ -582,7 +583,7 @@
     <p>Every API decision in this library answers to five rules:</p>
     <ol>
       <li><strong>Absence is never silent.</strong> Reads return <code>undefined</code>; non-creating writes against absence throw.</li>
-      <li><strong>One ownership rule.</strong> Plain data crossing the API boundary is owned by the world: cloned in, frozen in dev, replaced never mutated. Class instances stay the caller's, by reference.</li>
+      <li><strong>One ownership rule.</strong> Plain data crossing the API boundary is owned by the world: deep-frozen in place on the way in (every build, no defensive clone), then replaced never mutated. Class instances stay the caller's, by reference.</li>
       <li><strong>Events are the journal; change detection is the partition.</strong> Events are lossless, synchronous, per-mutation. <a href="#change-tracking"><code>changes()</code></a> classifies the net transition since the tick began into disjoint added / changed / removed sets, carrying values; the events remain the lossless capture layer every change set is a window over.</li>
       <li><strong>Entity first.</strong> Every per-entity read/write is <code>(entity, type, ...)</code>.</li>
       <li><strong>The tick is one call — and the tick delivers.</strong> <code>tickWorld</code> is the sole frame-advance point: it seals, resets, delivers <a href="#change-tracking"><code>onChanges</code></a> runs, and advances the clock. No second clock, no public <code>flush</code>/<code>commit</code>.</li>
@@ -683,10 +684,10 @@ world.entityCount;  // number of live entities</code></pre></figure>
     <div class="table-wrap"><table>
       <thead><tr><th>Step</th><th>What it does</th></tr></thead>
       <tbody>
-        <tr><td>seal + reset</td><td>Freezes the open run's values, then resets the <a href="#change-tracking"><code>changes()</code></a> window and its partition baselines to fresh. Owns what <code>clearDirty()</code> used to.</td></tr>
+        <tr><td>seal + reset</td><td>Freezes the open run's values, then resets the <a href="#change-tracking"><code>changes()</code></a> window and its partition baselines for the new tick — so the next tick starts from a clean slate.</td></tr>
         <tr><td>deliver</td><td>Hands each sealed run to <code>onChanges</code> handlers, serially, in capture order. Delivery is <em>after</em> the reset, so a handler's own writes land in the next tick.</td></tr>
         <tr><td>onFrame</td><td>Fires every <code>onFrame</code> subscriber — the post-delivery flush hook where a UI adapter pushes its batched state.</td></tr>
-        <tr><td>incrementTick</td><td>Advances <code>currentTick</code> by one.</td></tr>
+        <tr><td>advance tick</td><td>Advances <code>currentTick</code> by one.</td></tr>
       </tbody>
     </table></div>
     <div class="callout">
@@ -898,7 +899,7 @@ world.unrelate(child, ChildOf);        // target omitted → all outgoing edges<
       <p>
         No relation edge ever survives the destruction of either endpoint, and every
         removal — including destroy-driven ones — is observable through the same two
-        channels as every other primitive: the per-tick batch and the synchronous observer.
+        channels as every other primitive: the <code>changes()</code> window and the synchronous observer.
         Cascade chains terminate even on cyclic edges (ids never recycle; re-destroying is
         a no-op).
       </p>
@@ -935,11 +936,14 @@ world.onRelationRemoved(ChildOf, (source, target) =&gt; {
 <figure class="code" data-lang="ts"><pre><code>const Camera = defineResource('Camera', { x: 0, y: 0, zoom: 1 });
 
 world.getResource(Camera);            // { x: 0, y: 0, zoom: 1 }
-world.setResource(Camera, { zoom: 2 }); // shallow-merge partial update</code></pre></figure>
+world.setResource(Camera, { zoom: 2 });            // shallow-merge partial update
+world.updateResource(Camera, (c) =&gt; ({ ...c, zoom: c.zoom * 2 })); // functional update</code></pre></figure>
     <p>
       A resource store is created lazily on first access, seeded from its defaults.
-      Like components, updates are partial and shallow-merged — and like everything else,
-      writes are observable: <code>setResource</code> fires
+      <code>setResource</code> shallow-merges a partial; <code>updateResource</code> is the
+      functional counterpart — a recipe <code>(prev) =&gt; next</code>, mirroring
+      <code>updateComponent</code>, with returning <code>prev</code> unchanged a no-op. Like
+      everything else, writes are observable: both fire
       <code>onResourceChanged(R, (prev, next))</code> synchronously and the type appears in
       <code>changes().changedResources()</code> for the tick.
     </p>
@@ -1043,16 +1047,6 @@ world.query(Position, Not(Velocity));   // one scan, cached + maintained again</
     for (const [id, prev]          of c.removed(Position)) index.remove(id, cell(prev)); // dying value
   },
 });</code></pre></figure>
-    <div class="callout">
-      <span class="callout-tag">Migration</span>
-      <p>
-        The presence-only buffer queries — <code>queryAdded</code> / <code>queryChanged</code> /
-        <code>queryRemoved</code> and their tag / relation / resource twins — were
-        <strong>removed in v0.16</strong>. Each maps to the value-carrying accessor of the same
-        name on <code>changes()</code>: <code>queryAdded(C)</code> → <code>changes().added(C)</code>.
-        The old queries returned ids only; <code>changes()</code> returns ids <em>and</em> values.
-      </p>
-    </div>
     <h3 id="net-cancellation">The partition rule<a class="anchor" href="#net-cancellation">#</a></h3>
     <p>
       Within a tick, only the net transition matters. absent→present is
@@ -1196,8 +1190,9 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
       <span class="callout-tag">What it is not</span>
       <p>
         Not a transaction: there is no batching or deferred delivery — events stay
-        synchronous and per-mutation, and the per-tick buffers remain origin-blind
+        synchronous and per-mutation, and the <code>changes()</code> window stays origin-blind
         (derived-state systems must converge on world state no matter who wrote it).
+        Per-origin attribution lives on the delivered <a href="api.html#onchanges"><code>onChanges</code></a> runs instead.
       </p>
     </div>
   </section>
@@ -1231,10 +1226,9 @@ world.onComponentChanged(Position, (id, prev, next) =&gt; {
         Handlers fired <em>during</em> a destroy (<code>onEntityDestroyed</code>,
         <code>onComponentRemoved</code>, <code>onTagRemoved</code>,
         <code>onRelationRemoved</code> in steps 1–5) run while the world is mid-teardown:
-        <strong>read freely, but mutating the world from them throws</strong> —
-        <em>cannot mutate the world from a handler during entity teardown — react via the
-        removed buffers or an onTargetDestroy policy instead</em>. React from a system
-        reading the removed buffers on the next pass, or use a relation's
+        <strong>read freely, but mutating the world from them throws</strong>. React instead
+        from a later system reading <code>changes().removed(C)</code> /
+        <code>changes().removedRelation(R)</code> on the next pass, or use a relation's
         <code>onTargetDestroy</code> policy, which the world applies for you at the safe
         point (step 6). The guard covers only the destroy sweep — the same handlers can
         mutate freely when fired by ordinary removals outside a destroy.
@@ -1278,34 +1272,59 @@ world.onTagRemoved(Tombstoned, (id) =&gt; showSprite(id));</code></pre></figure>
     <h2>Driving a UI<a class="anchor" href="#driving-ui">#</a></h2>
     <p>
       Per-entity subscriptions plus unsubscribe functions map directly onto framework
-      primitives. A React hook is a few lines:
+      primitives. For React the library ships the hooks already built.
     </p>
-<figure class="code" data-lang="tsx"><pre><code>import { useEffect, useState } from 'react';
-import type { EntityId, World } from '@jamesyong42/reactive-ecs';
 
-function usePosition(world: World, id: EntityId) {
-  const [pos, setPos] = useState(() =&gt; world.getComponent(id, Position));
+    <h3 id="react-hooks">React hooks<a class="anchor" href="#react-hooks">#</a></h3>
+    <p>
+      The <code>@jamesyong42/reactive-ecs/react</code> subpath provides
+      <code>useSyncExternalStore</code> hooks over the world's synchronous events (React is an
+      optional peer dependency, ≥ 18). They are correct <em>because of</em>
+      <a href="#components">freeze-on-write</a>: a stored value keeps a stable identity until it
+      is replaced, so <code>getSnapshot</code> returns the same reference between writes and
+      React never re-renders spuriously.
+    </p>
+<figure class="code" data-lang="tsx"><pre><code>import { useComponent, useQuery, useResource } from '@jamesyong42/reactive-ecs/react';
 
-  useEffect(() =&gt; {
-    // subscribe to ONE entity's Position; the return value is the cleanup fn
-    return world.onComponentChanged(Position, (_id, _prev, next) =&gt; setPos(next), id);
-  }, [world, id]);
-
-  return pos;
+function Entity({ world, id }: { world: World; id: EntityId }) {
+  const pos = useComponent(world, id, Position);   // re-renders on write / remove
+  return &lt;div&gt;{pos ? `${pos.x},${pos.y}` : 'no position'}&lt;/div&gt;;
 }
 
-function NodeView({ world, id }: { world: World; id: EntityId }) {
-  const pos = usePosition(world, id);
-  if (!pos) return null;
-  return &lt;div style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }} /&gt;;
+function MovingList({ world }: { world: World }) {
+  const moving = useQuery(world, Position, Velocity, Not(Frozen)); // re-renders on SET change only
+  const zoom = useResource(world, Camera).zoom;
+  return &lt;ul style={{ zoom }}&gt;{moving.map((id) =&gt; &lt;li key={id}&gt;{id}&lt;/li&gt;)}&lt;/ul&gt;;
 }</code></pre></figure>
+    <ul>
+      <li><strong><code>useComponent(world, id, C)</code></strong> — one entity's component value, or <code>undefined</code> while absent. Re-renders on write and removal, and only then.</li>
+      <li><strong><code>useResource(world, R)</code></strong> — a singleton; re-renders on <code>setResource</code> / <code>updateResource</code>.</li>
+      <li><strong><code>useQuery(world, ...terms)</code></strong> — a live query; re-renders only when the matching entity <em>set</em> changes, not when a matched component's value merely changes. The returned array's reference is stable while the set is unchanged.</li>
+    </ul>
     <p>
-      The same shape works with Vue's <code>ref</code>, Svelte stores, or signals — wire
-      the event callback to the framework's reactivity primitive, return the unsubscribe
-      as the cleanup. For coarse-grained updates (e.g. re-render a list when membership
-      changes), subscribe to <code>onTagAdded</code> / <code>onTagRemoved</code>, or collect
-      a batched, retainable change set on <a href="api.html#onchanges"><code>onChanges</code></a>
-      and flush it on <code>onFrame</code>.
+      Each hook is a thin wrapper over a framework-agnostic adapter
+      (<code>createComponentStore</code> / <code>createResourceStore</code> /
+      <code>createQueryStore</code>, each <code>{ subscribe, getSnapshot }</code>), also exported
+      from the subpath and usable from any framework with an external-store primitive.
+    </p>
+
+    <h3 id="other-frameworks">Any other framework<a class="anchor" href="#other-frameworks">#</a></h3>
+    <p>
+      The same shape works with Vue's <code>ref</code>, Svelte stores, or signals — wire a
+      per-entity subscription to the framework's reactivity primitive and return the unsubscribe
+      as the cleanup:
+    </p>
+<figure class="code" data-lang="ts"><pre><code>// the pattern every binding reduces to: subscribe to ONE entity, return the unsubscribe
+const unsubscribe = world.onComponentChanged(Position, (_id, _prev, next) =&gt; {
+  // push `next` into the framework's reactive cell
+}, id);
+// ...later, on teardown:
+unsubscribe();</code></pre></figure>
+    <p>
+      For coarse-grained updates (e.g. re-render a list when membership changes), subscribe to
+      <code>onTagAdded</code> / <code>onTagRemoved</code>, or collect a batched, retainable change
+      set on <a href="api.html#onchanges"><code>onChanges</code></a> and flush it on
+      <code>onFrame</code>.
     </p>
   </section>
 
@@ -1460,7 +1479,7 @@ new PhasedScheduler({ phases: ['perceive', 'think', 'act'] as const });</code></
     <div class="callout warn">
       <span class="callout-tag">Ordering caveat</span>
       <p>
-        Per-tick buffers are cleared at end of tick, so order systems that lazily
+        The <code>changes()</code> window resets at end of tick, so order systems that lazily
         <em>read</em> a type after the systems that <em>write</em> it (phases make this
         natural). A write that happens after the guard ran this tick is invisible to next
         tick's guard.
@@ -1574,7 +1593,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>Not(type)</code></td><td><code>NotTerm</code></td><td>Negated query term — see <a href="#not">Not()</a>.</td></tr>
         <tr><td><code>defineResource(name, defaults)</code></td><td><code>ResourceType&lt;T&gt;</code></td><td>World-level singleton.</td></tr>
         <tr><td><code>defineSystem(def)</code></td><td><code>SystemDef</code></td><td><code>{ name, execute, phase?, after?, before?, runIf? }</code>.</td></tr>
-        <tr><td><code>createWorld(options?)</code></td><td><code>World</code></td><td>New independent world. <code>{ freeze?, maxReentrancyDepth? }</code> — dev-mode deep-freeze; handler re-entrancy cap (default 1000).</td></tr>
+        <tr><td><code>createWorld(options?)</code></td><td><code>World</code></td><td>New independent world. <code>{ maxReentrancyDepth? }</code> — synchronous handler re-entrancy cap (default 1000). Freeze-on-write is always on, every build.</td></tr>
         <tr><td><code>tickWorld(world, fn?)</code></td><td><code>void</code></td><td>The sole frame-advance point: runs <code>fn</code>, then seals + resets the change window, delivers <code>onChanges</code> runs, fires <code>onFrame</code>, increments the tick.</td></tr>
       </tbody>
     </table></div>
@@ -1598,6 +1617,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>addTag(e, T)</code> / <code>removeTag(e, T)</code> / <code>hasTag(e, T)</code></td><td>Tag operations.</td></tr>
         <tr><td><code>getResource(R)</code></td><td>Read singleton (created lazily from defaults).</td></tr>
         <tr><td><code>setResource(R, partial)</code></td><td>Shallow-merge update.</td></tr>
+        <tr><td><code>updateResource(R, prev=&gt;next)</code></td><td>Functional update; no-op skip if <code>prev</code> returned.</td></tr>
         <tr><td><code>relate(s, R, t)</code> / <code>unrelate(s, R, t?)</code></td><td>Add / remove relation edges; omitted target removes all outgoing. See <a href="#relations">Relations</a>.</td></tr>
         <tr><td><code>getTargets(s, R)</code> / <code>getTarget(s, R)</code> / <code>getSources(t, R)</code></td><td>Forward and inverse edge reads — entity first; the inverse is always coherent.</td></tr>
         <tr><td><code>withOrigin(origin, fn)</code></td><td>Tag all mutations inside <code>fn</code> — see <a href="#origin-tagging">Origin tagging</a>.</td></tr>
@@ -1611,10 +1631,9 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
       <tbody>
         <tr><td><code>query(...types)</code></td><td>Entities with all positive components/tags and none of the <code>Not()</code> terms. Cached, incrementally maintained.</td></tr>
         <tr><td><code>disposeQuery(...types)</code></td><td>Drop the cache entry for that exact signature; re-querying rebuilds with one scan.</td></tr>
-        <tr><td><code>changes()</code></td><td>Value-carrying net change detection for the tick — <code>added</code> / <code>changed</code> / <code>removed</code> (and tag / relation / resource twins), disjoint by the partition rule. The successor to the buffer queries below. See <a href="#change-tracking">Change tracking</a>.</td></tr>
+        <tr><td><code>changes()</code></td><td>Value-carrying net change detection for the tick — <code>added</code> / <code>changed</code> / <code>removed</code> (and tag / relation / resource twins), disjoint by the partition rule. See <a href="#change-tracking">Change tracking</a>.</td></tr>
         <tr><td><code>queryRelation(R)</code></td><td>All live edges as <code>[source, target]</code> pairs.</td></tr>
         <tr><td><code>queryTagged(T)</code></td><td>Entities with tag <code>T</code>.</td></tr>
-        <tr><td><code>queryAdded(C)</code> / <code>queryChanged(C)</code> / <code>queryRemoved(C)</code> + tag / relation / resource twins</td><td><em>Removed (v0.16)</em> — presence-only buffers, replaced by the same-named accessors on <code>changes()</code>, which carry values.</td></tr>
       </tbody>
     </table></div>
 
@@ -1622,7 +1641,7 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
     <div class="table-wrap"><table>
       <thead><tr><th>Member</th><th>Handler signature</th><th>Notes</th></tr></thead>
       <tbody>
-        <tr><td><code>onComponentChanged(C, h, e?)</code></td><td><code>(id, prev, next)</code></td><td>Fires on add (<code>prev === undefined</code>) and patch. Optional per-entity filter.</td></tr>
+        <tr><td><code>onComponentChanged(C, h, e?)</code></td><td><code>(id, prev, next)</code></td><td>Fires on add (<code>prev === undefined</code>) and on every update. Optional per-entity filter.</td></tr>
         <tr><td><code>onComponentRemoved(C, h, e?)</code></td><td><code>(id, prev)</code></td><td>Fires before deletion; also during <code>destroyEntity</code>.</td></tr>
         <tr><td><code>onTagAdded(T, h, e?)</code></td><td><code>(id)</code></td><td>Optional per-entity filter.</td></tr>
         <tr><td><code>onTagRemoved(T, h, e?)</code></td><td><code>(id)</code></td><td>Also fires during <code>destroyEntity</code>.</td></tr>
@@ -1645,7 +1664,6 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
         <tr><td><code>getRegisteredComponents()</code> / <code>getRegisteredTags()</code> / <code>getRegisteredRelations()</code> / <code>getRegisteredResources()</code></td><td>Every type that has had a store created in this world.</td></tr>
         <tr><td><code>getComponentsOf(e)</code> / <code>getTagsOf(e)</code></td><td>Types currently attached to an entity.</td></tr>
         <tr><td><code>applyChanges(world, changes, opts?)</code></td><td>Replay a change set (or its inverse) through the public write API — the ground support for undo/redo. <code>{ invert?, origin?, onMissing? }</code>. Validate-first.</td></tr>
-        <tr><td><code>clearDirty()</code></td><td><em>Removed (v0.16)</em> — frame reset is owned by <code>tickWorld</code>; <code>changes()</code> exposes the window without manual clearing.</td></tr>
       </tbody>
     </table></div>
 
@@ -1676,9 +1694,13 @@ world.setNextEntityId(snapshot.nextEntityId); // restore the counter exactly
       <code>World</code>, <code>EntityId</code>, <code>ComponentType&lt;T&gt;</code>,
       <code>TagType</code>, <code>ResourceType&lt;T&gt;</code>, <code>RelationType</code>,
       <code>RelationOptions</code>, <code>RelationEdge</code>, <code>RelationHandler</code>,
-      <code>NotTerm</code>, <code>SystemDef</code>,
+      <code>RelationFilter</code>, <code>NotTerm</code>, <code>SystemDef</code>,
       <code>QueryResult</code>, <code>CreateWorldOptions</code>,
+      <code>WorldChanges</code>, <code>DeliveredChanges</code>, <code>Change&lt;T&gt;</code>,
+      <code>Origin</code>, <code>ApplyChangesOptions</code>, <code>ApplyChangesResult</code>,
+      <code>SkippedEntry</code>,
       <code>ComponentChangedHandler&lt;T&gt;</code>, <code>ComponentRemovedHandler&lt;T&gt;</code>,
+      <code>ResourceChangedHandler&lt;T&gt;</code>,
       <code>TagChangedHandler</code>, <code>FrameHandler</code>, <code>Unsubscribe</code>,
       <code>SystemProfiler</code>, <code>PhasedSchedulerOptions&lt;P&gt;</code>.
     </p>
